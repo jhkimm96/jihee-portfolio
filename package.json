@@ -1,6 +1,9 @@
 {
   "name": "portfolio",
   "private": true,
+  "imports": {
+    "#site/content": "./.velite/index.js"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
