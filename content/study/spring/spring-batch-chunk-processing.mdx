@@ -1,0 +1,14 @@
+---
+title: "Spring Batch Chunk 처리 방식 정리"
+date: "2026-05-20"
+summary: "Chunk 기반 처리와 Tasklet 기반 처리의 차이를 정리했다."
+tags: ["Spring Batch"]
+---
+
+## Chunk 지향 처리
+
+Reader → Processor → Writer 단위로 일정 개수(chunk)씩 묶어 트랜잭션을 처리한다.
+
+## Tasklet 지향 처리
+
+단일 작업 단위를 한 번에 처리할 때 사용한다.
