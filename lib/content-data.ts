@@ -44,3 +44,11 @@ export function getAbout() {
 export function getResume() {
   return resume
 }
+
+export function getProjectTitle(slug: string): string {
+  return findProjectBySlug(projects, slug)?.title ?? slug
+}
+
+export function getPublishedStudy() {
+  return sortByDateDesc(publishedOnly(studyPosts))
+}
