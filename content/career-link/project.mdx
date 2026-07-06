@@ -1,0 +1,29 @@
+---
+title: "Career Link"
+description: "이력서·경력 기술서를 구조화해 관리하고 공유 링크로 내보내는 서비스. 인증과 권한 모델 설계에 집중했습니다."
+period: "2026.06 - 2026.07"
+team: "개인 프로젝트"
+role: "Backend / Frontend"
+stack: ["Spring Boot", "PostgreSQL", "JWT", "Next.js"]
+github: "https://github.com/jihee/career-link"
+demo: "https://career-link.example.com"
+status: "live"
+statusNote: "현재 데모 서버가 운영 중입니다."
+thumbnail: "/career-link/images/thumbnail.svg"
+featured: true
+---
+
+## 개요
+
+Career Link는 이력서와 경력 기술서를 항목 단위로 관리하고, 원하는 항목만 골라 공유용 링크로 내보낼 수 있는 서비스입니다.
+
+## 담당 역할
+
+- JWT 기반 인증/인가 및 리프레시 토큰 로테이션
+- 이력서 항목 버전 관리 도메인 설계
+- 공유 링크 만료/권한 정책 구현
+
+## 아키텍처 포인트
+
+- 공유 링크는 서명된 토큰으로 발급하고, 만료·회수 상태를 서버에서 검증합니다.
+- 도메인 로직과 인프라 계층을 분리해 테스트 가능한 구조를 유지했습니다.
