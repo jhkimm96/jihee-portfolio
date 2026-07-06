@@ -35,11 +35,16 @@ export default function ResumePage() {
 
       <section>
         <h1>Skills</h1>
-        <ul>
-          {resume.skills.map((skill) => (
-            <li key={skill}>{skill}</li>
-          ))}
-        </ul>
+        {resume.skills.map((group) => (
+          <div key={group.group}>
+            <h2>{group.group}</h2>
+            <ul>
+              {group.items.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </section>
 
       {resume.certificates && resume.certificates.length > 0 && (
