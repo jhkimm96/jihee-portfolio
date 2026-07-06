@@ -51,6 +51,22 @@ describe('projectFrontmatterSchema', () => {
     })
     expect(result.success).toBe(false)
   })
+
+  it('accepts a project with an optional demo url', () => {
+    const result = projectFrontmatterSchema.safeParse({
+      title: 'Career Link',
+      description: '설명',
+      period: '2026.06 - 2026.07',
+      team: '개인 프로젝트',
+      role: 'Backend',
+      stack: ['Spring Boot'],
+      github: 'https://github.com/example/career-link',
+      demo: 'https://career-link.example.com',
+      status: 'live',
+      statusNote: '운영 중'
+    })
+    expect(result.success).toBe(true)
+  })
 })
 
 describe('troubleshootingFrontmatterSchema', () => {
@@ -91,6 +107,15 @@ describe('aboutFrontmatterSchema', () => {
     })
     expect(result.success).toBe(false)
   })
+
+  it('accepts an optional location', () => {
+    const result = aboutFrontmatterSchema.safeParse({
+      name: '김지희',
+      role: 'Backend Developer',
+      location: 'Seoul, KR'
+    })
+    expect(result.success).toBe(true)
+  })
 })
 
 describe('resumeFrontmatterSchema', () => {
@@ -110,5 +135,54 @@ describe('resumeFrontmatterSchema', () => {
       skills: []
     })
     expect(result.success).toBe(false)
+  })
+
+  it('accepts an optional summary', () => {
+    const result = resumeFrontmatterSchema.safeParse({
+      summary: '요약 문단',
+      experience: [],
+      education: [],
+      skills: []
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts experience with optional highlights', () => {
+    const result = resumeFrontmatterSchema.safeParse({
+      experience: [
+        { company: 'A', period: '2024', role: 'Dev', description: 'desc', highlights: ['did X', 'did Y'] }
+      ],
+      education: [],
+      skills: []
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects skills expressed as flat strings (must be grouped)', () => {
+    const result = resumeFrontmatterSchema.safeParse({
+      experience: [],
+      education: [],
+      skills: ['Java', 'Spring Boot']
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('accepts skills grouped by category', () => {
+    const result = resumeFrontmatterSchema.safeParse({
+      experience: [],
+      education: [],
+      skills: [{ group: 'Language', items: ['Java', 'TypeScript'] }]
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts certificates with an optional issuer', () => {
+    const result = resumeFrontmatterSchema.safeParse({
+      experience: [],
+      education: [],
+      skills: [],
+      certificates: [{ name: '정보처리기사', date: '2024-06', issuer: '한국산업인력공단' }]
+    })
+    expect(result.success).toBe(true)
   })
 })
