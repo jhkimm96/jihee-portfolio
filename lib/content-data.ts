@@ -1,10 +1,12 @@
-import { projects, troubleshootingPosts, studyPosts, about, resume } from '#site/content'
+import { projects, troubleshootingPosts, studyPosts, decisions, about, resume } from '#site/content'
 import {
   sortProjects,
   findProjectBySlug,
   publishedOnly,
   sortByDateDesc,
   troubleshootingForProject,
+  decisionsForProject,
+  findDecisionTitle,
   groupByCategory,
   findBySlugPath
 } from './content'
@@ -51,4 +53,20 @@ export function getProjectTitle(slug: string): string {
 
 export function getPublishedStudy() {
   return sortByDateDesc(publishedOnly(studyPosts))
+}
+
+export function getPublishedDecisions() {
+  return sortByDateDesc(publishedOnly(decisions))
+}
+
+export function getDecisionsForProject(projectSlug: string) {
+  return decisionsForProject(decisions, projectSlug)
+}
+
+export function getDecisionBySlugPath(slugParts: string[]) {
+  return findBySlugPath(publishedOnly(decisions), slugParts)
+}
+
+export function getDecisionTitle(fullSlug: string): string {
+  return findDecisionTitle(decisions, fullSlug)
 }

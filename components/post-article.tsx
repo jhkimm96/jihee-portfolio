@@ -12,9 +12,10 @@ interface PostArticleProps {
   content: string
   tags?: string[]
   badges?: { label: string; kind: 'project' | 'category' }[]
+  banner?: React.ReactNode
 }
 
-export function PostArticle({ backHref, backLabel, title, date, content, tags, badges }: PostArticleProps) {
+export function PostArticle({ backHref, backLabel, title, date, content, tags, badges, banner }: PostArticleProps) {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <Link
@@ -52,6 +53,8 @@ export function PostArticle({ backHref, backLabel, title, date, content, tags, b
           <TagList tags={tags} />
         </div>
       </header>
+
+      {banner ? <div className="mt-6">{banner}</div> : null}
 
       <article className="mt-8">
         <Markdown content={content} />
