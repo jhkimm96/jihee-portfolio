@@ -14,7 +14,11 @@ const categoryLabels: Record<string, string> = {
 }
 
 export function formatCategory(category: string): string {
-  return categoryLabels[category] ?? category.charAt(0).toUpperCase() + category.slice(1)
+  if (categoryLabels[category]) return categoryLabels[category]
+  return category
+    .split('-')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
 }
 
 export function formatDate(iso: string): string {
