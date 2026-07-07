@@ -1,13 +1,13 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, GitFork, ExternalLink, Wrench } from 'lucide-react'
+import { ArrowLeft, GitFork, ExternalLink, Wrench, Scale } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Markdown } from '@/components/markdown'
 import { StatusBadge, TechChip } from '@/components/content-badges'
 import { PostCard } from '@/components/post-card'
 import { formatCategory } from '@/lib/format'
-import { getAllProjects, getProjectBySlug, getTroubleshootingForProject } from '@/lib/content-data'
+import { getAllProjects, getProjectBySlug, getTroubleshootingForProject, getDecisionsForProject } from '@/lib/content-data'
 
 export function generateStaticParams() {
   return getAllProjects().map((project) => ({ slug: project.slug }))
@@ -39,6 +39,9 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
 
   const troubleshooting = getTroubleshootingForProject(project.slug)
   const categories = Object.keys(troubleshooting)
+
+  const decisions = getDecisionsForProject(project.slug)
+  const decisionCategories = Object.keys(decisions)
 
   const meta = [
     { label: '기간', value: project.period },
@@ -136,6 +139,39 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                       date={post.date}
                       summary={post.summary}
                       tags={post.tags}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="mt-12 border-t border-border pt-8">
+        <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+          <Scale className="size-4 text-muted-foreground" />
+          Design Decisions
+        </h2>
+        {decisionCategories.length === 0 ? (
+          <p className="mt-4 font-mono text-sm text-muted-foreground">아직 기록된 설계 결정이 없습니다.</p>
+        ) : (
+          <div className="mt-6 space-y-8">
+            {decisionCategories.map((category) => (
+              <div key={category}>
+                <h3 className="mb-3 font-mono text-xs font-medium uppercase tracking-wider text-brand">
+                  {formatCategory(category)}
+                </h3>
+                <div className="grid grid-cols-1 gap-3">
+                  {decisions[category].map((entry) => (
+                    <PostCard
+                      key={entry.slug}
+                      href={`/decisions/${entry.slug}`}
+                      title={entry.title}
+                      date={entry.date}
+                      summary={entry.summary}
+                      tags={entry.tags}
+                      badges={entry.status === 'superseded' ? [{ label: 'Superseded' }] : undefined}
                     />
                   ))}
                 </div>
