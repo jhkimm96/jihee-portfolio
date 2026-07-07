@@ -31,6 +31,16 @@ export const studyFrontmatterSchema = s.object({
   draft: s.boolean().default(false)
 })
 
+export const decisionFrontmatterSchema = s.object({
+  title: s.string(),
+  date: s.string(),
+  status: s.enum(['accepted', 'superseded']).default('accepted'),
+  supersededBy: s.string().optional(),
+  summary: s.string().optional(),
+  tags: s.array(s.string()).optional(),
+  draft: s.boolean().default(false)
+})
+
 export const aboutFrontmatterSchema = s.object({
   name: s.string(),
   role: s.string(),

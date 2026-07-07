@@ -29,6 +29,22 @@ export type TroubleshootingEntry = {
   content: string
 }
 
+export type DecisionStatus = 'accepted' | 'superseded'
+
+export type DecisionEntry = {
+  slug: string
+  project: string
+  category: string
+  title: string
+  date: string
+  status: DecisionStatus
+  supersededBy?: string
+  summary?: string
+  tags?: string[]
+  draft: boolean
+  content: string
+}
+
 export type StudyEntry = {
   slug: string
   category: string
@@ -78,4 +94,16 @@ export function troubleshootingForProject(
 export function findBySlugPath<T extends { slug: string }>(entries: T[], slugParts: string[]): T | undefined {
   const slug = slugParts.join('/')
   return entries.find((entry) => entry.slug === slug)
+}
+
+export function decisionsForProject(
+  entries: DecisionEntry[],
+  projectSlug: string
+): Record<string, DecisionEntry[]> {
+  const published = publishedOnly(entries).filter((entry) => entry.project === projectSlug)
+  return groupByCategory(published)
+}
+
+export function findDecisionTitle(entries: DecisionEntry[], fullSlug: string): string {
+  return entries.find((entry) => entry.slug === fullSlug)?.title ?? fullSlug
 }

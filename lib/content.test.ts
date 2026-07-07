@@ -5,10 +5,13 @@ import {
   publishedOnly,
   sortByDateDesc,
   troubleshootingForProject,
+  decisionsForProject,
+  findDecisionTitle,
   groupByCategory,
   findBySlugPath,
   type ProjectEntry,
-  type TroubleshootingEntry
+  type TroubleshootingEntry,
+  type DecisionEntry
 } from './content'
 
 const project = (overrides: Partial<ProjectEntry>): ProjectEntry => ({
@@ -105,6 +108,43 @@ describe('groupByCategory', () => {
     const result = groupByCategory(entries)
     expect(result.spring.map((e) => e.slug)).toEqual(['a', 'c'])
     expect(result.es.map((e) => e.slug)).toEqual(['b'])
+  })
+})
+
+const decisionEntry = (overrides: Partial<DecisionEntry>): DecisionEntry => ({
+  slug: 'demo/general/decision',
+  project: 'demo',
+  category: 'general',
+  title: 'Decision',
+  date: '2026-01-01',
+  status: 'accepted',
+  draft: false,
+  content: '',
+  ...overrides
+})
+
+describe('decisionsForProject', () => {
+  it('groups published decisions for the given project by category, excluding drafts and other projects', () => {
+    const entries = [
+      decisionEntry({ slug: 'a', project: 'demo', category: 'general' }),
+      decisionEntry({ slug: 'b', project: 'demo', category: 'general', status: 'superseded', supersededBy: 'demo/general/a' }),
+      decisionEntry({ slug: 'c', project: 'demo', category: 'general', draft: true }),
+      decisionEntry({ slug: 'd', project: 'other', category: 'general' })
+    ]
+    const result = decisionsForProject(entries, 'demo')
+    expect(Object.keys(result)).toEqual(['general'])
+    expect(result.general.map((e) => e.slug)).toEqual(['a', 'b'])
+  })
+})
+
+describe('findDecisionTitle', () => {
+  it('returns the title of the matching decision', () => {
+    const entries = [decisionEntry({ slug: 'demo/general/a', title: '결정 A' })]
+    expect(findDecisionTitle(entries, 'demo/general/a')).toBe('결정 A')
+  })
+
+  it('falls back to the slug itself when no decision matches', () => {
+    expect(findDecisionTitle([], 'demo/general/missing')).toBe('demo/general/missing')
   })
 })
 

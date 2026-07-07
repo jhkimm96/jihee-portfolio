@@ -3,6 +3,7 @@ import {
   projectFrontmatterSchema,
   troubleshootingFrontmatterSchema,
   studyFrontmatterSchema,
+  decisionFrontmatterSchema,
   aboutFrontmatterSchema,
   resumeFrontmatterSchema
 } from './content/schemas'
@@ -42,6 +43,20 @@ const studyPosts = defineCollection({
     })
 })
 
+const decisions = defineCollection({
+  name: 'Decision',
+  pattern: '*/decisions/**/*.mdx',
+  schema: decisionFrontmatterSchema
+    .extend({ path: s.path(), content: s.markdown() })
+    .transform((data) => {
+      const parts = data.path.split('/')
+      const project = parts[0]
+      const category = parts[2]
+      const slug = [project, ...parts.slice(2)].join('/')
+      return { ...data, project, category, slug }
+    })
+})
+
 const about = defineCollection({
   name: 'About',
   pattern: 'profile/about.mdx',
@@ -58,5 +73,5 @@ const resume = defineCollection({
 
 export default defineConfig({
   root: 'content',
-  collections: { projects, troubleshootingPosts, studyPosts, about, resume }
+  collections: { projects, troubleshootingPosts, studyPosts, decisions, about, resume }
 })

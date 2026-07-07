@@ -3,6 +3,7 @@ import {
   projectFrontmatterSchema,
   troubleshootingFrontmatterSchema,
   studyFrontmatterSchema,
+  decisionFrontmatterSchema,
   aboutFrontmatterSchema,
   resumeFrontmatterSchema
 } from './schemas'
@@ -95,6 +96,45 @@ describe('studyFrontmatterSchema', () => {
       date: '2026-05-01'
     })
     expect(result.success).toBe(true)
+  })
+})
+
+describe('decisionFrontmatterSchema', () => {
+  it('defaults status to accepted and draft to false when omitted', () => {
+    const result = decisionFrontmatterSchema.parse({
+      title: '공유 링크 검증 방식 결정',
+      date: '2026-07-02'
+    })
+    expect(result.status).toBe('accepted')
+    expect(result.draft).toBe(false)
+  })
+
+  it('accepts a superseded decision with supersededBy', () => {
+    const result = decisionFrontmatterSchema.safeParse({
+      title: '공유 링크 검증을 매 요청마다 DB 조회로 처리',
+      date: '2026-06-18',
+      status: 'superseded',
+      supersededBy: 'career-link/general/share-link-verify-with-redis-cache'
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects an invalid status value', () => {
+    const result = decisionFrontmatterSchema.safeParse({
+      title: '결정',
+      date: '2026-07-02',
+      status: 'proposed'
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects tags that are not strings', () => {
+    const result = decisionFrontmatterSchema.safeParse({
+      title: '결정',
+      date: '2026-07-02',
+      tags: [123]
+    })
+    expect(result.success).toBe(false)
   })
 })
 
