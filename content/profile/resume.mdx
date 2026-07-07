@@ -1,15 +1,36 @@
 ---
+summary: "REST API 설계부터 AWS 배포까지 백엔드 서비스의 전 구간을 다루는 개발자입니다. 안정적인 트랜잭션 설계와 외부 시스템 연동, 그리고 학습 내용을 기록으로 남기는 습관을 중요하게 생각합니다."
 experience:
-  - company: "개인 프로젝트"
+  - company: "개인 프로젝트 — Prompthub"
     period: "2026.03 - 2026.05"
     role: "Backend Developer"
-    description: "Prompthub 백엔드 API 설계 및 AWS 배포"
+    description: "AI 프롬프트 마켓플레이스 백엔드 API 설계 및 AWS 배포"
+    highlights:
+      - "주문/결제 상태 머신 설계로 중복 결제 및 실패 복구 처리"
+      - "Redis Sorted Set 기반 인기 프롬프트 랭킹 캐시 구현"
+      - "Resilience4j로 외부 결제 API 429 대응"
+  - company: "개인 프로젝트 — Career Link"
+    period: "2026.06 - 2026.07"
+    role: "Backend / Frontend Developer"
+    description: "이력서 관리·공유 서비스 인증 모델 및 프론트엔드 구현"
+    highlights:
+      - "JWT 인증 + 리프레시 토큰 로테이션 및 재사용 감지"
+      - "이력서 항목 버전 관리 도메인 설계"
 education:
   - school: "OO대학교"
     period: "2019 - 2023"
     degree: "컴퓨터공학과 학사"
-skills: ["Java", "Spring Boot", "MySQL", "Redis", "AWS"]
+skills:
+  - group: "Language"
+    items: ["Java", "Kotlin", "TypeScript", "SQL"]
+  - group: "Backend"
+    items: ["Spring Boot", "Spring Batch", "JPA", "Resilience4j"]
+  - group: "Data"
+    items: ["MySQL", "PostgreSQL", "Redis", "Elasticsearch"]
+  - group: "Infra"
+    items: ["AWS", "Docker", "Kubernetes", "GitHub Actions"]
 certificates:
   - name: "정보처리기사"
+    issuer: "한국산업인력공단"
     date: "2024-06"
 ---

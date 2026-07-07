@@ -1,0 +1,15 @@
+---
+title: "Elasticsearch 매핑과 분석기 기초"
+date: "2026-06-28"
+summary: "text vs keyword 타입 선택과 분석기(analyzer) 동작을 정리했습니다."
+tags: ["Elasticsearch", "검색"]
+---
+
+## text vs keyword
+
+- **text**: 전문 검색용. 분석기를 거쳐 토큰으로 쪼개져 색인됩니다.
+- **keyword**: 정확 일치/집계/정렬용. 값 전체가 하나의 토큰으로 저장됩니다.
+
+## 분석기
+
+색인 시점과 검색 시점에 동일한 분석기를 적용해야 기대한 검색 결과가 나옵니다. 한글은 nori 같은 형태소 분석기를 함께 고려합니다.

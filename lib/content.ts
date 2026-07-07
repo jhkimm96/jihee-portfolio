@@ -1,3 +1,5 @@
+export type ProjectStatus = 'live' | 'archived' | 'github-only'
+
 export type ProjectEntry = {
   slug: string
   title: string
@@ -7,7 +9,8 @@ export type ProjectEntry = {
   role: string
   stack: string[]
   github: string
-  status: 'live' | 'archived' | 'github-only'
+  demo?: string
+  status: ProjectStatus
   statusNote: string
   thumbnail?: string
   featured: boolean
