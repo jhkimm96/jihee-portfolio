@@ -13,6 +13,19 @@ tags: ["JWT", "Redis", "동시성"]
 
 리프레시 토큰을 1회용으로 즉시 폐기하면서, 거의 동시에 도착한 두 번째 요청이 이미 폐기된 토큰을 들고 오는 레이스 컨디션이 발생했습니다.
 
+```mermaid
+sequenceDiagram
+    participant TabA as 탭 A
+    participant TabB as 탭 B
+    participant Server as 인증 서버
+    TabA->>Server: 리프레시 토큰으로 갱신 요청
+    TabB->>Server: 같은 리프레시 토큰으로 갱신 요청
+    Server->>Server: 토큰 즉시 폐기 처리 (탭 A 요청 처리 중)
+    Server-->>TabA: 새 액세스 토큰 발급
+    Server-->>TabB: 이미 폐기된 토큰 - 401 에러
+    TabB->>TabB: 로그아웃 처리
+```
+
 ## 해결
 
 - 재발급 시 이전 토큰을 즉시 삭제하지 않고 짧은 유예 시간(grace period) 동안 유효 처리
@@ -21,3 +34,5 @@ tags: ["JWT", "Redis", "동시성"]
 ## 결과
 
 정상 사용자의 다중 탭 시나리오에서 로그아웃이 사라졌고, 토큰 재사용 공격 탐지 기능은 그대로 유지되었습니다.
+
+![Career Link 서비스 썸네일](/career-link/images/thumbnail.svg)
