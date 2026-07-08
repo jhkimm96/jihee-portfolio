@@ -1,0 +1,56 @@
+---
+title: "GitHub Actions 병렬 빌드와 컨테이너 레지스트리 개념 정리"
+date: "2026-07-08"
+summary: "CI/CD 파이프라인을 self-hosted 직렬 빌드에서 GitHub-hosted 병렬(Matrix) 빌드 + GHCR로 옮기며 정리한 러너·레지스트리·인증 개념."
+tags: ["GitHub Actions", "CI/CD", "Docker", "Container Registry", "OIDC"]
+---
+
+## OOM (Out Of Memory) Killer
+
+리눅스 커널은 메모리가 부족해지면 실행 중인 프로세스마다 badness score를 계산해서 가장 높은 프로세스를 강제 종료한다. 점수는 대략 `RSS(실제 사용 메모리) + swap 사용량 + 페이지 테이블 오버헤드`로 계산되고, `oom_score_adj`(-1000~+1000)로 특정 프로세스를 보호하거나 우선 제거 대상으로 조정할 수 있다. 부모-자식 프로세스 중에서는 자식을 먼저 죽인다.
+
+Docker 빌드(특히 컴파일이 필요한 Java 프로젝트)는 메모리 소모가 크다. 배포 서버가 "배포 대상"과 "빌드 서버" 역할을 겸하면, 무거운 빌드가 배포 중인 프로세스와 메모리를 두고 경쟁하다 OOM Killer에 걸릴 수 있다.
+
+## GitHub-hosted runner vs Self-hosted runner
+
+- **GitHub-hosted runner**: 요청마다 새로 뜨는 임시 VM(`ubuntu-latest` 등). 관리가 필요 없다.
+- **Self-hosted runner**: 직접 준비한 서버에 Actions 에이전트를 설치해서 그 서버가 워크플로우를 실행하게 하는 방식. 자원을 팀이 직접 관리해야 하고, 다른 역할과 겸하면 자원 경쟁이 생긴다.
+
+## Matrix 전략과 max-parallel
+
+`strategy.matrix`에 배열을 넣으면 배열 원소마다 독립된 job이 동시에 생성된다. 동시 실행 수를 제한하고 싶으면 `strategy.max-parallel`로 제한할 수 있다(자원이 제한된 self-hosted 러너를 여러 개 쓸 때 유용하다).
+
+```yaml
+strategy:
+  max-parallel: 2
+  matrix:
+    service: [discovery, config, user-service, product-service]
+```
+
+직렬로 돌리면 전체 소요 시간이 "서비스 개수 × 개별 빌드 시간"에 가깝고, matrix로 병렬 실행하면 "가장 느린 서비스 1개의 빌드 시간"에 가까워진다.
+
+## 이미지 레지스트리, ECR vs GHCR
+
+CI가 빌드한 이미지를 레지스트리에 올려두면 배포 서버는 pull만 하면 된다. GHCR과 ECR의 실질적 차이는 인증 방식이다.
+
+- **ECR**(Amazon Elastic Container Registry): AWS IAM 기반 인증. AWS 생태계(ECS/EKS 등) 안에서는 편하지만, GitHub Actions에서 쓰려면 별도로 AWS 자격증명을 안전하게 가져와야 한다.
+- **GHCR**(GitHub Container Registry): GitHub Actions 안에서는 자동 발급되는 `GITHUB_TOKEN`만으로 바로 인증된다. 대신 ECR이 기본 제공하는 이미지 취약점 스캔 같은 보안 기능은 없다.
+
+## OIDC와 id-token: write
+
+GitHub Actions가 워크플로우 실행마다 고유한 JWT를 발급하는 기능이 OIDC다. `aws-actions/configure-aws-credentials`는 이 JWT를 AWS에 제출해서 IAM Role의 임시 자격증명(기본 최대 1시간 유효)으로 교환받는다. 이 JWT를 발급받으려면 워크플로우에 `permissions: id-token: write`가 필요하다. 장점은 AWS 액세스 키를 시크릿으로 저장하거나 로테이션할 필요가 없다는 것이다.
+
+GHCR로 옮기면서 이 OIDC 교환 절차 자체가 필요 없어졌고, `id-token: write` 대신 GHCR push에 필요한 `packages: write`로 교체됐다.
+
+## SHORT_SHA
+
+Git 커밋 해시 앞 7~8자리. `이미지명:abc1234` 형태로 태그를 붙이면 이 이미지가 정확히 어떤 커밋에서 빌드됐는지 추적할 수 있다. `latest` 태그만 쓰면 "가장 최신"이라는 것만 알 뿐 정확한 시점을 알 수 없어 문제 추적이 어렵다.
+
+---
+
+Sources:
+- [Running variations of jobs in a workflow - GitHub Docs](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/run-job-variations)
+- [Configuring OpenID Connect in Amazon Web Services - GitHub Docs](https://docs.github.com/actions/security-for-github-actions/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services)
+- [aws-actions/configure-aws-credentials](https://github.com/aws-actions/configure-aws-credentials)
+- [Linux OOM Killer: A Detailed Guide to Memory Management](https://last9.io/blog/understanding-the-linux-oom-killer/)
+- [Amazon ECR vs GitHub Container Registry - cloudonaut](https://cloudonaut.io/versus/container-registry/ecr-vs-github-container-registry/)
