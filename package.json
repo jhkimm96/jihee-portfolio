@@ -5,9 +5,9 @@
     "#site/content": "./.velite/index.js"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 4000",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 4000",
     "test": "vitest run"
   },
   "dependencies": {
@@ -15,6 +15,7 @@
     "class-variance-authority": "latest",
     "clsx": "^2.1.1",
     "lucide-react": "latest",
+    "mermaid": "^11.16.0",
     "next": "^15.0.0",
     "next-themes": "latest",
     "react": "^19.0.0",
@@ -24,13 +25,13 @@
     "velite": "^0.2.0"
   },
   "devDependencies": {
-    "shadcn": "^4.13.0",
-    "typescript": "^5.6.0",
+    "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "shadcn": "^4.13.0",
     "tailwindcss": "^4.0.0",
-    "@tailwindcss/postcss": "^4.0.0",
+    "typescript": "^5.6.0",
     "vitest": "^2.1.0"
   }
 }
