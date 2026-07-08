@@ -179,6 +179,15 @@
 .prose-content strong {
   @apply font-semibold text-foreground;
 }
+.prose-content img {
+  @apply my-4 cursor-zoom-in rounded-md border border-border;
+}
+.prose-content .mermaid-diagram {
+  @apply my-4 flex cursor-zoom-in justify-center overflow-x-auto;
+}
+.prose-content .mermaid-error {
+  @apply my-2 text-sm text-destructive;
+}
 
 /* Print styles for the resume page */
 @media print {
@@ -198,4 +207,39 @@
     box-shadow: none !important;
     border: none !important;
   }
+}
+
+/* Lightbox overlay for enlarged images/diagrams */
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: oklch(0 0 0 / 80%);
+  padding: 2rem;
+  cursor: zoom-out;
+}
+.lightbox-content {
+  max-width: 90vw;
+  max-height: 90vh;
+  cursor: default;
+}
+.lightbox-close {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 51;
+  display: flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: none;
+  background: oklch(1 0 0 / 15%);
+  color: white;
+  font-size: 1.1rem;
+  cursor: pointer;
 }
