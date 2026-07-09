@@ -23,6 +23,7 @@ git diff --stat
 |---|---|
 | `content/{project}/troubleshooting/**` | `troubleshooting` |
 | `content/{project}/decisions/**` | `decisions` |
+| `content/{project}/reviews/**` | `reviews` |
 | `content/study/**` | `study` |
 | `content/{project}/**` (위 항목 외 프로젝트 자체 콘텐츠/코드) | `{project}` (예: `career-link`, `prompthub`) |
 | `content/profile/**`, `app/(resume\|about)/**` | `profile` |
