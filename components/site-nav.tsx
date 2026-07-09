@@ -15,6 +15,7 @@ const navItems = [
   { href: '/troubleshooting', label: 'Troubleshooting' },
   { href: '/study', label: 'Study' },
   { href: '/decisions', label: 'Decisions' },
+  { href: '/reviews', label: 'Reviews' },
   { href: '/about', label: 'About' },
   { href: '/resume', label: 'Resume' }
 ]

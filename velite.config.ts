@@ -4,6 +4,7 @@ import {
   troubleshootingFrontmatterSchema,
   studyFrontmatterSchema,
   decisionFrontmatterSchema,
+  reviewFrontmatterSchema,
   aboutFrontmatterSchema,
   resumeFrontmatterSchema
 } from './content/schemas'
@@ -57,6 +58,19 @@ const decisions = defineCollection({
     })
 })
 
+const reviews = defineCollection({
+  name: 'Review',
+  pattern: '*/reviews/*.mdx',
+  schema: reviewFrontmatterSchema
+    .extend({ path: s.path(), content: s.markdown() })
+    .transform((data) => {
+      const parts = data.path.split('/')
+      const project = parts[0]
+      const slug = [project, ...parts.slice(2)].join('/')
+      return { ...data, project, slug }
+    })
+})
+
 const about = defineCollection({
   name: 'About',
   pattern: 'profile/about.mdx',
@@ -73,5 +87,5 @@ const resume = defineCollection({
 
 export default defineConfig({
   root: 'content',
-  collections: { projects, troubleshootingPosts, studyPosts, decisions, about, resume }
+  collections: { projects, troubleshootingPosts, studyPosts, decisions, reviews, about, resume }
 })

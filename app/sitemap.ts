@@ -3,12 +3,13 @@ import {
   getAllProjects,
   getPublishedTroubleshooting,
   getPublishedStudyByCategory,
-  getPublishedDecisions
+  getPublishedDecisions,
+  getPublishedReviews
 } from '@/lib/content-data'
 import { SITE_URL } from '@/lib/site'
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const staticRoutes = ['', '/projects', '/troubleshooting', '/study', '/decisions', '/about', '/resume'].map((path) => ({
+  const staticRoutes = ['', '/projects', '/troubleshooting', '/study', '/decisions', '/reviews', '/about', '/resume'].map((path) => ({
     url: `${SITE_URL}${path}`,
     lastModified: new Date()
   }))
@@ -35,5 +36,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     lastModified: new Date(entry.date)
   }))
 
-  return [...staticRoutes, ...projectRoutes, ...troubleshootingRoutes, ...studyRoutes, ...decisionRoutes]
+  const reviewRoutes = getPublishedReviews().map((entry) => ({
+    url: `${SITE_URL}/reviews/${entry.slug}`,
+    lastModified: new Date(entry.date)
+  }))
+
+  return [...staticRoutes, ...projectRoutes, ...troubleshootingRoutes, ...studyRoutes, ...decisionRoutes, ...reviewRoutes]
 }

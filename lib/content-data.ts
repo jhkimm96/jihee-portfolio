@@ -1,4 +1,4 @@
-import { projects, troubleshootingPosts, studyPosts, decisions, about, resume } from '#site/content'
+import { projects, troubleshootingPosts, studyPosts, decisions, reviews, about, resume } from '#site/content'
 import {
   sortProjects,
   findProjectBySlug,
@@ -8,7 +8,8 @@ import {
   decisionsForProject,
   findDecisionTitle,
   groupByCategory,
-  findBySlugPath
+  findBySlugPath,
+  reviewsForProject
 } from './content'
 
 export function getAllProjects() {
@@ -69,4 +70,16 @@ export function getDecisionBySlugPath(slugParts: string[]) {
 
 export function getDecisionTitle(fullSlug: string): string {
   return findDecisionTitle(decisions, fullSlug)
+}
+
+export function getPublishedReviews() {
+  return sortByDateDesc(publishedOnly(reviews))
+}
+
+export function getReviewsForProject(projectSlug: string) {
+  return reviewsForProject(reviews, projectSlug)
+}
+
+export function getReviewBySlugPath(slugParts: string[]) {
+  return findBySlugPath(publishedOnly(reviews), slugParts)
 }

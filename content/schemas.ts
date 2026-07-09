@@ -41,6 +41,14 @@ export const decisionFrontmatterSchema = s.object({
   draft: s.boolean().default(false)
 })
 
+export const reviewFrontmatterSchema = s.object({
+  title: s.string(),
+  date: s.string(),
+  summary: s.string().optional(),
+  tags: s.array(s.string()).optional(),
+  draft: s.boolean().default(false)
+})
+
 export const aboutFrontmatterSchema = s.object({
   name: s.string(),
   role: s.string(),
