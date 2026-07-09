@@ -188,6 +188,19 @@
 .prose-content .mermaid-error {
   @apply my-2 text-sm text-destructive;
 }
+.prose-content table {
+  @apply my-5 w-full border-collapse text-[0.8em] leading-snug;
+}
+.prose-content th,
+.prose-content td {
+  @apply border border-border px-2.5 py-1.5 text-left align-top;
+}
+.prose-content thead th {
+  @apply bg-muted font-semibold text-foreground;
+}
+.prose-content tbody tr:nth-child(even) {
+  @apply bg-muted/40;
+}
 
 /* Print styles for the resume page */
 @media print {

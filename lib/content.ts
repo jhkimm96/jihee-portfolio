@@ -56,6 +56,17 @@ export type StudyEntry = {
   content: string
 }
 
+export type ReviewEntry = {
+  slug: string
+  project: string
+  title: string
+  date: string
+  summary?: string
+  tags?: string[]
+  draft: boolean
+  content: string
+}
+
 export function sortProjects(projects: ProjectEntry[]): ProjectEntry[] {
   return [...projects].sort((a, b) => {
     if (a.featured !== b.featured) return a.featured ? -1 : 1
@@ -106,4 +117,8 @@ export function decisionsForProject(
 
 export function findDecisionTitle(entries: DecisionEntry[], fullSlug: string): string {
   return entries.find((entry) => entry.slug === fullSlug)?.title ?? fullSlug
+}
+
+export function reviewsForProject(entries: ReviewEntry[], projectSlug: string): ReviewEntry[] {
+  return sortByDateDesc(publishedOnly(entries).filter((entry) => entry.project === projectSlug))
 }
