@@ -201,6 +201,24 @@
 .prose-content tbody tr:nth-child(even) {
   @apply bg-muted/40;
 }
+.prose-content details {
+  @apply my-4 overflow-hidden rounded-md border border-border bg-muted/30;
+}
+.prose-content summary {
+  @apply cursor-pointer select-none px-4 py-2.5 font-medium text-foreground transition-colors marker:text-muted-foreground hover:bg-muted/60;
+}
+.prose-content details[open] summary {
+  @apply border-b border-border;
+}
+.prose-content details > *:not(summary) {
+  @apply px-4;
+}
+.prose-content details > summary + * {
+  @apply mt-3;
+}
+.prose-content details > *:last-child {
+  @apply mb-3;
+}
 
 /* Print styles for the resume page */
 @media print {
