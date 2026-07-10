@@ -185,6 +185,9 @@
 .prose-content .mermaid-diagram {
   @apply my-4 flex cursor-zoom-in justify-center overflow-x-auto;
 }
+.prose-content .mermaid-diagram svg {
+  @apply shrink-0;
+}
 .prose-content .mermaid-error {
   @apply my-2 text-sm text-destructive;
 }

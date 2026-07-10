@@ -29,6 +29,14 @@ async function renderMermaidDiagrams(container: HTMLElement) {
       const wrapper = document.createElement('div')
       wrapper.className = 'mermaid-diagram'
       wrapper.innerHTML = svg
+      const svgEl = wrapper.querySelector('svg')
+      if (svgEl) {
+        // mermaid sets width:100% which shrinks the diagram (and its text) to
+        // fit the narrow prose column. Render at natural size instead and let
+        // the wrapper's overflow-x-auto handle diagrams wider than the column.
+        const naturalWidth = svgEl.style.maxWidth
+        if (naturalWidth) svgEl.style.width = naturalWidth
+      }
       pre.replaceWith(wrapper)
     } catch {
       const notice = document.createElement('p')
