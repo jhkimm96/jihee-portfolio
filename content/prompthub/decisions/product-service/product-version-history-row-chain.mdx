@@ -67,6 +67,46 @@ flowchart TD
 - 읽기 경로는 과거 버전 id로 요청해도 family의 현재 대표 row로 **resolve**하고, 응답 식별자는
   요청한 원본 id를 유지한다. 리뷰/평점은 family root 기준 집계로 버전업에도 유지.
 
+### 상태 전이 (반려·되돌리기 포함)
+
+위 흐름은 "버전 생성"이고, 각 row가 거치는 상태 전이는 다음과 같다.
+
+```mermaid
+stateDiagram-v2
+    [*] --> DRAFT: 상품 등록
+    DRAFT --> PENDING_REVIEW: 검수 제출
+    PENDING_REVIEW --> ON_SALE: 승인
+    PENDING_REVIEW --> REJECTED: 반려
+    REJECTED --> PENDING_REVIEW: 되돌리기
+    ON_SALE --> PENDING_REVIEW: 되돌리기<br/>(직전 SUPERSEDED 복원)
+    ON_SALE --> SUPERSEDED: 새 버전 승인 / PATCH
+    SUPERSEDED --> ON_SALE: 되돌리기 시 복원
+    ON_SALE --> STOPPED: 판매 중단
+    note right of PENDING_REVIEW
+      MAJOR 수정 = 새 row가 여기서 시작<br/>(parent_id = root · 기존 ON_SALE 유지)
+    end note
+```
+
+- **반려**: 검수 대기(PENDING_REVIEW)인 버전만 → REJECTED. 기존 라이브(ON_SALE)는 건드리지 않는다.
+- **되돌리기**: ON_SALE·REJECTED만 → PENDING_REVIEW. ON_SALE을 내릴 땐 직전 SUPERSEDED를 ON_SALE로 복원해 라이브 공백을 막는다.
+- 상태 전이는 도메인 메서드(`reject` / `revertToPendingReview` / `restoreFromSuperseded`)가 강제해, 잘못된 전이는 예외로 막는다.
+
+### family 구조와 root 찾기
+
+새 버전의 `parent_id`는 바로 앞 버전이 아니라 **항상 root**를 가리킨다(flat 구조). 그래서 깊은 체인이 아니라 root 하나에 모든 버전이 매달린다.
+
+```text
+root(v1.0)
+ ├── v1.1   (parent_id = root)
+ └── v2.0   (parent_id = root)
+```
+
+```java
+UUID familyRootId() { return parentId != null ? parentId : id; }  // 재귀 없이 한 줄
+```
+
+덕분에 `p.id = root or p.parentId = root` 한 쿼리로 family 전체를 모은다(재귀 트리 순회 불필요).
+
 <details>
 <summary><b>💡 이해 포인트 — "resolve"가 뭐야?</b></summary>
 
