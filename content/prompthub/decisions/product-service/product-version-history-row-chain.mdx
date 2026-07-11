@@ -79,11 +79,15 @@ stateDiagram-v2
     PENDING_REVIEW --> REJECTED: 반려
     REJECTED --> PENDING_REVIEW: 되돌리기
     ON_SALE --> PENDING_REVIEW: 되돌리기<br/>(직전 SUPERSEDED 복원)
-    ON_SALE --> SUPERSEDED: 새 버전 승인 / PATCH
+    ON_SALE --> SUPERSEDED: PATCH 수정 시 (즉시·검수 없음)
+    ON_SALE --> SUPERSEDED: MAJOR 새 버전 승인 시
     SUPERSEDED --> ON_SALE: 되돌리기 시 복원
     ON_SALE --> STOPPED: 판매 중단
     note right of PENDING_REVIEW
-      MAJOR 수정 = 새 row가 여기서 시작<br/>(parent_id = root · 기존 ON_SALE 유지)
+      MAJOR 수정 = 새 row가 여기서 시작<br/>기존 ON_SALE 유지 → 승인 시 밀림
+    end note
+    note left of SUPERSEDED
+      PATCH 수정 = 새 row가 바로 ON_SALE<br/>기존은 즉시 SUPERSEDED
     end note
 ```
 
