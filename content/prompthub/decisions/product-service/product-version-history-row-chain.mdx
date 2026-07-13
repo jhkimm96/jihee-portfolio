@@ -78,19 +78,15 @@ stateDiagram-v2
     PENDING_REVIEW --> ON_SALE: 승인
     PENDING_REVIEW --> REJECTED: 반려
     REJECTED --> PENDING_REVIEW: 되돌리기
-    ON_SALE --> PENDING_REVIEW: 되돌리기<br/>(직전 SUPERSEDED 복원)
-    ON_SALE --> SUPERSEDED: PATCH 수정 시 (즉시·검수 없음)
-    ON_SALE --> SUPERSEDED: MAJOR 새 버전 승인 시
-    SUPERSEDED --> ON_SALE: 되돌리기 시 복원
+    ON_SALE --> PENDING_REVIEW: 되돌리기
+    ON_SALE --> SUPERSEDED: PATCH (즉시)
+    ON_SALE --> SUPERSEDED: MAJOR 승인 시
+    SUPERSEDED --> ON_SALE: 되돌리기 복원
     ON_SALE --> STOPPED: 판매 중단
-    note right of PENDING_REVIEW
-      MAJOR 수정 = 새 row가 여기서 시작<br/>기존 ON_SALE 유지 → 승인 시 밀림
-    end note
-    note left of SUPERSEDED
-      PATCH 수정 = 새 row가 바로 ON_SALE<br/>기존은 즉시 SUPERSEDED
-    end note
 ```
 
+- **PATCH 수정**: 새 row가 바로 ON_SALE, 기존은 **즉시** SUPERSEDED (검수 없음).
+- **MAJOR 수정**: 새 row가 PENDING_REVIEW로 시작, 기존 ON_SALE은 유지 → **승인될 때** 밀림.
 - **반려**: 검수 대기(PENDING_REVIEW)인 버전만 → REJECTED. 기존 라이브(ON_SALE)는 건드리지 않는다.
 - **되돌리기**: ON_SALE·REJECTED만 → PENDING_REVIEW. ON_SALE을 내릴 땐 직전 SUPERSEDED를 ON_SALE로 복원해 라이브 공백을 막는다.
 - 상태 전이는 도메인 메서드(`reject` / `revertToPendingReview` / `restoreFromSuperseded`)가 강제해, 잘못된 전이는 예외로 막는다.
