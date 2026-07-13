@@ -1,0 +1,51 @@
+---
+title: "구매자 산출물 전달, proto 안 바꾸고 content 단일 필드로 — 크로스서비스 변경 회피"
+slug: "buyer-deliverable-single-content-field"
+date: "2026-07-13"
+status: "accepted"
+summary: "유형별 산출물(본문/파일 URL/외부 링크)을 구매자에게 주기 위해 gRPC 응답 구조를 바꾸는 대신, product-service가 유형별로 해석한 값을 기존 content 단일 필드에 담아 order-service 백엔드 변경 없이 처리했다."
+tags: ["grpc", "api-design", "microservices", "product"]
+draft: false
+---
+
+## 배경
+
+구매 후 산출물 전달용 gRPC `GetProductContent`는 응답 `content`에 프롬프트 본문만 담았다. 유형별
+필드(PPT/EXCEL=파일, NOTION=외부 링크)가 생기면서, 구매자에게 유형별 산출물을 전달해야 했다.
+그런데 이 gRPC는 order-service가 소비하므로, 응답 구조를 바꾸면 크로스서비스 변경이 된다.
+
+## 고려한 선택지
+
+1. **content 단일 필드에 유형별 값** — product-service가 유형을 보고 알맞은 값(본문 텍스트 /
+   파일 presigned URL / 외부 링크)을 골라 기존 `content` 하나에 담는다. proto 구조 무변경.
+2. **proto 구조화(필드 추가/oneof)** — `file_url`/`external_url`을 응답에 따로 넣어 소비자가 골라
+   쓴다. 명시적이지만 order-service 소비자까지 함께 바뀌어야 한다(크로스서비스 조율).
+
+## 결정
+
+선택지 1을 택했다. 핵심 근거는 **order-service가 이미 각 주문상품의 `productType`을 저장**한다는
+점이다. 소비자가 유형을 아니, 화면 렌더 분기(텍스트/다운로드/외부링크)에 proto가 유형별 구조를
+가질 필요가 없다. DB 컬럼(content·file_url·external_url)도, gRPC `content`도 모두 문자열이라 값
+하나로 충분하다.
+
+```java
+String deliverable = switch (product.getProductType()) {
+    case PROMPT     -> product.getContent();
+    case PPT, EXCEL -> presignIfPresent(product.getFileUrl()); // presigned 다운로드 URL
+    case NOTION     -> product.getExternalUrl();
+};
+return new ProductContentResponse(productId, deliverable);
+```
+
+`GetProductContentResponse{product_id, content}` 구조와 order-service 소비 코드는 그대로 두고,
+product-service의 해석 로직만 바꿨다.
+
+## 결과
+
+- proto·**order-service 백엔드 변경 없이** product-service 단독으로 끝나, 크로스서비스 조율·배포
+  순서 문제를 피했다.
+- 다만 구조 계약(`{product_id, content}`)은 그대로여도 **content의 "의미"가 유형별로 달라졌다**
+  (텍스트 / 파일 presigned URL / 외부 링크). 이 **"동작 계약" 변화**는 계약 문서(api-spec 내부 API)에
+  명시하고 소비자(order 쪽 FE)에 공유해야 한다 — FE가 productType에 맞춰 렌더링하도록.
+- 트레이드오프: `content` 필드명이 URL도 담아 값을 온전히 드러내지 않는다. 구조를 자기설명적으로
+  만들려면(필드 분리) 크로스서비스 비용을 치러야 하므로, 지금은 단순함을 택했다.
