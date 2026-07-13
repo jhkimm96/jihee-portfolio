@@ -183,7 +183,7 @@
   @apply my-4 cursor-zoom-in rounded-md border border-border;
 }
 .prose-content .mermaid-diagram {
-  @apply my-4 flex cursor-zoom-in justify-center overflow-x-auto;
+  @apply my-4 flex cursor-zoom-in justify-start overflow-x-auto;
 }
 .prose-content .mermaid-diagram svg {
   @apply shrink-0;

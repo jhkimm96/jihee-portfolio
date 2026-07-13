@@ -17,7 +17,7 @@ interface PostArticleProps {
 
 export function PostArticle({ backHref, backLabel, title, date, content, tags, badges, banner }: PostArticleProps) {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <Link
         href={backHref}
         className="inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
