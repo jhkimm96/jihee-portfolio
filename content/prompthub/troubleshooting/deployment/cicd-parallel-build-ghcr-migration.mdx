@@ -7,7 +7,7 @@ tags: ["GitHub Actions", "CI/CD", "Docker", "GHCR"]
 
 ## 문제
 
-CD 파이프라인이 self-hosted 배포 서버(EC2) 하나에서 9개 마이크로서비스(discovery, config, user, product, order, payment, settlement, admin, apigateway) Docker 이미지를 하나씩 순서대로 빌드하고 있었다. 배포 시간이 오래 걸렸고, 빌드 서버가 종종 OOM(메모리 부족)으로 죽었다.
+CD 파이프라인이 self-hosted 배포 서버(EC2) 하나에서 9개 마이크로서비스(discovery, config, apigateway, user, product, order, payment, settlement, admin) Docker 이미지를 하나씩 순서대로 빌드하고 있었다. 배포 시간이 오래 걸렸고, 빌드 서버가 종종 OOM(메모리 부족)으로 죽었다.
 
 ## 원인
 
@@ -17,7 +17,7 @@ CD 파이프라인이 self-hosted 배포 서버(EC2) 하나에서 9개 마이크
 flowchart TB
     subgraph BEFORE["🔴 BEFORE — 직렬 빌드 (총 약 20분)"]
         direction LR
-        B1[discovery] --> B2[config] --> B3[user] --> B4[product] --> B5[order] --> B6[payment] --> B7[settlement] --> B8[admin] --> B9[apigateway]
+        B1[discovery] --> B2[config] --> B3[apigateway] --> B4[user] --> B5[product] --> B6[order] --> B7[payment] --> B8[settlement] --> B9[admin]
         B9 --> BOOM["⚠️ 빌드 + 배포가 같은 서버<br/>메모리 경쟁 → OOM Killer"]
     end
 
