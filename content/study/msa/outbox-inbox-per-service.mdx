@@ -1,0 +1,80 @@
+---
+title: "서비스별 Outbox·Inbox 적용 전수 분석 — 우리 MSA는 왜 서비스마다 다른가"
+slug: "outbox-inbox-per-service"
+date: "2026-07-14"
+summary: "5개 서비스가 Outbox/Inbox를 각각 어떻게(안) 쓰는지 코드로 전수 분석. 발행측은 '유실 방지가 얼마나 필요한가', 소비측은 '소비 연산이 멱등인가'로 갈린다."
+tags: ["msa", "kafka", "outbox", "inbox", "idempotency"]
+draft: false
+---
+
+[Part 1 — Outbox·Inbox는 짝이 아니다](/study/msa/outbox-inbox-when-needed)에서 Outbox·Inbox가 짝이 아니라 독립 선택임을 봤다. 여기선 5개 서비스를 전수로 훑으며 각 선택의 근거를 코드로 본다.
+
+## 전체 매트릭스
+
+| 서비스 | 발행 | Outbox | 소비 | Inbox | 소비 연산 |
+|---|---|---|---|---|---|
+| order | order-events | ✅ | payment 이벤트 | ✅ | 상태전이 + 결제 INSERT + 이벤트 append (비멱등) |
+| settlement | SETTLEMENT_CREATED | ✅ | — | — | (소비 안 함) |
+| product | product-events | ❌ 직접 | order-events | ✅ | salesCount 증감 (비멱등) |
+| payment | payment 이벤트 | ❌ 직접 | ORDER_CREATED | ❌ | 스냅샷 기록 (멱등) |
+| user | — | — | SETTLEMENT_CREATED | ❌ | seed (멱등) |
+
+두 축으로 읽는다: **발행측(Outbox 여부)** 과 **소비측(Inbox 여부)**.
+
+## 발행측 — Outbox를 쓰느냐
+
+- **order / settlement**: Outbox로 발행. 상태 변경과 "발행할 이벤트"를 같은 트랜잭션으로 outbox에 적고 relay가 발행 → 유실 방지. 주문·정산 이벤트는 하류(판매수·정산 seed)의 트리거라 유실 시 정합성이 깨진다.
+- **product / payment**: Outbox 미도입, 직접 발행. payment는 커밋 후 `@TransactionalEventListener(AFTER_COMMIT)`로 발행(롤백 시 미발행). 유실 위험을 감수한 단순 발행 — 필요해지면 Outbox로 승격 가능.
+
+즉 Outbox는 "이 이벤트 흐름에 얼마나 강한 발행 보장이 필요한가 + 도입 성숙도"의 문제다. 규칙이 아니라 선택이다.
+
+## 소비측 — Inbox를 쓰느냐 (기준: 소비 연산이 멱등인가)
+
+### 비멱등 → Inbox 필요
+
+**product-service** — salesCount 증감:
+```java
+if (alreadyProcessed(eventId)) return;                      // inbox
+productSalesCountService.incrementSalesCount(productIds);   // += 1 (비멱등)
+markProcessed(eventId, "ORDER_PAID", occurredAt);
+```
+
+**order-service** — 결제 이벤트로 주문 확정:
+```java
+// PaymentApprovedProcessor.process (요지)
+if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) return;  // inbox
+
+order.markPaid(payload.approvedAt());                    // 상태 전이(멱등)
+orderPaymentRepository.save(OrderPayment.create(...));   // 결제 row INSERT (비멱등)
+outboxEventAppender.append(orderPaidMessage);            // ORDER_PAID 발행 예약 (재처리 시 이중 발행)
+
+processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);
+```
+상태 전이 자체는 멱등이지만, 재처리하면 **결제 row가 중복 INSERT되고 ORDER_PAID가 다시 append돼 하류(product salesCount 등)로 이중 발행**된다. 그래서 eventId로 전체 처리를 한 번으로 묶는다.
+
+### 자연 멱등 → Inbox 불필요
+
+**payment-service** — orderId 키로 스냅샷 기록:
+```java
+recordOrderSnapshotUseCase.record(new RecordOrderSnapshotCommand(
+    created.orderId(), ...));   // orderId 키 → 재처리해도 같은 결과
+```
+
+**user-service** — settlement seed(키 기반 생성):
+```java
+case SETTLEMENT_CREATED -> seedSellerSettlementUseCase.seed(eventMessage.payload());
+```
+`seed`는 키 기준이라 중복 이벤트가 와도 같은 상태 → 멱등. Inbox 불필요.
+
+<details>
+<summary><b>🔍 seed가 뭔가</b></summary>
+
+여기서 `seed`(씨앗을 심다)는 **셀러 정산 레코드의 초기 데이터를 만드는 것**이다. 정산/셀러 기준의 **키 기반 생성**이라, 같은 `SETTLEMENT_CREATED`가 다시 와도 이미 있는 레코드를 다시 심을 뿐 상태가 안 바뀐다(create-if-absent 성격). 그래서 자연 멱등이고 Inbox가 필요 없다.
+
+</details>
+
+## 결론
+
+- **발행측**: 유실 방지가 필요하면 Outbox(order·settlement), 아니면 직접 발행(product·payment).
+- **소비측**: 소비 연산이 **비멱등이면** Inbox(order·product), **멱등이면** 불필요(payment·user).
+- 두 축이 독립이라 서비스마다 조합이 다르다. "패턴이 있으니 다 붙인다"가 아니라 **각 이벤트 흐름의 성질**로 정한다.
