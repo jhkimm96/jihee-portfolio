@@ -1,0 +1,41 @@
+---
+title: "docker compose에서 --env-file 빠뜨려 서비스가 빈 설정으로 재생성되며 다운"
+slug: "compose-env-file-missing-recreate"
+date: "2026-07-14"
+summary: "GC 옵션 테스트로 compose up을 하며 --env-file을 빠뜨려, .env 값이 전부 빈 문자열로 해석되고 compose가 컨테이너를 빈 설정으로 recreate하다 한 서비스가 다운된 사고."
+tags: ["docker-compose", "deployment", "env", "postgres", "ops"]
+draft: false
+---
+
+## 문제
+
+특정 서비스에 GC 옵션을 얹어 테스트하려고 `docker compose ... up -d <service>`를 실행했더니, 겨냥하지 않은 DB와 한 서비스까지 재생성되기 시작했고, 그 서비스가 다운돼 로그인·조회가 실패했다.
+
+## 원인
+
+명령에서 **`--env-file`을 빠뜨렸다.** 이 스택은 `.env`를 compose 파일과 다른 경로에 두고 배포 시 `--env-file`로 주입하는 구조라, 이게 빠지자 `.env`의 모든 `${...}` placeholder가 **빈 문자열**로 해석됐다(`WARN ... variable is not set` 무더기).
+
+compose는 "지금 떠 있는 컨테이너의 설정 == 새로 계산한 설정"인지 비교해서 다르면 재생성한다. 빈 env 탓에 설정이 바뀐 걸로 인식 → env를 쓰는 DB와 대상 서비스를 재생성 시작 → 그 서비스가 **빈 DB 비밀번호·빈 JWT 키로 재생성되던 중 명령이 끊겨** 새 컨테이너가 안 뜬 채 다운.
+
+<details>
+<summary><b>🔍 --env-file이 뭐고, env를 어떻게 "누락"한 건가</b></summary>
+
+`.env`는 DB 비밀번호·JWT 키 같은 값을 담은 파일이다. `docker-compose.yml` 안의 `${POSTGRES_PASSWORD}` 같은 자리표시자는 실행할 때 이 파일에서 값을 채운다. `--env-file <경로>`는 compose에게 "그 값을 이 파일에서 읽어라"라고 알려주는 옵션이다. 이 스택은 `.env`를 compose 파일과 다른 폴더에 둬서, 이 옵션을 빼면 진짜 값 파일을 못 찾는다.
+
+**무엇을 했나**: 한 서비스에 GC 옵션을 얹어 보려고 override 파일과 함께 `docker compose -f ... -f gc-test.yml up -d <service>`를 실행했는데, 여기서 `--env-file`을 빼먹었다. → compose가 진짜 값을 못 읽고 모든 `${...}`를 빈 문자열로 채움(= "env 누락"). → 빈 설정이 기존과 달라 재생성이 걸렸고, 그 서비스가 빈 값으로 재생성되다 끊겨 다운.
+
+</details>
+
+## 해결
+
+**올바른 `--env-file` 경로**(배포 스크립트가 쓰는 경로)를 붙여 다시 `up -d` 실행 → 서비스가 정상 env로 재생성되어 복구. DB 데이터는 named volume에 있어 손실 없었다(이미 초기화된 볼륨은 빈 `POSTGRES_*`를 무시하고 기존 데이터로 기동).
+
+## 결과
+
+다운됐던 서비스 복구, 데이터 무손실. 재현·복구 경로를 확인했다.
+
+## 배운 점
+
+- **compose에서 env 누락은 조용한 사고다.** 값이 빈 문자열로 "성공"하며, 설정 해시가 바뀌어 멀쩡히 돌던 컨테이너까지 재생성 대상이 된다. 배포와 동일하게 항상 `--env-file`을 붙여야 한다.
+- **named volume 덕에 DB는 안전.** postgres는 이미 초기화된 데이터 디렉토리에선 `POSTGRES_PASSWORD` 등을 무시하므로, 컨테이너를 빈 env로 갈아끼워도 데이터·비밀번호는 유지된다.
+- 컨테이너가 `Up`이어도 앱이 정상이란 뜻은 아니다 — 다운 여부는 `ps`/헬스체크로 따로 확인해야 한다.
