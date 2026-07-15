@@ -31,7 +31,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" suppressHydrationWarning className={`${fontSans.variable} ${fontMono.variable}`}>
-      <body className="min-h-screen antialiased">
+      <body className="min-h-screen antialiased" suppressHydrationWarning>
         <ThemeProvider>
           <div className="flex min-h-screen flex-col">
             <SiteNav />
