@@ -1,0 +1,157 @@
+---
+title: "검색 이벤트 로그 파이프라인 — 이벤트를 어떻게 ES로 흘려보내나 (Kafka·Logstash·data stream·ILM)"
+date: "2026-07-15"
+summary: "검색·클릭·구매 이벤트를 ES에 쌓는 파이프라인을 정리한다. 이벤트 스키마 설계, ES로 넣는 세 경로(직접·Filebeat·Kafka), 왜 Kafka를 끼우나, 시계열 인덱스와 data stream·ILM까지 — '로그 저장·전송'의 정식편이자, 내가 실제로 손댈 부분."
+tags: ["Elasticsearch", "Kafka", "Logstash", "data stream", "ILM"]
+---
+
+지금까지 "ES에 쌓인 로그로 분석한다"고 했다. 이 노트는 그 앞 — **이벤트를 어떻게 ES까지 흘려보내나**다. **내가 실제로 설계·구현할 핵심이 여기**다(대시보드·추천은 남이 그 위에서).
+
+## 제일 중요한 건 이벤트 스키마
+
+파이프라인보다 먼저, **이벤트를 어떤 필드로 남길지**가 제일 중요하다. 이게 엉성하면 대시보드도 추천도 못 만든다. 검색·조회·구매를 **일관된 형식**으로 남긴다.
+
+```json
+// 조회
+{ "eventType":"product_view", "userId":"u123", "productId":"p456",
+  "sellerId":"s789", "sessionId":"sess-abc", "ts":"2026-07-15T10:30:00Z", "source":"search_result" }
+
+// 검색
+{ "eventType":"search", "userId":"u123", "query":"무선 이어폰", "resultCount":42, "ts":"..." }
+
+// 구매
+{ "eventType":"purchase", "userId":"u123", "productId":"p456", "sellerId":"s789", "amount":39000, "ts":"..." }
+```
+
+이 하나만 잘 남기면 downstream이 전부 여기서 나온다(6번 노트): `query`로 인기 검색어, `sessionId`로 함께 본 상품, `userId`로 개인화, `resultCount:0`으로 개선 대상. **필드 합의가 당신과 대시보드/추천 담당자 사이의 계약**이다.
+
+## ES로 넣는 세 경로
+
+- **직접 색인** — 서비스가 ES HTTP API로 바로 POST. 간단하지만, ES가 잠깐 죽으면 이벤트를 잃을 수 있고 서비스와 강하게 묶인다.
+- **로그 파일 → Filebeat** — 서비스는 로그 파일에 한 줄씩 남기고, Filebeat(경량 수집기)이 읽어 ES로. 서비스는 파일만 쓰면 돼 가볍다.
+- **Kafka → Logstash(또는 consumer)** — 서비스가 이벤트를 Kafka에 발행하고, Logstash/consumer가 받아 ES로. **대용량·실시간에 가장 튼튼한 표준.**
+
+<details>
+<summary><b>🔍 Filebeat 방식이 뭐고, Kafka → Logstash는 어떻게 받아와? Logstash는 내가 어떻게 만들어?</b></summary>
+
+**Filebeat 방식** — 서비스는 로그를 **파일에 한 줄씩** 쓰고(각 줄이 이벤트 JSON), **Filebeat**(Elastic의 경량 수집 에이전트)이 그 파일을 실시간 감시하다 새 줄을 읽어 ES로 보낸다. 서비스는 "파일 쓰기"만, 전송은 Filebeat이 책임. (비유: 서비스=일기장에 적기, Filebeat=그걸 읽어 부치는 우체부.)
+
+**Kafka → Logstash** — 서비스가 이벤트를 Kafka topic에 발행하고, **Logstash**가 그 topic을 **구독(consumer)**해서 꺼내온다. Logstash는 `input → filter → output` 구조다.
+
+**Logstash는 코드가 아니라 설정 파일**이다. "Kafka에서 읽어 ES에 넣어라"를 선언만 하면 된다:
+
+```
+input {
+  kafka { bootstrap_servers => "kafka:9092"  topics => ["search-events"] }
+}
+output {
+  elasticsearch { hosts => ["http://es:9200"]  index => "search-logs-%{+YYYY.MM.dd}" }
+}
+```
+
+이 `output { elasticsearch ... }`가 **Logstash가 ES에 HTTP로 색인해주는 부분**이다. 당신이 HTTP 코드를 짜는 게 아니라, Logstash가 알아서 ES HTTP API로 넣는다. (Logstash 안 쓰고 직접 만들면 = Spring `@KafkaListener`로 Kafka 받아 ES 클라이언트로 색인.)
+
+```
+Filebeat 방식:  서비스 → 로그파일 → Filebeat → ES          (간단)
+Kafka 방식:     서비스 → Kafka → Logstash(input→filter→output) → ES   (버퍼·대용량)
+```
+
+이 도구들의 역할은 ES 8.x·9.x에서 동일하다(Kafka는 Elastic 것도 아니라 버전과 무관).
+
+</details>
+
+## 왜 Kafka를 끼우나
+
+서비스에서 ES로 바로 쏘지 않고 Kafka를 중간에 두는 이유:
+
+- **버퍼(완충)** — 트래픽이 몰리거나 ES가 잠깐 느려도, Kafka가 이벤트를 쌓아뒀다가 ES가 소화할 속도로 흘려보낸다. 유실 방지.
+- **분리(decoupling)** — 서비스는 "Kafka에 던지면 끝". ES 색인은 별도 consumer가 책임진다. 서비스가 ES 사정에 안 흔들린다.
+- **재처리(replay)** — 같은 이벤트를 여러 곳(ES 색인 + 추천 모델 + 데이터웨어하우스)이 나눠 가져갈 수 있고, 문제가 나면 되감아 다시 처리한다.
+
+당신 목표(행동 스트림 → 추천)가 **실시간 스트림**이라 Kafka가 자연스럽다.
+
+<details>
+<summary><b>🔍 헷갈림 정리: ES가 Kafka를 읽어? 집계는 누가 해? ES가 Kibana에 보내?</b></summary>
+
+**넣기와 보기, 두 파이프라인이 별개다.**
+
+```
+[A 넣기]  product-service ─발행→ Kafka ─→ Logstash/consumer ─색인(HTTP)→ ES
+[B 보기]  Kibana/백엔드 ─집계 요청→ ES ─(계산)→ 결과 응답 → 그래프
+```
+
+- **ES는 Kafka를 직접 consume 하지 않는다.** 중간의 consumer(Logstash 등)가 Kafka에서 읽어 ES에 HTTP로 넣는다. ES는 받기만 한다.
+- **집계는 ES 엔진이 계산한다** — 자기 인덱스에 쌓인 문서로. 집계 요청(트리거)은 Kibana나 당신 백엔드가 보낸다.
+- **ES가 Kibana에 먼저 보내는 게 아니다.** Kibana가 "집계해줘" 요청하면 → ES가 계산해 **응답으로 돌려준다**(요청-응답, pull).
+- **집계엔 가중치 규칙이 없다.** 그냥 세고·묶고·통계. 가중치(function_score)는 상품 검색 랭킹(4번 노트)에만 쓴다.
+
+두 개의 다른 시점: **색인 시점**(Logstash가 계속 넣음) vs **집계 시점**(대시보드 열 때 Kibana가 요청).
+
+</details>
+
+## 시계열 인덱스 — 왜 날짜별로 쪼개나
+
+로그는 계속 쌓이기만 한다(append-only). 한 인덱스에 다 넣으면 너무 커지고 오래된 로그 정리가 어렵다. 그래서 **시간 단위로 인덱스를 쪼갠다**(`search-logs-2026.07.15`).
+
+- 오래된 로그는 **날짜 인덱스를 통째로 삭제**하면 끝(행 단위 삭제보다 훨씬 쌈).
+- 최근 인덱스만 빠른 저장소에, 오래된 건 느린/싼 저장소로 옮기기 쉽다.
+
+## data stream + ILM — 시계열 로그의 표준
+
+날짜별 인덱스를 손으로 만들고 관리하는 대신, ES(8.x·9.x)는 이 반복을 자동화하는 **data stream**을 표준으로 권한다.
+
+- **data stream** — append-only 시계열 데이터를 위한 **하나의 이름**. 뒤에서 여러 개의 숨은 인덱스로 자동 분리된다. 문서에 `@timestamp` 필드가 필요하다. 색인·검색은 이 이름 하나로 하면 ES가 알아서 라우팅한다.
+- **ILM(Index Lifecycle Management)** — 인덱스의 생애주기를 자동 관리. **rollover**(크기·나이 넘으면 새 인덱스로 교체), 오래된 인덱스 이동/삭제를 규칙으로 돌린다.
+
+즉 "매일 인덱스 만들고, 오래된 거 지우고"를 **data stream + ILM 규칙 한 번 설정**으로 자동화한다. 검색 로그처럼 계속 쌓이는 데이터는 이게 정석이다.
+
+## 상품 검색과의 연결 — 순환
+
+이 파이프라인이 앞 노트들과 이렇게 맞물린다.
+
+```
+검색·클릭·구매 이벤트
+  → Kafka → consumer/Logstash → ES data stream(search-logs)
+      → 집계(6번): 인기 검색어·트렌드·순방문자
+          → 자동완성 weight(5번) · 추천 신호(8번)
+```
+
+좋은 검색·추천은 "행동 로그 → 집계 → 다시 검색 품질"로 **순환**한다. 그 순환의 입구가 이 노트다.
+
+## 정리 — 내가 할 일 / 남이 할 일
+
+- **내가 (설계·구현)** — 이벤트 스키마 정의, 서비스에서 Kafka/로그로 발행, (아마) ES 색인 파이프라인·data stream·ILM 설정.
+- **남이 (별도)** — Kibana 대시보드, 추천 ML 모델, ES 클러스터 운영.
+
+핵심은 **이벤트를 올바른 형식으로 안정적으로 흘려보내는 것.** 그게 재료고, 대시보드·추천은 그 위에서 나온다.
+
+<details>
+<summary><b>🔍 Kibana는 내가 설치·설정하는 거야? 홈페이지에서 봐?</b></summary>
+
+**Kibana는 브라우저로 여는 웹 UI 앱**이다.
+
+- **설치**: 한 번 설치해 ES에 연결해둔다(보통 인프라/운영 담당이). Elastic Cloud를 쓰면 이미 포함돼 설치도 불필요.
+- **접속**: 서버가 뜨면 주소(기본 `http://서버:5601`)가 생기고, **브라우저로 그 주소에 접속**해서 본다. 아무나 보는 공개 홈페이지가 아니라 로그인 뒤 사내 도구다(GitHub·Jira처럼).
+- **사용**: 쿼리를 코드로 짜는 게 아니라 **클릭**으로 대시보드를 만든다 — 필드·차트 종류를 고르면 Kibana가 ES에 집계 쿼리를 자동 생성해 보낸다.
+- **당신 경우**: 대시보드를 다른 분이 만든다면 **Kibana는 안 만질 수도** 있다. 당신 일은 ES에 데이터를 넣는 것까지.
+
+</details>
+
+<details>
+<summary><b>🔍 Kibana 대시보드를 내 프론트(FE)에 띄울 수 있어?</b></summary>
+
+가능하다. 두 가지 방법이 있다.
+
+- **Kibana 임베드(iframe)** — Kibana가 대시보드마다 embed 코드(iframe)를 준다. FE에 붙이면 대시보드가 화면 안에 뜬다. 차트를 안 짜도 되지만, 보는 사람의 **인증**(Kibana 접근 권한/익명 접근 설정)과 **라이선스 티어**가 걸린다. Kibana는 내부 운영 도구라 고객용 폴리시드 UI엔 잘 안 어울린다.
+- **자체 차트** — Kibana를 안 띄우고, 당신 백엔드가 ES 집계를 조회 → FE에서 직접 차트(Chart.js·Recharts 등)로 그린다. 공수는 들지만 디자인·인증·동작을 완전히 통제한다.
+
+| 용도 | 추천 |
+|---|---|
+| 내부 관리자 대시보드 | Kibana 임베드 or 직접 접속 |
+| 고객용 화면(폴리시드) | 자체 차트 (백엔드 → ES 집계 → FE) |
+
+커머스 고객용 제품이면 보통 자체 차트로 간다.
+
+</details>
+
+다음은 이 재료로 하는 **행동데이터 기반 상품 추천 설계 — 8번 노트**다.
