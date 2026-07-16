@@ -118,7 +118,7 @@ Controller (GET /api/products/search)  ← 요청 파라미터만 받음
   ← 결과 매핑해 반환
 ```
 
-Java 예시(Elasticsearch Java Client, 8.x) — 앞의 bool JSON과 똑같은 걸 타입세이프하게 만든 것:
+Java 예시(Elasticsearch Java Client, 9.x) — 앞의 bool JSON과 똑같은 걸 타입세이프하게 만든 것:
 
 ```java
 SearchResponse<ProductDoc> res = esClient.search(s -> s
