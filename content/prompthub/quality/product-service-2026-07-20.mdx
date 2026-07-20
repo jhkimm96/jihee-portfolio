@@ -1,0 +1,152 @@
+---
+title: "product-service 품질 스냅샷 (2026-07-20)"
+date: "2026-07-20"
+scope: "product-service"
+score: 63.5
+formulaVersion: 1
+metrics:
+  locTotal: 3340
+  files: 85
+  duplicationBlocks: 6
+  duplicationPct: 1.35
+  oversizedClasses: 3
+findings:
+  - { category: "controller-thin", high: 0, medium: 1, low: 0 }
+  - { category: "entity-encapsulation", high: 0, medium: 0, low: 1 }
+  - { category: "http-semantics", high: 0, medium: 0, low: 0 }
+  - { category: "logging-quality", high: 0, medium: 0, low: 0 }
+  - { category: "exception-discipline", high: 0, medium: 0, low: 2 }
+  - { category: "layer-separation", high: 0, medium: 4, low: 0 }
+  - { category: "dead-code", high: 0, medium: 2, low: 0 }
+  - { category: "duplication-semantic", high: 0, medium: 2, low: 1 }
+  - { category: "diagnosability", high: 1, medium: 1, low: 1 }
+  - { category: "integration-robustness", high: 0, medium: 3, low: 0 }
+  - { category: "service-boundary", high: 0, medium: 0, low: 0 }
+summary: "레이어 구조·Kafka 컨벤션·상태 전이 가드는 탄탄하나, 레이어 위반 4건과 서비스 간 통신 견고성(데드라인 미설정·전송 실패 무로깅·N+1 원격 호출)이 주요 개선 대상."
+tags: ["code-quality", "refactoring", "spring", "msa"]
+draft: false
+---
+
+## 범위
+
+product-service `src/main/java` — 85개 파일, 3,340 LOC (주석·공백 제외, 테스트 제외).
+브랜치 `refactor/#405-product-domain-long-param-list`, 커밋 `95fbdd4f` 기준.
+정량 메트릭은 scan-metrics v1(jscpd min-tokens 70/min-lines 5, 비대 기준 300 LOC 또는 메서드
+15개 초과), 정성 판정은 고정 루브릭 11개 카테고리로 측정했다.
+
+## 요약
+
+첫 스냅샷. **63.5점** (High 1 · Medium 13 · Low 5 · 비대 클래스 3 · 중복률 1.35%로 기준 3% 이내).
+
+기본기가 좋은 코드베이스다. 컨트롤러 6개 중 5개가 위임만 하는 얇은 구조이고, `Product`
+엔티티는 public setter 없이 상태 전이 가드(`approve`/`reject`/`supersede` 등)를 갖춘 리치
+도메인 모델이며, Kafka 소비는 멱등성(eventId+consumerGroup)·DLT·수동 Ack까지 팀 컨벤션
+문서대로 구현돼 있다. HTTP 상태코드 매핑(404/403/409/400)도 전부 의미에 맞는다.
+
+감점은 두 축에 집중된다. 첫째, **레이어 경계** — 도메인 엔티티의 인프라 컨버터 직접 참조,
+application의 인프라 구체 클래스 의존, presentation DTO 안에서의 S3 원격 호출. 둘째,
+**서비스 간 통신 견고성** — gRPC 실패를 0으로 위장하는 응답(High), 데드라인 미설정, Kafka
+전송 실패 무로깅, 판매자 정보 N+1 원격 호출.
+
+## 카테고리별 발견
+
+### diagnosability (High 1 · Medium 1 · Low 1)
+
+- **High** · `ProductQueryGrpcService.java:48-56` — `GetSellerStats` 실패 시 예외를 삼키고
+  `productCount=0, salesCount=0`을 정상 응답으로 반환한다. 정산 쪽에 틀린 통계가 전파되고
+  호출자는 실패 사실 자체를 알 수 없다. **수정 대상으로 확인됨** — 다른 메서드들처럼
+  `Status.INTERNAL`로 `onError` 전파를 권장.
+- **Medium** · `ProductQueryGrpcService.java:123-126` — `getProductContent`가 모든 예외를
+  `NOT_FOUND`로 매핑한다. DB 장애도 "Product not found"로 보고돼 원인이 왜곡된다. 예외
+  유형별 gRPC status 분리 권장.
+- **Low** · `S3StorageAdapter.java:83` — copy 실패에 `S3_PRESIGN_FAILED` 에러코드를 재사용해
+  로그·응답 코드가 실제 원인과 불일치한다. 전용 에러코드 권장.
+
+### integration-robustness (Medium 3)
+
+- **Medium** · `GrpcSellerClientAdapter.java:26-43` — blocking stub 호출에 deadline이 없어
+  user-service 지연 시 요청 스레드가 무한 대기할 수 있다. `withDeadlineAfter` 권장.
+  → *의도된 결정 관련: 판매자 정보 조합을 FE로 이관하며 이 SellerClient 경로 자체가 삭제
+  예정. 삭제 전까지는 유효한 리스크.*
+- **Medium** · `ProductEventProducer.java:55-66` — `kafkaTemplate.send()`의 Future를 확인하지
+  않아 비동기 전송 실패가 로그 없이 소실된다. 팀 컨벤션(kafka-event.md §6 "비동기 실패는
+  로깅")도 미충족. `whenComplete` 로깅 권장.
+- **Medium** · `ProductQueryService.java:62-65,126-129` · `ProductInternalService.java:85-88`
+  — 목록/관련상품/카트 스냅샷 조회에서 판매자 수만큼 `getSellerInfo` gRPC를 순차 호출하는
+  N+1 패턴. 배치 조회 부재. → *의도된 결정 관련: FE 조합 전환으로 해소 예정.*
+
+### layer-separation (Medium 4)
+
+- **Medium** · `Product.java:8,72,88` — 도메인 엔티티가 `infra.persistence.converter.TagsConverter`를
+  직접 참조 (도메인→인프라 역방향 의존). 컨버터를 도메인 인접 패키지로 옮기거나 매핑 분리 권장.
+- **Medium** · `ProductSellerService.java:15,41` — application 서비스가
+  `infra.messaging.producer.ProductEventProducer` 구체 클래스에 직접 의존. 발행 포트 인터페이스
+  도입 권장 (팀 규칙: application은 인프라 구현체에 직접 의존하지 않는다).
+- **Medium** · `SellerProductDetailResponse.java:26-62` — presentation DTO가 `StorageClient`를
+  주입받아 변환 중 S3 presign 원격 호출을 수행. presign은 application에서 완료하고 DTO는 값만
+  받게 권장.
+- **Medium** · `ProductSellerService.java:16-20` 외 application 서비스 전반 — application이
+  presentation DTO(request/response)에 의존해 응답을 조립. 팀 규칙("Controller가 DTO 변환")과
+  역전돼 있어 어느 한쪽으로 정리 필요.
+
+### dead-code (Medium 2)
+
+- **Medium** · `ProductRepository.java:40` · `ProductRepositoryAdapter.java:89-91` ·
+  `ProductJpaRepository.java:218` — `findPendingReviewProducts` 포트→어댑터→JPA 체인 전체가
+  호출자 없음 (`findAllAdminProducts`로 대체됨).
+- **Medium** · `InternalProductController.java:57-69` — `POST /internal/products/reviews`,
+  `GET /internal/products/count` REST 엔드포인트가 레포 전체에서 호출자 없음 (정산 통계는
+  gRPC `GetSellerStats`로 이전). → *의도된 결정: 내부 동기 통신은 gRPC로 단일화, REST
+  internal 컨트롤러는 order-service의 Feign 전환 완료 후 전체 정리 예정.*
+
+### duplication-semantic (Medium 2 · Low 1)
+
+- **Medium** · `FileUploadController.java:110-115` ↔ `ProductSellerService.java:231-236` —
+  presigned URL에서 S3 키를 추출하는 `extractKey`와 `TEMP_PREFIX` 정책이 두 곳에 중복. 키
+  정책 변경 시 한쪽 누락 위험.
+- **Medium** · `ProductInternalService.java:145-169` ↔ `ProductSalesCountService.java:56-73` —
+  요청 id→familyRoot→멤버 그룹핑으로 family를 해석하는 로직이 중복. 공용 컴포넌트 추출 권장.
+- **Low** · `ProductQueryService.java:62-77` ↔ `126-141` — sellerNames/tags 조립 블록 중복
+  (jscpd도 일부 탐지).
+
+### controller-thin (Medium 1)
+
+- **Medium** · `FileUploadController.java:59-115` — 콘텐츠타입 결정 정책, 확장자 검증, S3 키
+  전략, presigned URL 키 추출이 컨트롤러에 구현됨. application 서비스로 이동 권장. 나머지
+  컨트롤러 5개는 위임만 하는 모범적 구조.
+
+### exception-discipline (Low 2)
+
+- **Low** · `S3StorageAdapter.java:88-97` — `deleteObject`만 예외를 삼킨다(로그만, `copy`는
+  던짐). 베스트에포트 정책이면 주석으로 의도 표시 권장.
+- **Low** · `GrpcSellerClientAdapter.java:41` — 원시 `RuntimeException` 래핑. 도메인
+  예외/에러코드 미사용으로 상류에서 구분 불가. → *의도된 결정 관련: SellerClient 경로 삭제 예정.*
+
+### entity-encapsulation (Low 1)
+
+- **Low** · `Product.java:117-158,240-290` — `create`/`update`/`nextVersion`이 13~14개
+  파라미터를 나열해 호출부 순서 실수 위험. **이슈 #405로 리팩토링 진행 중** (현재 브랜치).
+  엔티티 자체는 setter 없이 상태를 스스로 관리하는 좋은 모델.
+
+### http-semantics · logging-quality · service-boundary (위반 없음)
+
+- HTTP 상태코드 매핑(`ProductErrorCode`) 전부 의미에 부합 (404/403/409/400).
+- 예외 핸들러의 requestId 로깅, 어댑터별 컨텍스트 로깅, 미지원 이벤트 로깅 모두 양호.
+- 타 서비스 DB 직접 접근·도메인 로직 중복 구현 없음. product↔user 양방향 동기 결합은
+  판매자 정보 FE 조합 전환(GetSeller 삭제 예정) 결정으로 한 방향으로 정리될 예정.
+
+### 비대 클래스 (스크립트 측정 3건)
+
+`Product.java`(311 LOC), `ProductFamily.java`(메서드 16), `ProductRepositoryAdapter.java`(메서드
+16 — 포트 위임이라 실질 위험 낮음).
+
+## 개선된 항목
+
+첫 스냅샷 — 비교 대상 없음. 다음 스냅샷부터 해소된 위반을 여기에 기록한다.
+
+## 한계
+
+- 정적 스냅샷이다. 빌드·테스트 실행, 런타임 동작, 인덱스·쿼리 성능은 보지 않았다.
+- 서비스 단위 측정이라 상대 서비스(user/order/settlement) 코드는 호출자 존재 확인 용도로만
+  참조했고 품질 판정 대상이 아니다.
+- 테스트 코드는 평가하지 않는다 (억지 테스트 금지 원칙).
