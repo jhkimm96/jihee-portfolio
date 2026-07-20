@@ -1,0 +1,70 @@
+---
+title: "Kubernetes 클러스터 구조 — Control Plane과 Worker Node"
+date: "2026-07-21"
+summary: "클러스터가 왜 두 역할로 나뉘는지, 각각 어떤 컴포넌트로 구성되는지 PromptHub의 2-노드 구성 예시로 정리했다."
+tags: ["Kubernetes"]
+draft: false
+---
+
+## "클러스터"가 뭔가요
+
+여러 대의 서버가 마치 컴퓨터 한 대인 것처럼 묶여서 함께 일하는 것. PromptHub는 EC2 두 대를 클러스터 하나로 묶었다.
+
+## 왜 역할을 둘로 나누나
+
+**비유**: 레스토랑. **매니저**는 "요리사 몇 명, 어느 테이블 누가"를 결정만 하고 직접 요리는 안 한다. **주방 직원**은 실제로 요리하고 서빙한다. 매니저 혼자선 음식을 못 만들고, 직원들끼리는 스스로 조율하기 어렵다.
+
+| | **Control Plane** (매니저) | **Worker Node** (주방 직원) |
+|---|---|---|
+| 하는 일 | 어디에 뭘 배치할지 결정만 함 | 실제로 컨테이너를 실행함 |
+
+**"무조건 이 두 역할이 있나?"** — 그렇다. 공식 문서는 "모든 클러스터는 Pod를 돌리기 위해 최소 한 대의 Worker Node가 필요하다"고 명시한다. 관리하는 쪽(Control Plane)이 없으면 애초에 "클러스터"라고 부를 수 없다.
+
+<details>
+<summary><b>🔍 Control Plane·Worker 안에 정확히 어떤 프로그램들이 있나요?</b></summary>
+
+**Control Plane 쪽:**
+
+| 이름 | 하는 일 |
+|---|---|
+| API Server | 모든 요청을 받는 접수창구 |
+| etcd | 클러스터 전체 상태를 적어두는 장부 |
+| Scheduler | 어디에 배치할지 결정하는 사람 |
+| Controller Manager | 죽은 거 감시하다 자동으로 고치는 사람 |
+
+**Worker Node 쪽:**
+
+| 이름 | 하는 일 |
+|---|---|
+| kubelet | 이 서버에서 컨테이너가 잘 도는지 챙기는 현장 감독 |
+| kube-proxy | 네트워크 길을 뚫어주는 교통정리 |
+| 컨테이너 런타임 | 실제로 컨테이너를 여는 실행 엔진 (containerd 등) |
+
+</details>
+
+<details>
+<summary><b>🔍 Pod가 뭔데 계속 나오지?</b></summary>
+
+Pod는 컨테이너를 담는 봉투다. Kubernetes는 컨테이너를 직접 안 다루고, 그걸 감싼 **Pod 단위**로 배치·재생성·확장을 한다. PromptHub는 대부분 Pod 하나에 컨테이너가 딱 하나라, 지금은 "컨테이너 하나 = Pod 하나"로 생각해도 거의 맞는다.
+
+</details>
+
+<details>
+<summary><b>🔍 컨테이너 런타임이 뭔지 더 자세히</b></summary>
+
+Dockerfile로 만든 "레시피(이미지)"를 실제로 조리해서 켜고 끄는 요리사다. 헷갈리기 쉬운 점: Kubernetes는 Docker를 직접 쓰지 않고, CRI라는 공통 규격으로 `containerd` 같은 런타임과 대화한다. PromptHub도 실제로 containerd(v2.2.5)를 쓴다 — 이미지는 Docker로 만들지만, 실행은 containerd가 한다.
+
+</details>
+
+## PromptHub는 이걸 어떻게 배치했나
+
+- **Medium 서버** = Control Plane
+- **Large 서버** = Worker Node (실제 서비스들이 여기서 돌아간다)
+
+## 왜 옮기나
+
+PromptHub 팀의 내부 설계 문서에는 "관리형 서비스(EKS)는 편하지만 내부가 안 보여서 학습이 안 된다"는 이유가 적혀 있다. 그래서 `kubeadm`으로 서버 두 대에 직접 설치하는 방법을 택했다.
+
+## 참고
+
+- [Kubernetes Cluster Architecture — Kubernetes 공식 문서](https://kubernetes.io/docs/concepts/architecture/)
