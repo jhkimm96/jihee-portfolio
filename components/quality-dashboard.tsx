@@ -2,15 +2,19 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { QUALITY_CATEGORIES, severityTotals, type QualityEntry } from '@/lib/content'
+import { QUALITY_CATEGORIES, QUALITY_CATEGORY_DESCRIPTIONS, severityTotals, type QualityEntry } from '@/lib/content'
 import { ScoreTrendChart, SeverityTrendChart, MetricSparkline } from '@/components/quality-charts'
 import { cn } from '@/lib/utils'
 
-function Delta({ diff, downIsGood = true }: { diff: number; downIsGood?: boolean }) {
+function Delta({ diff, downIsGood = true, title }: { diff: number; downIsGood?: boolean; title?: string }) {
   if (diff === 0) return <span className="text-muted-foreground">—</span>
   const good = downIsGood ? diff < 0 : diff > 0
   return (
-    <span className="viz-root font-mono text-xs" style={{ color: good ? 'var(--viz-delta-good)' : 'var(--viz-delta-bad)' }}>
+    <span
+      className={cn('viz-root font-mono text-xs', title && 'cursor-help')}
+      style={{ color: good ? 'var(--viz-delta-good)' : 'var(--viz-delta-bad)' }}
+      title={title}
+    >
       {diff > 0 ? '▲' : '▼'} {Math.abs(diff)}
     </span>
   )
@@ -51,7 +55,13 @@ export function QualityDashboard({ scopes, trends }: { scopes: string[]; trends:
           <div className="text-xs text-muted-foreground">종합 점수 (100점 만점)</div>
           <div className="mt-1 flex items-baseline gap-2">
             <span className="text-4xl font-semibold">{latest.score}</span>
-            {previous ? <Delta diff={Math.round((latest.score - previous.score) * 10) / 10} downIsGood={false} /> : null}
+            {previous ? (
+              <Delta
+                diff={Math.round((latest.score - previous.score) * 10) / 10}
+                downIsGood={false}
+                title="직전 스냅샷 대비 점수 변화 — ▲ 상승(개선) · ▼ 하락(악화)"
+              />
+            ) : null}
           </div>
           <div className="mt-1 text-xs text-muted-foreground">
             {latest.date} · 산식 v{latest.formulaVersion}
@@ -89,7 +99,12 @@ export function QualityDashboard({ scopes, trends }: { scopes: string[]; trends:
                 <th className="px-3 py-2 text-right font-medium">High</th>
                 <th className="px-3 py-2 text-right font-medium">Medium</th>
                 <th className="px-3 py-2 text-right font-medium">Low</th>
-                <th className="px-3 py-2 text-right font-medium">Δ 전회</th>
+                <th
+                  className="cursor-help px-3 py-2 text-right font-medium"
+                  title="직전 스냅샷 대비 이 카테고리의 총 위반 건수 증감 — ▼ 줄었음(개선) · ▲ 늘었음(악화)"
+                >
+                  전회 대비
+                </th>
               </tr>
             </thead>
             <tbody className="font-mono text-xs [font-variant-numeric:tabular-nums]">
@@ -100,12 +115,25 @@ export function QualityDashboard({ scopes, trends }: { scopes: string[]; trends:
                 const prevTotal = prev ? prev.high + prev.medium + prev.low : null
                 return (
                   <tr key={category} className="border-b border-border last:border-0">
-                    <td className="px-3 py-2">{category}</td>
+                    <td className="px-3 py-2">
+                      <span
+                        className="cursor-help underline decoration-border decoration-dotted underline-offset-4"
+                        title={QUALITY_CATEGORY_DESCRIPTIONS[category]}
+                      >
+                        {category}
+                      </span>
+                    </td>
                     <td className="px-3 py-2 text-right">{current.high}</td>
                     <td className="px-3 py-2 text-right">{current.medium}</td>
                     <td className="px-3 py-2 text-right">{current.low}</td>
                     <td className="px-3 py-2 text-right">
-                      {prevTotal === null ? <span className="text-muted-foreground">—</span> : <Delta diff={total - prevTotal} />}
+                      {prevTotal === null ? (
+                        <span className="cursor-help text-muted-foreground" title="비교할 이전 스냅샷이 아직 없습니다">
+                          —
+                        </span>
+                      ) : (
+                        <Delta diff={total - prevTotal} title="직전 스냅샷 대비 이 카테고리의 총 위반 건수 변화" />
+                      )}
                     </td>
                   </tr>
                 )
@@ -113,6 +141,10 @@ export function QualityDashboard({ scopes, trends }: { scopes: string[]; trends:
             </tbody>
           </table>
         </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          카테고리명에 마우스를 올리면 무엇을 점검하는지 설명이 표시됩니다. 전회 대비: 직전 스냅샷과 비교한 총 위반
+          건수 변화 — ▼ 감소(개선) · ▲ 증가(악화).
+        </p>
       </section>
 
       <div>
