@@ -1,0 +1,45 @@
+---
+title: "커뮤니티 ingress-nginx 대신 F5 NGINX Ingress Controller를 택한 이유"
+date: "2026-07-21"
+status: accepted
+summary: "가장 널리 쓰이던 커뮤니티 ingress-nginx가 2026년 3월 유지보수 종료되면서, 계속 관리되는 F5 NGINX Ingress Controller를 새 설치 대상으로 택하고 hostNetwork DaemonSet으로 배치했다."
+tags: ["kubernetes", "infra", "ingress"]
+draft: false
+---
+
+## 배경
+
+외부에서 들어오는 HTTP 요청을 클러스터 안으로 받아줄 Ingress Controller가 필요했다.
+Kubernetes 생태계에서 가장 널리 쓰이던 건 커뮤니티가 관리하던 `ingress-nginx`였는데,
+이 프로젝트를 설계하던 시점(2026년) 기준으로 이 커뮤니티 버전은 **2026년 3월 24일부로
+Kubernetes SIG Network가 유지보수를 공식 종료**했다 — 더 이상 신규 릴리스·버그 수정·
+보안 패치가 없다.
+
+## 고려한 선택지
+
+- **커뮤니티 `ingress-nginx`(`registry.k8s.io/ingress-nginx/controller`)**: 예전부터
+  가장 널리 쓰였고 자료도 많다. 하지만 이미 유지보수가 종료돼서, 앞으로 발견될
+  취약점이 패치 안 되는 상태로 방치된다. 새로 설치하는 프로젝트가 쓰기엔 위험하다.
+- **F5 NGINX Ingress Controller(`nginx/kubernetes-ingress` 계열, OSS)**: F5가 계속
+  유지보수하는 별도 계열. 표준 Kubernetes Ingress API를 그대로 지원하면서 활발히
+  관리된다. 대신 이름이 비슷해서 헷갈리기 쉽고(`ingress-nginx` vs `nginx-ingress`),
+  문서·설정 방식이 커뮤니티 버전과 조금 다르다.
+
+## 결정
+
+새로 설치하는 Ingress Controller는 F5가 유지보수하는 `nginx/nginx-ingress` 이미지
+(v5.5.1, digest로 고정)를 썼다. 커뮤니티 `ingress-nginx`는 이번 설계에서 배제했다.
+배치는 DaemonSet + `hostNetwork: true`로 Large 서버의 80번 포트를 직접 점유하고,
+NodePort나 AWS Load Balancer 같은 별도 노출 리소스는 만들지 않았다. F5 Controller의
+기본 상태 포트(8080/8081)는 기존 Docker 포트와 겹칠 수 있어 18080/18081로 바꿨다.
+
+## 결과
+
+- 신규 설치 시점에 이미 죽은(EOL) 컴포넌트를 선택하는 실수를 피했다 — 앞으로 나올
+  보안 취약점에 대한 패치를 받을 수 있다.
+- hostNetwork 방식이라 Large 서버의 80/443 포트를 Controller가 직접 점유한다.
+  그래서 기존 Docker Compose Gateway가 같은 80번 포트를 쓰고 있는 동안은 둘을
+  동시에 못 띄운다 — 실제 전환(cutover) 시점에 Docker를 먼저 내려야 하는 제약이
+  생겼다.
+- NodePort·LoadBalancer를 안 쓰는 대신 hostNetwork를 직접 관리해야 해서, 포트
+  충돌·보안 그룹 설정을 사람이 더 신경 써야 한다.
