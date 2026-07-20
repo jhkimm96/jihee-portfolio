@@ -277,3 +277,23 @@
   font-size: 1.1rem;
   cursor: pointer;
 }
+
+/* quality 대시보드 차트 색상 (dataviz 팔레트 — 사이트 카드 표면 기준 검증됨) */
+.viz-root {
+  --viz-series: #2a78d6;
+  --viz-sev-high: #d03b3b;
+  --viz-sev-medium: #ec835a;
+  --viz-sev-low: #fab219;
+  --viz-grid: #e1e0d9;
+  --viz-axis: #c3c2b7;
+  --viz-delta-good: #006300;
+  --viz-delta-bad: #d03b3b;
+}
+
+.dark .viz-root {
+  --viz-series: #3987e5;
+  --viz-grid: #2c2c2a;
+  --viz-axis: #383835;
+  --viz-delta-good: #0ca30c;
+  --viz-delta-bad: #e66767;
+}
