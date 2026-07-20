@@ -5,7 +5,9 @@ import {
   studyFrontmatterSchema,
   decisionFrontmatterSchema,
   aboutFrontmatterSchema,
-  resumeFrontmatterSchema
+  resumeFrontmatterSchema,
+  qualityFrontmatterSchema,
+  QUALITY_CATEGORIES
 } from './schemas'
 
 describe('projectFrontmatterSchema', () => {
@@ -224,5 +226,56 @@ describe('resumeFrontmatterSchema', () => {
       certificates: [{ name: '정보처리기사', date: '2024-06', issuer: '한국산업인력공단' }]
     })
     expect(result.success).toBe(true)
+  })
+})
+
+const validQualityFrontmatter = () => ({
+  title: 'product-service 품질 스냅샷 (2026-07-20)',
+  date: '2026-07-20',
+  scope: 'product-service',
+  score: 78.5,
+  formulaVersion: 1,
+  metrics: {
+    locTotal: 12345,
+    files: 180,
+    duplicationBlocks: 14,
+    duplicationPct: 4.2,
+    oversizedClasses: 3
+  },
+  findings: QUALITY_CATEGORIES.map((category) => ({ category, high: 0, medium: 1, low: 2 }))
+})
+
+describe('qualityFrontmatterSchema', () => {
+  it('accepts a valid quality frontmatter with all 11 categories', () => {
+    expect(qualityFrontmatterSchema.safeParse(validQualityFrontmatter()).success).toBe(true)
+  })
+
+  it('rejects when a category is missing (findings must cover all categories)', () => {
+    const data = validQualityFrontmatter()
+    data.findings = data.findings.slice(1)
+    expect(qualityFrontmatterSchema.safeParse(data).success).toBe(false)
+  })
+
+  it('rejects an unknown category', () => {
+    const data = validQualityFrontmatter()
+    data.findings[0] = { category: 'not-a-category' as never, high: 0, medium: 0, low: 0 }
+    expect(qualityFrontmatterSchema.safeParse(data).success).toBe(false)
+  })
+
+  it('rejects a score above 100', () => {
+    const data = { ...validQualityFrontmatter(), score: 101 }
+    expect(qualityFrontmatterSchema.safeParse(data).success).toBe(false)
+  })
+
+  it('rejects negative finding counts', () => {
+    const data = validQualityFrontmatter()
+    data.findings[0] = { category: QUALITY_CATEGORIES[0], high: -1, medium: 0, low: 0 }
+    expect(qualityFrontmatterSchema.safeParse(data).success).toBe(false)
+  })
+
+  it('exposes exactly 11 fixed categories', () => {
+    expect(QUALITY_CATEGORIES).toHaveLength(11)
+    expect(QUALITY_CATEGORIES[0]).toBe('controller-thin')
+    expect(QUALITY_CATEGORIES[10]).toBe('service-boundary')
   })
 })
