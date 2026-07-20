@@ -1,0 +1,126 @@
+---
+title: "Deployment와 StatefulSet — 상태 없는 앱과 있는 앱을 다루는 법"
+date: "2026-07-21"
+summary: "Pod를 직접 안 쓰고 Deployment·StatefulSet으로 감싸는 이유, 롤링 업데이트와 순서 있는 배포가 어떻게 동작하는지 PromptHub 실제 매니페스트로 정리했다."
+tags: ["Kubernetes"]
+draft: false
+---
+
+## 왜 Pod를 그냥 안 쓰고 감싸서 쓰나
+
+Pod는 컨테이너를 담는 봉투다. 근데 Pod 하나만 달랑 만들어두면 문제가 있다 — **그 Pod가 죽으면 아무도 다시 살려주지 않는다.** 그래서 실무에서는 Pod를 직접 만들지 않고, "이 Pod를 항상 몇 개 유지해줘"라고 감독하는 역할에게 맡긴다. 그 감독이 바로 **Deployment**나 **StatefulSet**이다.
+
+## Deployment란 — 상태 없는 앱을 다루는 법
+
+공식 정의: "Deployment는 stateless 애플리케이션 워크로드를 실행하기 위해 Pod 집합을 관리한다."
+
+여기서 **stateless**(상태 없음)란 "이 Pod가 어제까지 뭘 하고 있었는지 몰라도 상관없다"는 뜻이다. 예를 들어 user-service 같은 API 서버는 요청 하나 처리하고 나면 그 요청을 기억할 필요가 없다 — 그래서 이런 앱은 Deployment로 관리한다.
+
+<details>
+<summary><b>🔍 stateless 애플리케이션 워크로드는 뭔데?</b></summary>
+
+**"워크로드"**(workload)는 그냥 "Kubernetes 위에서 실제로 돌아가면서 일을 하는 것"을 통틀어 부르는 말이다. Pod, Deployment, StatefulSet, Job, CronJob이 전부 다 "워크로드의 한 종류"다.
+
+**stateless**(상태 없음) = 이 Pod가 "어제 뭘 했는지" 기억할 필요가 없는 앱. 예를 들어 API 서버가 요청 하나 처리하고 나면, 그 요청 내용을 계속 갖고 있을 필요 없이 DB에 저장하고 끝나면 된다.
+
+그래서 "stateless 애플리케이션 워크로드"를 풀어보면 **"상태를 안 갖고 있어도 되는, Kubernetes 위에서 실행되는 앱"**이라는 뜻이다. 반대되는 개념(stateful)은 바로 아래 StatefulSet 섹션의 PostgreSQL 같은 게 예시다.
+
+</details>
+
+**중요한 구조**: Deployment가 Pod를 직접 만드는 게 아니라, 중간에 **ReplicaSet**이라는 걸 하나 더 만들고, 그 ReplicaSet이 실제 Pod를 만든다.
+
+<details>
+<summary><b>🔍 ReplicaSet이 정확히 뭔데?</b></summary>
+
+ReplicaSet은 딱 하나의 일만 한다: **"이 Pod를 항상 N개 유지해줘."** 계속 감시하다가 Pod가 하나 죽으면 즉시 새 Pod를 하나 만들어서 개수를 맞춘다.
+
+Deployment는 이 ReplicaSet 위에 "버전 관리·배포 이력·롤백" 같은 기능을 더 얹은 상위 개념이다.
+
+**비유**: ReplicaSet은 "인원수 맞추는 사람"이고, Deployment는 그 사람한테 "이제 새 팀으로 교체해줘, 근데 천천히"라고 지시하는 매니저다.
+
+</details>
+
+공식 문서는 "ReplicaSet을 직접 건드리지 말라"고 경고한다 — Deployment가 알아서 관리하는 영역이라, 사람이 손대면 꼬인다.
+
+<details>
+<summary><b>🔍 ReplicaSet을 왜 직접 못 건드리는지</b></summary>
+
+못 건드리는 게 아니라, 건드리면 안 된다(기술적으로는 가능하지만 문제가 생긴다).
+
+Deployment는 "이 ReplicaSet은 내가 관리하는 거야"라고 인식하고 있어서, 사람이 ReplicaSet을 직접 수정해도 Deployment는 그 변경을 모른 채 계속 자기가 원하는 상태로 되돌리려고 한다 — 그럼 사람이 고친 게 예고 없이 사라지거나 예상 못한 동작이 생긴다.
+
+**비유**: 로봇청소기가 자동으로 청소하는 방에서 몰래 가구를 옮겨놓으면, 로봇은 그걸 모르고 원래 프로그래밍된 경로대로 움직이다가 이상하게 부딪히는 것과 비슷하다.
+
+그래서 뭔가 바꾸고 싶으면 ReplicaSet이 아니라 **그 위의 Deployment를 수정**해야 한다 — Deployment가 "새로운 원하는 상태"를 보고 알아서 ReplicaSet을 새로 만들거나 조정한다.
+
+</details>
+
+**롤링 업데이트**: 새 버전을 배포할 때, 옛날 Pod를 먼저 끄고 새 Pod를 켜는 게 아니라 — 공식 문서 표현으로 "새 ReplicaSet을 점진적으로 늘리면서 기존 ReplicaSet을 줄여, Pod가 통제된 속도로 교체되게" 한다. 실제 PromptHub의 `product-service` 배포 파일을 보면:
+
+```yaml
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 1        # 새 버전 배포할 때 1개 더 만들어놓고
+      maxUnavailable: 0  # 기존 걸 절대 먼저 끄지 않는다
+```
+
+"새 Pod를 하나 더 켜서 준비되면, 그때서야 옛날 Pod를 끈다"는 뜻이다. 그래야 배포 중에도 서비스가 안 끊긴다.
+
+## StatefulSet이란 — 상태 있는 앱을 다루는 법
+
+Deployment와 정반대 성격의 앱도 있다. PostgreSQL 같은 DB는 죽었다 살아나도 **어제 저장했던 데이터가 그대로 남아있어야** 한다. 이런 앱을 **stateful**(상태 있음)이라고 하고, StatefulSet으로 관리한다.
+
+공식 문서가 둘의 차이를 이렇게 정리한다:
+
+| | Deployment | StatefulSet |
+|---|---|---|
+| Pod들 | 서로 바꿔 껴도 상관없는 복제본 | 각자 고정된 정체성(sticky identity) 유지 |
+| 네트워크 이름 | 없음 | 안정적이고 고유함 |
+| 스토리지 | 임시적 | 영구적 |
+
+PromptHub의 `postgres` 파일을 보면 이런 부분이 있다:
+
+```yaml
+kind: StatefulSet
+spec:
+  podManagementPolicy: OrderedReady
+  volumeMounts:
+    - name: data
+      mountPath: /var/lib/postgresql
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: postgres-data
+```
+
+<details>
+<summary><b>🔍 podManagementPolicy: OrderedReady가 정확히 뭔지</b></summary>
+
+StatefulSet에만 있는 옵션이고 값은 두 가지다.
+
+- **`OrderedReady`**(기본값, PromptHub도 이걸 씀): Pod를 0번부터 순서대로 하나씩 만든다. **Pod-0이 완전히 준비(Ready)될 때까지 기다렸다가 그제서야 Pod-1을 만들기 시작**한다. 지울 때는 반대 순서로 하나씩 지운다.
+- **`Parallel`**: 순서 신경 안 쓰고 한꺼번에 다 만들고 지운다.
+
+기본값이 `OrderedReady`인 이유는, StatefulSet은 보통 "먼저 켜진 애가 기준이 되고 나중 애들이 거기 맞춰 합류하는" 구조(예: DB 클러스터에서 첫 노드가 대표 역할을 하는 경우)가 많아서, 순서 없이 다 동시에 켜면 꼬일 수 있기 때문이다.
+
+PromptHub의 PostgreSQL은 지금 `replicas: 1`이라 사실 순서 신경 쓸 Pod가 하나뿐이다 — 나중에 여러 개로 늘리면 이 설정이 실제로 중요해진다.
+
+</details>
+
+`persistentVolumeClaim`(영구 저장공간 신청서)이 붙어 있어서, Pod가 재시작돼도 같은 저장공간을 다시 연결한다 — 데이터가 안 날아가는 이유다. (`serviceName: postgres-headless` 부분은 Service 개념이 필요해서 다음 편 "네트워킹"에서 다룬다.)
+
+## (짧게) CronJob — 정해진 시간에 딱 한 번 실행되고 끝나는 작업
+
+공식 정의: "CronJob은 반복된 일정에 따라 Job을 생성한다" — "백업, 리포트 생성처럼 정기적인 작업"에 쓰라고 만들어졌다. Deployment/StatefulSet은 "항상 켜져 있는" 걸 관리하는데, CronJob은 정반대로 "정해진 시각에 한 번 실행하고 끝"이다.
+
+핵심 옵션 `concurrencyPolicy`(동시 실행 정책): 이전 작업이 안 끝났는데 다음 실행 시각이 오면 어떻게 할지 — `Forbid`(건너뛴다) / `Allow`(그냥 같이 돌린다) / `Replace`(기존 걸 죽이고 새로 시작).
+
+**참고**: PromptHub는 정산 서비스를 지금은 24시간 켜진 서비스(Deployment)로 두고 있는데, "정산은 매주 한 번만 계산하면 되는데 굳이 계속 켜둘 필요가 있나"는 이유로 CronJob 전환이 논의 중이다(아직 머지 전이라 실제 파일은 없다).
+
+## 참고
+
+- [Kubernetes Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
+- [Kubernetes StatefulSet](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/)
+- [Kubernetes CronJob](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/)
