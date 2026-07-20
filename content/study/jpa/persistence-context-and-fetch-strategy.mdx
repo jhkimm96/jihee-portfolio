@@ -1,0 +1,40 @@
+---
+title: "영속성 컨텍스트와 1차 캐시, 지연 로딩 vs 즉시 로딩"
+date: "2026-07-21"
+summary: "JPA가 조회한 엔티티를 트랜잭션 동안 어떻게 기억하고 재사용하는지, 연관된 데이터를 언제 가져올지(지연/즉시 로딩) PromptHub의 실제 엔티티로 정리했다."
+tags: ["JPA", "Hibernate"]
+draft: false
+---
+
+## 영속성 컨텍스트 — JPA가 기억하는 "임시 저장소"
+
+트랜잭션이 시작되면, JPA(Hibernate)는 그 트랜잭션 동안 조회하거나 저장한 엔티티들을 **영속성 컨텍스트**라는 내부 공간에 담아둔다. 이게 있어서 같은 트랜잭션 안에서 같은 id로 두 번 조회하면, DB에 두 번 쿼리를 보내지 않고 **1차 캐시**(영속성 컨텍스트 안의 저장소)에서 바로 꺼내준다.
+
+**비유**: 도서관에서 책을 한 번 빌려서 책상 위에 펴놓았으면, 같은 책이 또 필요할 때 서가까지 다시 갈 필요 없이 책상 위에 있는 걸 그대로 쓰면 된다 — 영속성 컨텍스트가 그 "책상"이다. 트랜잭션이 끝나면 책상은 치워진다(다음 트랜잭션에서는 다시 서가부터 가야 한다).
+
+## 지연 로딩(LAZY) vs 즉시 로딩(EAGER)
+
+엔티티끼리 연관관계(예: 리뷰 → 작성자)가 있을 때, 그 연관된 데이터를 **언제** 가져올지 정하는 게 fetch 전략이다.
+
+- **LAZY(지연 로딩)**: 연관된 데이터는 실제로 그 필드에 접근하는 순간에야 별도 쿼리로 가져온다.
+- **EAGER(즉시 로딩)**: 원래 엔티티를 조회하는 시점에 연관 데이터까지 한 번에 같이 가져온다.
+
+PromptHub의 실제 코드를 보면 둘 다 쓰인다:
+
+```java
+// Review.java — 리뷰는 조회할 때 상품 정보를 매번 같이 안 가져와도 됨
+@ManyToOne(fetch = FetchType.LAZY)
+private Product product;
+
+// User.java — 역할(BUYER/SELLER/ADMIN)은 사용자를 조회할 때마다 거의 항상 필요해서 즉시 가져옴
+@ElementCollection(fetch = FetchType.EAGER)
+private Set<UserRole> roles = new HashSet<>();
+```
+
+**언제 뭘 쓰나**: "이 연관 데이터를 거의 항상 같이 써야 하나?"가 기준이다. 거의 항상 같이 쓴다면 EAGER로 한 번에 가져오는 게 왕복 횟수를 줄여 유리하다. 가끔만 필요하다면 LAZY로 두고, 필요할 때만 별도로 가져오는 게 낭비가 없다.
+
+주의할 점: LAZY로 걸어둔 연관 데이터를, 트랜잭션이 여러 개 있는 상황에서 **반복문 안에서** 접근하면 다음 편에서 다룰 **N+1 문제**가 생긴다. LAZY 자체가 문제가 아니라, LAZY를 잘못 쓰는 패턴이 문제다.
+
+## 참고
+
+- [Hibernate ORM User Guide — Association Fetching](https://docs.jboss.org/hibernate/orm/current/userguide/html_single/Hibernate_User_Guide.html#fetching)
