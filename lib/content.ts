@@ -122,3 +122,55 @@ export function findDecisionTitle(entries: DecisionEntry[], fullSlug: string): s
 export function reviewsForProject(entries: ReviewEntry[], projectSlug: string): ReviewEntry[] {
   return sortByDateDesc(publishedOnly(entries).filter((entry) => entry.project === projectSlug))
 }
+
+export type QualityFinding = {
+  category: string
+  high: number
+  medium: number
+  low: number
+}
+
+export type QualityMetrics = {
+  locTotal: number
+  files: number
+  duplicationBlocks: number
+  duplicationPct: number
+  oversizedClasses: number
+}
+
+export type QualityEntry = {
+  slug: string
+  project: string
+  scope: string
+  title: string
+  date: string
+  score: number
+  formulaVersion: number
+  metrics: QualityMetrics
+  findings: QualityFinding[]
+  summary?: string
+  tags?: string[]
+  draft: boolean
+  content: string
+}
+
+export function qualityScopes(entries: QualityEntry[]): string[] {
+  return [...new Set(publishedOnly(entries).map((entry) => entry.scope))].sort()
+}
+
+export function qualityTrendForScope(entries: QualityEntry[], scope: string): QualityEntry[] {
+  return publishedOnly(entries)
+    .filter((entry) => entry.scope === scope)
+    .sort((a, b) => a.date.localeCompare(b.date))
+}
+
+export function severityTotals(entry: QualityEntry): { high: number; medium: number; low: number } {
+  return entry.findings.reduce(
+    (totals, finding) => ({
+      high: totals.high + finding.high,
+      medium: totals.medium + finding.medium,
+      low: totals.low + finding.low
+    }),
+    { high: 0, medium: 0, low: 0 }
+  )
+}
