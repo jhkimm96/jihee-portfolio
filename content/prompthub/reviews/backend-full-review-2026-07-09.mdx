@@ -63,7 +63,7 @@ flowchart TD
 
 | ID | 항목 | 심각도 | 근본원인 | 조치 | 상태 |
 |---|---|---|---|---|---|
-| D1 | 상품 조회 판매자 N+1 | Med | 단건 호출 루프(배치 미사용) | 배치 조회로 교체 | 미조치 |
+| D1 | 상품 조회 판매자 N+1 | Med | 단건 호출 루프(배치 미사용) | 배치 조회로 교체 | → 결정: [판매자 정보 조합을 프론트엔드로 이관](/decisions/prompthub/product-service/seller-info-fe-composition) 에서 결정 |
 
 ### E. 아키텍처
 

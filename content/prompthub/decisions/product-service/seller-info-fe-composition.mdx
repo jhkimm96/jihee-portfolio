@@ -1,0 +1,41 @@
+---
+title: "판매자 정보 조합을 프론트엔드로 이관"
+date: "2026-07-20"
+status: accepted
+summary: "product-service가 user-service를 호출해 판매자 정보를 합쳐 응답하던 방식을 폐기하고, 프론트엔드가 두 API를 병렬로 불러 화면에서 조합하도록 바꿔 product↔user 양방향 gRPC 결합을 해소한다."
+tags: ["msa", "grpc", "architecture", "coupling"]
+draft: false
+---
+
+## 배경
+
+product-service는 상품 목록/상세/카트 응답에 판매자 정보(이름, 프로필 이미지)를 합쳐 내려주기
+위해 user-service의 GetSeller gRPC를 호출했다. 동시에 user-service도 위시리스트 등을 위해
+product-service의 GetProductsByIds를 호출해, 두 서비스가 양방향으로 동기 결합돼 있었다.
+목록 조회에서는 판매자 수만큼 GetSeller를 순차 호출하는 N+1 패턴도 있었다
+(2026-07-09 리뷰 리스크 D1, 2026-07-20 품질 스냅샷에서도 동일하게 확인).
+
+## 고려한 선택지
+
+- **백엔드 조합 유지 + N+1만 배치 API로 개선**: 구현 비용은 작지만, product-service가
+  user-service 가용성에 계속 묶여 있는 결합 자체는 남는다.
+- **판매자 정보 조합을 프론트엔드로 이관**: product-service가 user-service 가용성에서 완전히
+  독립한다. 대신 프론트엔드가 상품·판매자 API를 병렬로 불러 화면에서 합쳐야 하고, 로딩 상태와
+  한쪽만 실패했을 때의 부분 렌더링을 새로 책임져야 한다.
+
+## 결정
+
+상품과 판매자 정보의 조합을 백엔드가 아니라 프론트엔드에서 하기로 한다. product-service의
+GetSeller(user-service 호출) 경로는 제거 예정이다.
+
+## 결과
+
+- user-service 장애가 상품 목록/상세/카트 API로 전파되지 않는다 — 두 서비스의 읽기 경로가
+  서로 독립적으로 동작한다.
+- 목록 조회에서 판매자 수만큼 반복되던 gRPC N+1 호출(리뷰 D1)이 백엔드에서 사라진다.
+- 도메인 경계가 서비스 경계와 일치하게 된다 — product-service는 상품 도메인만, user-service는
+  판매자 도메인만 책임진다.
+- 대신 프론트엔드가 상품/판매자 데이터를 병렬로 가져와 합치는 로직과 부분 실패 처리를 새로
+  구현해야 한다.
+- 전환 전까지는 GetSeller 경로의 deadline 미설정 등 통신 견고성 이슈(2026-07-20 품질 스냅샷)가
+  여전히 유효한 리스크다.
