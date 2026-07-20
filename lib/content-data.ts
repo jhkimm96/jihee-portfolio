@@ -1,4 +1,4 @@
-import { projects, troubleshootingPosts, studyPosts, decisions, reviews, about, resume } from '#site/content'
+import { projects, troubleshootingPosts, studyPosts, decisions, reviews, quality, about, resume } from '#site/content'
 import {
   sortProjects,
   findProjectBySlug,
@@ -9,7 +9,9 @@ import {
   findDecisionTitle,
   groupByCategory,
   findBySlugPath,
-  reviewsForProject
+  reviewsForProject,
+  qualityScopes,
+  qualityTrendForScope
 } from './content'
 
 export function getAllProjects() {
@@ -82,4 +84,20 @@ export function getReviewsForProject(projectSlug: string) {
 
 export function getReviewBySlugPath(slugParts: string[]) {
   return findBySlugPath(publishedOnly(reviews), slugParts)
+}
+
+export function getPublishedQuality() {
+  return sortByDateDesc(publishedOnly(quality))
+}
+
+export function getQualityScopes() {
+  return qualityScopes(quality)
+}
+
+export function getQualityTrend(scope: string) {
+  return qualityTrendForScope(quality, scope)
+}
+
+export function getQualityBySlugPath(slugParts: string[]) {
+  return findBySlugPath(publishedOnly(quality), slugParts)
 }
