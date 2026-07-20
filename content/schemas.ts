@@ -1,4 +1,7 @@
 import { s } from 'velite'
+import { QUALITY_CATEGORIES } from '../lib/content'
+
+export { QUALITY_CATEGORIES }
 
 export const projectFrontmatterSchema = s.object({
   title: s.string(),
@@ -49,21 +52,7 @@ export const reviewFrontmatterSchema = s.object({
   draft: s.boolean().default(false)
 })
 
-const qualityCategoryEnum = s.enum([
-  'controller-thin',
-  'entity-encapsulation',
-  'http-semantics',
-  'logging-quality',
-  'exception-discipline',
-  'layer-separation',
-  'dead-code',
-  'duplication-semantic',
-  'diagnosability',
-  'integration-robustness',
-  'service-boundary'
-])
-
-export const QUALITY_CATEGORIES = qualityCategoryEnum.options
+const qualityCategoryEnum = s.enum(QUALITY_CATEGORIES)
 
 export const qualityFrontmatterSchema = s.object({
   title: s.string(),

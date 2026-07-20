@@ -123,6 +123,22 @@ export function reviewsForProject(entries: ReviewEntry[], projectSlug: string): 
   return sortByDateDesc(publishedOnly(entries).filter((entry) => entry.project === projectSlug))
 }
 
+export const QUALITY_CATEGORIES = [
+  'controller-thin',
+  'entity-encapsulation',
+  'http-semantics',
+  'logging-quality',
+  'exception-discipline',
+  'layer-separation',
+  'dead-code',
+  'duplication-semantic',
+  'diagnosability',
+  'integration-robustness',
+  'service-boundary'
+] as const
+
+export type QualityCategory = (typeof QUALITY_CATEGORIES)[number]
+
 export type QualityFinding = {
   category: string
   high: number

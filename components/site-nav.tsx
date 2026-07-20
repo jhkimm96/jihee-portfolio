@@ -16,6 +16,7 @@ const navItems = [
   { href: '/study', label: 'Study' },
   { href: '/decisions', label: 'Decisions' },
   { href: '/reviews', label: 'Reviews' },
+  { href: '/quality', label: 'Quality' },
   { href: '/about', label: 'About' },
   { href: '/resume', label: 'Resume' }
 ]
