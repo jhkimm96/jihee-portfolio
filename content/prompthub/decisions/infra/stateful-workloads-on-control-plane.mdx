@@ -1,0 +1,42 @@
+---
+title: "Control Plane 서버에도 PostgreSQL·Redis를 배치한 이유"
+date: "2026-07-21"
+status: accepted
+summary: "서버가 두 대뿐인 상황에서 관제탑 역할(Control Plane) 서버를 놀리지 않고 PostgreSQL·Redis를 함께 배치해 자원을 활용하는 대신, 그 서버 장애 시 영향 범위가 커지는 걸 감수했다."
+tags: ["kubernetes", "infra", "taint-toleration"]
+draft: false
+---
+
+## 배경
+
+PromptHub 클러스터는 EC2 서버가 딱 두 대뿐이다(Medium=Control Plane, Large=Worker).
+Kubernetes 관례상 Control Plane 서버는 일반 애플리케이션이나 상태 저장 워크로드를
+두지 않도록 기본적으로 막혀 있다(taint). 근데 서버가 두 대뿐이라, 이 규칙을 그대로
+지키면 Control Plane 서버는 클러스터 관리 일만 하고 나머지 자원(CPU·메모리)은 그냥
+놀게 된다.
+
+## 고려한 선택지
+
+- **Control Plane 격리 원칙 그대로 유지 + PostgreSQL·Redis도 Worker(Large)에 배치**:
+  원칙은 지키지만, Large 서버 한 대에 Kafka·모든 비즈니스 서비스·Gateway·DB·Redis까지
+  다 몰리게 되어 Large 하나가 죽으면 사실상 전체가 멈춘다. Medium의 여유 자원은
+  활용 못 하고 낭비된다.
+- **Control Plane에 PostgreSQL·Redis만 예외로 허용**: Medium의 남는 자원을 활용해
+  Large 쪽 부담을 분산한다. 대신 Medium 서버가 죽으면 "클러스터 관리 기능"과
+  "DB·캐시"가 동시에 멈추는 더 넓은 장애 범위를 감수해야 한다.
+
+## 결정
+
+Control Plane의 기본 taint(`node-role.kubernetes.io/control-plane:NoSchedule`)는
+그대로 유지하되, PostgreSQL과 Redis에만 예외로 toleration을 줘서 Medium 서버에
+배치했다. 다른 프로젝트 Pod에는 이 예외를 확장하지 않는다.
+
+## 결과
+
+- 서버 두 대의 자원을 고르게 나눠 쓸 수 있게 됐다 — Large 서버가 Kafka·비즈니스
+  서비스·Gateway까지 다 떠안지 않아도 된다.
+- 대신 Medium 서버 장애 범위가 넓어졌다: Medium이 죽으면 클러스터 관리(Control
+  Plane)뿐 아니라 PostgreSQL·Redis도 동시에 멈춘다 — Worker의 Pod들이 남아있어도
+  DB에 못 붙으니 핵심 기능이 사실상 다 실패한다.
+- 이건 서버가 2대뿐인 현재 규모에서의 의도된 절충이다. 서버가 늘어나면 PostgreSQL·
+  Redis를 다시 Worker 전용 서버로 옮기는 걸 재검토할 대상이다.
