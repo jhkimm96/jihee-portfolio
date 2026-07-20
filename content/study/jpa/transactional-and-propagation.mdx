@@ -1,0 +1,56 @@
+---
+title: "트랜잭션과 ACID, 전파(propagation) — @Transactional이 실제로 하는 일"
+date: "2026-07-21"
+summary: "@Transactional 하나로 여러 DB 작업을 원자적으로 묶는 원리와, 트랜잭션 안에서 또 다른 트랜잭션이 걸릴 때 벌어지는 일(전파)을 PromptHub 실제 코드로 정리했다."
+tags: ["JPA", "Transaction", "Database"]
+draft: false
+---
+
+## 트랜잭션이 왜 필요한가
+
+주문을 하나 처리한다고 하면, "재고를 줄이고" + "주문 내역을 저장하고" + "결제 상태를 기록하는" 여러 DB 작업이 한 묶음으로 일어나야 한다. 이 중 하나만 성공하고 나머지는 실패하면 데이터가 이상해진다(재고는 줄었는데 주문 기록은 없는 식). **트랜잭션**은 이 여러 작업을 "전부 성공 아니면 전부 실패"로 묶는 단위다.
+
+## ACID — 트랜잭션이 지켜야 하는 4가지 약속
+
+- **Atomicity(원자성)**: 전부 성공하거나 전부 실패한다. 중간까지만 반영되는 경우는 없다.
+- **Consistency(일관성)**: 트랜잭션 전후로 데이터는 정해진 규칙(제약조건 등)을 계속 지킨다.
+- **Isolation(고립성)**: 동시에 여러 트랜잭션이 돌아도, 서로 있는 줄도 모르는 것처럼 동작한다. (다음 편에서 더 다룬다.)
+- **Durability(지속성)**: 커밋이 끝나면, 그 뒤에 서버가 꺼져도 그 결과는 남아있다.
+
+## PromptHub에서 실제로 쓰는 방식
+
+`ProductQueryService`를 보면 이렇게 돼 있다:
+
+```java
+@Service
+@Transactional(readOnly = true)
+public class ProductQueryService implements ProductQueryUseCase {
+
+    @Transactional
+    public ProductDetailResponse getProduct(UUID productId) {
+        Product product = getOnSaleProduct(productId);
+        product.incrementViewCount();
+        productRepository.save(product);
+        // ...
+    }
+}
+```
+
+클래스 전체에 `@Transactional(readOnly = true)`를 붙여서, 이 서비스의 메서드들은 기본적으로 "읽기 전용" 트랜잭션으로 처리된다. `readOnly = true`는 JPA·DB에게 "이 트랜잭션은 데이터를 안 바꿀 거야"라고 미리 알려줘서, 변경 여부를 추적하는 불필요한 작업을 건너뛰게 해 성능을 아낀다.
+
+근데 `getProduct` 메서드는 조회수를 실제로 증가시키는(`incrementViewCount`) 쓰기 작업이 있다. 그래서 이 메서드에는 **메서드 단위로 `@Transactional`을 다시 붙여** 클래스 기본값(읽기 전용)을 덮어쓰고 쓰기 가능한 트랜잭션으로 만든다.
+
+## 전파(propagation) — 트랜잭션 안에서 또 트랜잭션을 만나면
+
+`getProduct`가 실행되는 도중에, 그 안에서 또 `@Transactional`이 붙은 다른 메서드를 호출하면 어떻게 될까? 이걸 결정하는 게 **전파(propagation)** 옵션이다.
+
+- **`REQUIRED`**(기본값): 이미 트랜잭션이 진행 중이면 그 트랜잭션에 그냥 합류한다. 없으면 새로 만든다. 대부분의 경우 이거면 충분하다.
+- **`REQUIRES_NEW`**: 이미 진행 중인 트랜잭션이 있어도 무시하고 **완전히 독립적인 새 트랜잭션**을 만든다. 안쪽 트랜잭션과 바깥쪽 트랜잭션은 서로 커밋·롤백이 독립적이다.
+
+**비유**: `REQUIRED`는 "이미 회의 중이면 그 회의에 껴서 같이 결정한다"는 거고, `REQUIRES_NEW`는 "지금 회의랑 상관없이 나만의 회의를 새로 열어서 따로 결론 낸다"는 거다. 예를 들어 "본 작업은 실패해도, 로그는 반드시 남겨야 한다"는 경우 로그 저장 부분만 `REQUIRES_NEW`로 분리하면, 본 작업이 롤백돼도 로그는 별도로 커밋된다.
+
+공식 문서는 `REQUIRES_NEW`를 쓸 때 경고를 남긴다: "커넥션 풀이 충분히 크지 않으면 REQUIRES_NEW를 쓰지 말라"— 새 트랜잭션마다 별도의 DB 커넥션이 필요하기 때문이다(커넥션 풀은 뒤 편에서 다룬다).
+
+## 참고
+
+- [Spring Transaction Propagation](https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/tx-propagation.html)
