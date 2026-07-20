@@ -1,0 +1,72 @@
+---
+title: "Product 도메인 파라미터 객체(ProductContent VO) 도입"
+slug: "product-content-parameter-object"
+date: "2026-07-20"
+status: "accepted"
+summary: "Product.create/update/nextVersion이 상품 내용 필드 12개를 개별 파라미터로 반복 수신하던 Long Parameter List를, record 기반 ProductContent 값 객체로 묶어 해결했다."
+tags: ["spring-boot", "jpa", "ddd", "value-object", "refactoring", "product"]
+draft: false
+---
+
+## 배경
+
+Product 도메인의 create()/update()/nextVersion() 세 메서드가 "상품 내용" 필드
+12개(productType, name, description, model, amountType, amount, thumbnailUrl,
+imageUrls, content, fileUrl, externalUrl, tags)를 매번 개별 파라미터로 반복
+수신했다(Long Parameter List). 유형별 필수 필드 검증(validateTypeFields)은 이미
+세 메서드가 공유하는 private 메서드로 존재했지만, 이는 문제의 핵심이 아니었다 —
+실제 문제는 세 메서드의 공개 시그니처 자체가 12개 이상의 파라미터를 나열해야
+했다는 점이다.
+
+호출부는 매번 12개 값을 정해진 순서대로 넘겨야 했고, 특히 fileUrl과 externalUrl처럼
+같은 타입(String)이 연달아 있어 순서를 바꿔 넣어도 컴파일러가 잡지 못했다. 필드가
+추가·변경될 때마다 세 메서드 시그니처와 모든 호출부를 함께 고쳐야 했다.
+
+내부 검증 로직을 아무리 잘 정리해도 이 문제는 풀리지 않는다 — 공개 시그니처에
+노출되는 파라미터 개수 자체를 줄이려면, 그 값들을 하나의 객체로 묶어 통째로
+전달하는 것 외에 다른 방법이 없다.
+
+## 고려한 선택지
+
+**A. 파라미터 객체(record VO) 도입 (채택)**
+순수 record `ProductContent`로 12개 필드를 묶어 세 메서드 시그니처만 변경한다.
+엔티티 필드 선언과 DB 매핑은 그대로 둔다. record의 compact constructor에서
+유형별 필수 필드 검증과 null 컬렉션 정규화를 수행해, 잘못된 조합의 인스턴스
+자체가 생성 불가능하도록 만든다.
+
+**B. `@Embeddable`로 엔티티 내부 구조까지 변경**
+엔티티의 12개 필드 자체를 embedded 객체로 재구성하는 안. 응집도는 가장 높지만,
+`product.getName()`처럼 엔티티 필드를 직접 읽는 모든 조회 서비스·응답 DTO·쿼리
+코드를 함께 고쳐야 해서, 메서드 3개의 파라미터 목록 정리라는 원래 범위를 크게
+초과한다.
+
+**C. 빌더 패턴**
+세 메서드에 빌더를 도입하는 안. 파라미터 순서 실수는 방지하지만 필드 추가 시
+수정 지점이 줄지 않고, 검증을 강제할 지점이 없어 절반만 채운 미완성 객체가
+만들어질 수 있다 — 도메인 규칙 강제가 오히려 느슨해진다.
+
+## 결정
+
+A안(record 파라미터 객체)을 채택했다. `ProductContent`는 `domain.model.vo`
+패키지에 신설했다 — 이미 존재하던 `domain.model.entity`(Product, ProductFamily),
+`domain.model.enums`, `domain.model.projection`과 나란한 자리이며, 값 자체로
+정체성이 결정되고 불변인 도메인 개념(Value Object)의 표준적인 배치다. 이 배치는
+향후 반복되는 값 묶음(예: amountType+amount를 묶는 Price, majorVersion+patchVersion을
+묶는 ProductVersion 등)이 늘어날 때 자연스럽게 합류할 자리로도 판단했다.
+
+`ProductContent`는 record 생성자 안에서 imageUrls/tags의 null을 빈 리스트로
+정규화하고, 유형별 필수 필드(PROMPT→content, PPT/EXCEL→fileUrl, NOTION→externalUrl
+각 1개)를 검증해 위반 시 기존과 동일한 `ProductException(PRODUCT_TYPE_FIELD_MISMATCH)`을
+던진다. 세 메서드는 각각 `ProductContent`를 받는 새 시그니처로 정리했고, 12개
+필드 대입 중복은 `Product.applyContent()` private 헬퍼로 통합했다.
+
+## 결과
+
+- create/update/nextVersion의 파라미터 개수가 13~14개에서 3개 이하로 줄었다.
+- 판매자 상품 수정 흐름에서 세 분기(draft 수정/major 버전 교체/minor 버전
+  교체)마다 반복되던 12개 필드 나열이 ProductContent 1회 생성으로 대체됐다.
+- 유형별 필드 검증 실패 시점이 family 조회 이전으로 앞당겨졌다 — 잘못된 요청과
+  family 상태 이상이 동시에 존재하는 극단적 케이스에서 어느 에러 코드가 먼저
+  반환되는지만 달라지고, 성공/실패 여부 자체는 동일하다.
+- 테스트 15곳 이상이 직접 파라미터를 나열하던 방식에서 픽스처 헬퍼 기반으로
+  정리됐다.
