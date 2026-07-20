@@ -9,9 +9,13 @@ import {
   findDecisionTitle,
   groupByCategory,
   findBySlugPath,
+  qualityScopes,
+  qualityTrendForScope,
+  severityTotals,
   type ProjectEntry,
   type TroubleshootingEntry,
-  type DecisionEntry
+  type DecisionEntry,
+  type QualityEntry
 } from './content'
 
 const project = (overrides: Partial<ProjectEntry>): ProjectEntry => ({
@@ -157,5 +161,62 @@ describe('findBySlugPath', () => {
   it('returns undefined when no entry matches', () => {
     const entries = [troubleshootingEntry({ slug: 'demo/security/403' })]
     expect(findBySlugPath(entries, ['nope'])).toBeUndefined()
+  })
+})
+
+const qualityEntry = (overrides: Partial<QualityEntry>): QualityEntry => ({
+  slug: 'prompthub/product-service-2026-07-20',
+  project: 'prompthub',
+  scope: 'product-service',
+  title: '스냅샷',
+  date: '2026-07-20',
+  score: 80,
+  formulaVersion: 1,
+  metrics: { locTotal: 100, files: 10, duplicationBlocks: 0, duplicationPct: 0, oversizedClasses: 0 },
+  findings: [
+    { category: 'controller-thin', high: 1, medium: 2, low: 3 },
+    { category: 'dead-code', high: 0, medium: 1, low: 0 }
+  ],
+  draft: false,
+  content: '',
+  ...overrides
+})
+
+describe('qualityScopes', () => {
+  it('returns unique scopes sorted alphabetically', () => {
+    const entries = [
+      qualityEntry({ scope: 'user-service' }),
+      qualityEntry({ scope: 'product-service' }),
+      qualityEntry({ scope: 'product-service', date: '2026-07-01' })
+    ]
+    expect(qualityScopes(entries)).toEqual(['product-service', 'user-service'])
+  })
+
+  it('excludes drafts', () => {
+    expect(qualityScopes([qualityEntry({ draft: true })])).toEqual([])
+  })
+})
+
+describe('qualityTrendForScope', () => {
+  it('filters by scope and sorts by date ascending', () => {
+    const entries = [
+      qualityEntry({ date: '2026-07-20', scope: 'product-service' }),
+      qualityEntry({ date: '2026-07-01', scope: 'product-service' }),
+      qualityEntry({ date: '2026-07-10', scope: 'user-service' })
+    ]
+    expect(qualityTrendForScope(entries, 'product-service').map((e) => e.date)).toEqual([
+      '2026-07-01',
+      '2026-07-20'
+    ])
+  })
+
+  it('excludes drafts', () => {
+    expect(qualityTrendForScope([qualityEntry({ draft: true })], 'product-service')).toEqual([])
+  })
+})
+
+describe('severityTotals', () => {
+  it('sums finding counts across categories', () => {
+    expect(severityTotals(qualityEntry({}))).toEqual({ high: 1, medium: 3, low: 3 })
   })
 })
