@@ -1,0 +1,41 @@
+---
+title: "관리형 Kubernetes(EKS) 대신 kubeadm으로 직접 설치"
+date: "2026-07-21"
+status: accepted
+summary: "Kubernetes 전환 시 EKS 같은 관리형 서비스 대신 kubeadm으로 두 EC2에 직접 클러스터를 구성해, 클러스터 부트스트랩·스케줄링·StatefulSet 같은 내부 동작을 직접 학습하는 것을 목표로 했다."
+tags: ["kubernetes", "kubeadm", "infra"]
+draft: false
+---
+
+## 배경
+
+PromptHub 백엔드는 단일 EC2의 Docker Compose로 운영되고 있었다. 이를 Kubernetes로 옮기면서,
+AWS가 Control Plane을 대신 관리해주는 EKS(관리형 Kubernetes)를 쓸지, 아니면 Ubuntu 서버에
+containerd·kubeadm·kubelet·kubectl·Flannel을 직접 설치할지 선택해야 했다.
+
+## 고려한 선택지
+
+- **EKS(관리형)**: Control Plane 운영 부담이 없고 상대적으로 안정적이다. 하지만 클러스터
+  부트스트랩, 노드 조인, Pod 네트워크 같은 내부 동작이 AWS 쪽에 가려져서 직접 배우기
+  어렵다. 별도 관리 비용도 든다.
+- **kubeadm 직접 설치**: 클러스터를 처음부터 손으로 구성해야 해서 초기 난이도와 운영
+  부담이 크다. 대신 클러스터 부트스트랩·Pod 네트워크·스케줄링·StatefulSet·PV/PVC·Secret·
+  probe·배포와 복구 절차를 전부 직접 경험할 수 있다.
+
+## 결정
+
+kubeadm으로 두 대의 EC2(Medium·Large)에 직접 Kubernetes를 설치했다. EKS나 k3s 같은
+대안은 쓰지 않는다. 클러스터는 단일 Control Plane과 단일 Worker로 구성하고, 다중
+Control Plane이나 자동 장애조치 같은 고가용성 기능은 범위에서 제외했다.
+
+첫 배포와 검증은 SSH와 kubectl로 손으로 진행하고, 절차가 재현 가능해진 뒤에야
+GitHub Actions CD로 자동화 전환하는 단계적 접근을 택했다.
+
+## 결과
+
+- 학습 목표는 달성했다 — 클러스터 부트스트랩부터 상태 저장 인프라 배포까지 실제로
+  손으로 겪었다.
+- 대신 관리형 서비스가 주는 안정성(자동 Control Plane 복구, 다중화 등)은 포기했다 —
+  장애가 나면 직접 복구해야 한다.
+- 단일 Control Plane·단일 Worker 구성이라 노드 장애에 대한 고가용성은 없다. 이건
+  의도된 절충이며, 나중에 규모가 커지면 재검토 대상이다.
