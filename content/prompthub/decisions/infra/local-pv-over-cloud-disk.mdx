@@ -1,0 +1,41 @@
+---
+title: "클라우드 디스크 대신 Local PV를 택한 이유"
+date: "2026-07-21"
+status: accepted
+summary: "PostgreSQL·Redis·Kafka의 영구 저장공간을 AWS EBS 같은 클라우드 디스크 대신 EC2 서버 자체의 로컬 디스크로 구성해, CSI 드라이버 설치 같은 복잡도를 피하는 대신 노드 장애 시 자동 복구를 포기했다."
+tags: ["kubernetes", "infra", "storage"]
+draft: false
+---
+
+## 배경
+
+PostgreSQL, Redis, Kafka는 상태 저장 워크로드라 Pod가 재시작돼도 데이터가 남아있어야
+한다(PV/PVC로 관리). 이 저장공간을 실제로 어떻게 구현할지 선택해야 했다 — AWS EBS 같은
+클라우드 디스크를 동적으로 붙일지, 아니면 서버 자체의 로컬 디스크 경로를 그대로 쓸지.
+
+## 고려한 선택지
+
+- **클라우드 디스크(CSI 동적 프로비저닝)**: 필요할 때마다 AWS가 자동으로 디스크를
+  만들어 붙여준다. 노드가 죽어도 볼륨을 다른 노드로 옮겨 붙일 수 있어 노드 장애로부터
+  데이터를 복구할 수 있다. 대신 CSI 드라이버 설치, IAM 권한 설정, 추가 비용이 든다.
+- **Local PV**: 각 서버의 실제 로컬 디스크 폴더를 그대로 저장공간으로 쓴다. 별도
+  스토리지 시스템 없이 설정이 단순하다. 대신 그 데이터는 물리적으로 그 서버에만
+  존재해서, 노드가 사라지면 데이터도 같이 사라지고 Pod가 다른 노드로 자동 이동하지도
+  않는다.
+
+## 결정
+
+`local-storage`라는 StorageClass(`provisioner: kubernetes.io/no-provisioner`,
+`volumeBindingMode: WaitForFirstConsumer`, `reclaimPolicy: Retain`)를 쓰고, 각 PV는
+실제 서버 폴더(예: `/var/lib/prompthub/postgres`)를 가리키며 `nodeAffinity`로 그
+서버에 고정했다.
+
+## 결과
+
+- CSI 드라이버 설치나 IAM 권한 설정 같은 부가 복잡도 없이 단순하게 구성할 수 있었다.
+- 대신 노드 장애 시 자동 복구가 안 된다 — 그 서버가 완전히 죽으면 데이터를 못
+  가져온다. `reclaimPolicy: Retain`이라 PVC가 지워져도 실제 데이터 폴더는 자동
+  삭제되지 않지만, 다른 서버로 자동 이동되지도 않는다.
+- 이건 단일 Control Plane·단일 Worker라는 현재 규모, 그리고 기존 데이터 이전 없이
+  새로 시작한다는 전제와 맞물린 의도된 절충이다. 나중에 다중 노드가 필요해지면
+  클라우드 스토리지 전환을 재검토할 대상이다.
