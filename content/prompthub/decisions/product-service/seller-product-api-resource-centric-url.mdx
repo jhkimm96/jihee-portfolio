@@ -1,0 +1,201 @@
+---
+title: "판매자 상품 API를 리소스 중심 URL로 재정리"
+slug: "seller-product-api-resource-centric-url"
+date: "2026-07-22"
+status: "accepted"
+summary: "판매자 write API가 별도 네임스페이스에 몰려있고 공개 조회 API와 갈라져 있던 것을, GET은 로직 차이 때문에 분리 유지하고 나머지는 하나의 리소스 경로로 이동하는 방식으로 정리했다."
+tags: ["spring-boot", "rest-api", "api-design", "product-service"]
+draft: false
+---
+
+## 배경
+
+product-service의 상품 관련 API가 두 네임스페이스로 나뉘어 있었다. 공개 조회(목록/상세/
+관련상품/리뷰)와 판매자 쓰기 액션(등록/수정/삭제/검수요청/내 목록/내 상세)이 서로 다른
+상위 경로를 쓰고 있었던 것이다. 팀 합의로 v2 엔드포인트를 REST 컨벤션에 맞춰 하나의
+리소스 중심으로 재정리하기로 했다.
+
+<details>
+<summary><b>🔍 원래 왜 나뉘어 있었나 — 이번에 관심사 분리를 깬 건가</b></summary>
+
+원래는 "누가 요청하나" 축으로 나뉘어 있었다 — 판매자 전용 액션은 전부 "내 리소스"라는
+의미의 네임스페이스 아래 있었고, 이 패턴은 다른 서비스의 "내 정보" 계열 엔드포인트와도
+일관됐다. 경로만 봐도 "이건 인증이 필요한 내 리소스구나"가 바로 드러난다는 장점이 있었다.
+
+이번 결정은 그 축을 "누가 요청하나"에서 "무슨 리소스를 다루나"로 바꾼 것이다. 두 축 다
+정당한 REST 모델링 방식이고 상호 배타적이지 않다 — 어느 쪽을 1차 기준으로 삼을지는
+컨벤션 문제에 가깝다. 트레이드오프는 분명히 있다: 이제는 경로만 봐서는 인증이 필요한
+엔드포인트인지 바로 알 수 없고, HTTP 메서드와 인증 헤더 요구사항까지 같이 봐야 한다.
+
+</details>
+
+## 고려한 선택지
+
+**1. 공개 상세 조회와 판매자 상세 조회를 엔드포인트 하나로 통합 — 기각.**
+공개 상세(`ProductQueryService.getProduct()`)는 상품군의 "현재 ON_SALE 버전"만 반환하고
+그 외 상태는 전부 404, 조회 시 조회수 증가 부수효과가 있으며 인증이 필요 없다. 판매자
+상세는 DRAFT/PENDING_REVIEW/REJECTED 등 모든 상태를 봐야 하고 소유자 인증이 필요해 로직
+자체가 다르다. 합치면 등록 직후나 검수중인 상품의 수정 화면이 깨진다.
+
+<details>
+<summary><b>🔍 왜 상품 하나가 여러 row로 존재하나</b></summary>
+
+같은 상품이라도 버전이 바뀔 때마다 기존 row를 고치는 대신 새 row를 만드는 구조다. 새 row는
+`parentId`로 이전 버전을 가리키고, 이 체인을 따라 올라가면 최초 등록 row(family root)에
+닿는다(`familyRootId()`). MAJOR 수정이면 새 row가 `PENDING_REVIEW`로 생기고 기존 row는
+`SUPERSEDED`로 전이된다.
+
+그래서 "이 상품군에서 지금 무엇을 보여줄 것인가"를 상황별로 골라야 한다 — 구매자용은
+"현재 ON_SALE인 row"(`ProductFamily.currentOnSale()`), 판매자용은 "관리해야 할 우선순위가
+가장 높은 row"(`currentForSeller()`, PENDING_REVIEW > ON_SALE > REJECTED > DRAFT > STOPPED
+순). 이 두 선택 기준이 근본적으로 다르다는 게, 공개 상세와 판매자 상세를 하나의 엔드포인트로
+합칠 수 없었던 이유다.
+
+</details>
+
+**2. temp 업로드 발급/삭제 API에도 상품 식별자를 붙이기 — 기각.** 이 API들이 실제로
+어떻게 동작하는지 따라가 보면 이유가 드러난다.
+
+temp 이미지 삭제 API는 DB 조회나 상품 식별자 lookup을 전혀 하지 않는다. 요청 body로
+받은 URL 문자열에서 직접 스토리지 key를 파싱해서 그 객체를 지운다:
+
+```java
+public ApiResult<Void> deleteTempImages(
+    @RequestHeader("X-User-Id") UUID sellerId,
+    @RequestBody List<String> presignedUrls   // ← 삭제할 파일의 실제 URL 목록
+) {
+    presignedUrls.stream()
+        .map(this::extractKey)                 // URL → 스토리지 key 파싱
+        .filter(key -> key != null && key.startsWith(TEMP_PREFIX))
+        .forEach(storageClient::deleteObject);  // 그 key로 객체 직접 삭제
+    return ApiResult.success(null);
+}
+```
+
+실제 흐름을 따라가 보면:
+
+1. 업로드 화면에서 이미지를 올리면 업로드 발급 API가 presigned URL을 돌려준다 → FE가
+   그 URL을 `thumbUrl`/`fileUrl`/`galleryUrls` state에 그대로 저장해둔다.
+2. 사용자가 등록/수정을 완료하지 않고 나가면(`cleanupAndLeave`) — FE는 자기가 이미
+   들고 있는 그 URL들을 그대로 삭제 요청 body에 실어 보낸다.
+3. 서버는 URL 문자열에서 스토리지 key만 파싱해서 그 객체를 바로 지운다. temp 접두어로
+   시작하지 않는 key(이미 상품에 연결된 이미지)는 걸러내고 건드리지 않는다.
+
+즉 이 API의 정체성은 "이 상품의 temp 이미지를 찾아서 지워줘"가 아니라 "내가 지금 들고
+있는 이 파일들을 그대로 지워줘"다. DB에서 무언가를 조회하는 게 아니라 클라이언트가 이미
+알고 있는 값을 그대로 되돌려 처리하는 구조라, 애초에 상품 식별자가 필요 없다. 신규 등록
+화면은 상품이 아직 생성되지 않은 시점이라 식별자 자체가 없는데도 이 API가 문제없이
+동작하는 이유가 바로 이거다 — 업로드 발급 API도 항상 temp 경로 key로 발급하지 상품
+식별자를 받지 않는 동일한 이유다.
+
+**3. 채택 — GET은 분리 유지, 나머지는 리소스 중심으로 이동:** 판매자 쓰기 액션(생성/
+수정/삭제/검수요청)과 목록·상세 조회는 전부 공개 조회와 같은 리소스 경로 아래로 옮기고,
+판매자 전용 조회 2개(목록/상세)만 로직이 근본적으로 달라 별도 서브경로를 유지했다.
+메서드도 의미에 맞게 조정했다 — 찜 배치조회는 조회 대상이 목록(id 여러 개)이라 쿼리
+파라미터 대신 body를 받는 방식으로, 상품 수정은 항상 전체 필드를 보내지 않아(DRAFT는
+`versionType`/`changeReason` 생략) 부분 수정 의미의 메서드로 바꿨다.
+
+<details>
+<summary><b>🔍 PUT 대신 그 메서드로 바꾼 게 왜 중요한가</b></summary>
+
+PUT은 "보낸 내용 그대로 전체를 덮어쓴다"는 계약이고, 그 계약의 핵심은 **멱등성**(같은
+요청을 두 번 보내도 결과가 같아야 함)이다. 그런데 이 수정 API는 `versionType: MAJOR`로
+호출하면 호출할 때마다 새 버전 row가 생긴다 — 같은 요청을 두 번 보내면 버전이 두 번
+올라가므로 명백히 멱등하지 않다.
+
+부분 수정 의미의 메서드는 애초에 멱등성을 보장할 필요가 없고, "보낸 필드만 반영한다"는
+의미도 실제 요청 형태와 맞는다 — DRAFT 수정 시엔 버전 관련 필드(`versionType`/
+`changeReason`) 자체를 아예 안 보낸다. 즉 이 변경은 단순 스타일 취향이 아니라, 기존
+메서드가 원래 지켜야 할 계약을 실제로는 지키지 못하고 있었던 것을 바로잡은 것에 가깝다.
+
+</details>
+
+## 결정
+
+판매자 쓰기 액션(등록/수정/삭제/검수요청)과 판매자 전용 조회(목록/상세) 등 9개
+엔드포인트의 경로를 판매자 스코프 네임스페이스에서 공개 조회와 같은 리소스 중심으로
+옮겼다. 그 중 찜 배치조회는 쿼리 파라미터 대신 body를 받는 방식으로, 상품 수정은
+전체 교체가 아닌 부분 수정 의미의 메서드로 함께 조정했다. 컨트롤러 매핑만 이동했고
+usecase/서비스 로직은 바꾸지 않았다.
+
+삭제 API가 호출하는 `ProductSellerService.deleteProduct()`의 분기 로직이 대표적으로,
+옮기기 전 동작을 그대로 유지한 이유를 짚어볼 만하다.
+
+`deletedAt`은 단순 타임스탬프가 아니라 실제 쿼리 필터로 쓰인다. 판매자 본인 목록 쿼리가
+`deletedAt is null`로 걸려 있고, family 판매수 합산 서브쿼리들도 전부 같은 조건으로
+더한다:
+
+```sql
+-- 판매자 본인 목록
+where p.sellerId = :sellerId and p.deletedAt is null
+
+-- family 판매수 합산 (여러 응답에서 반복)
+coalesce((select sum(m.salesCount) from Product m
+  where coalesce(m.parentId, m.id) = coalesce(p.parentId, p.id)
+  and m.deletedAt is null), 0)
+```
+
+`Product.softDelete()`와 `stop()`의 차이는 이 필터에 걸리느냐다:
+
+```java
+public void stop() {
+    this.status = ProductStatus.STOPPED;
+    this.updatedAt = LocalDateTime.now();
+}
+
+public void softDelete() {
+    this.deletedAt = LocalDateTime.now();  // ← 이 한 줄이 전부
+    this.status = ProductStatus.STOPPED;
+    this.updatedAt = LocalDateTime.now();
+}
+```
+
+- **DRAFT(한 번도 공개 안 된 상품) → `softDelete()`**: `deletedAt`이 찍혀서 판매자
+  목록 쿼리에 걸러진다 — 목록에서 완전히 사라진다. 실제 판매 이력이 없으니 잃을
+  것도 없다.
+- **ON_SALE 등(팔던 상품) → `stop()`만**: `deletedAt`은 null로 남아서 목록 쿼리에
+  안 걸린다 — STOPPED 상태로 목록에 계속 노출된다(`ProductFamily.SELLER_PRIORITY`에도
+  STOPPED가 포함). 판매수 합산에도 계속 잡혀서 판매 이력이 사라지지 않는다.
+
+즉 `status`는 "구매자에게 보이는가"를 결정하고(공개 조회 쿼리는 `status = ON_SALE`로만
+거른다), `deletedAt`은 "판매자 관리 화면·판매 이력에서까지 지울 것인가"를 결정한다 —
+서로 다른 축이다. 만약 STOPPED에도 `deletedAt`을 찍었다면, 판매자가 실제로 팔았던
+상품이 관리 화면과 판매수 통계에서 흔적도 없이 사라져버렸을 것이다. 이 패턴은 소프트
+삭제(soft delete)의 전형이다 — row를 실제로 지우는(하드 삭제) 게 아니라 "삭제됨"
+표시(`deletedAt`)만 남기고 데이터는 그대로 둔다. `softDelete()`도 `productRepository.save()`로
+컬럼 두 개만 UPDATE할 뿐 DELETE 문을 실행하지 않는다 — 실수로 지워도 복구 가능하고,
+판매 이력을 참조하는 다른 집계가 여전히 그 row를 찾아 계산할 수 있고, 언제 삭제됐는지
+기록이 남아 감사 추적이 가능하기 때문이다.
+
+<details>
+<summary><b>🔍 소프트 삭제된 DRAFT는 영원히 DB에 남아있나</b></summary>
+
+지금까지 확인한 코드 기준으로는 그렇다. `deletedAt`을 찍는 로직만 있고, 그 이후 실제로
+row를 물리적으로 지우거나 정리하는 배치/스케줄 작업은 없다. 즉 `deletedAt`이 찍힌 행은
+조회 쿼리들에서 걸러질 뿐 테이블에는 계속 남아있다 — 스토리지가 시간이 지나면서 계속
+쌓이는 셈이다. 이건 이번 결정이 다루는 범위 밖의 문제라 손대지 않았고, 별도로 데이터
+보존/정리 정책이 필요하다면 후속 논의가 필요하다.
+
+</details>
+
+이동 결과 메서드가 전부 빠져나간 컨트롤러 2개는 삭제했다.
+
+## 결과
+
+- 상품 관련 write API가 공개 조회와 같은 리소스 경로로 모이면서, 공개 조회와 판매자
+  조회/쓰기가 같은 상위 경로 안에서 메서드·서브패스로만 구분되는 구조가 됐다.
+- 트레이드오프: 찜 배치조회 API는 원래 인증 불필요로 설계된 공개 API였는데, API
+  Gateway 화이트리스트가 특정 메서드 전용이라 이번 메서드 변경으로 인증이 필요해졌다.
+  product-service 쪽만 담당한 브랜치라 게이트웨이는 건드리지 않았고, 원래 설계를
+  유지하려면 별도로 화이트리스트 추가 작업이 필요하다.
+
+<details>
+<summary><b>🔍 게이트웨이 트레이드오프, 후속 조치는 어떻게 됐나</b></summary>
+
+아직 해결되지 않았다. 이 작업은 product-service 모듈만 담당하는 브랜치였고, 다른 서비스
+모듈(API Gateway 포함)은 참고만 하고 수정하지 않는 게 이 프로젝트의 모듈 경계 원칙이라
+게이트웨이는 손대지 않았다. 이 갭을 추적하는 별도 이슈는 아직 없고, PR 리뷰 노트에만
+남겨둔 상태다 — 다음에 게이트웨이 화이트리스트를 다룰 때 같이 처리하거나, 필요성이
+확인되면 별도 이슈로 분리해야 한다.
+
+</details>
