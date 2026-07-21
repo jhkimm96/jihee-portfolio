@@ -1,0 +1,39 @@
+---
+title: "admin-service의 상품 판매전환 이벤트 발행 — 아웃박스 패턴, 테이블 소유는 product-service"
+slug: "admin-onsale-event-outbox-pattern"
+date: "2026-07-22"
+status: "accepted"
+summary: "검수 기능이 admin-service로 이관되며 상품 판매 전환 시 Kafka 발행이 끊긴 문제를, 이미 검증된 아웃박스 패턴을 재사용하되 테이블 소유권만 product-service로 조정해 해결했다."
+tags: ["kafka", "outbox-pattern", "event-driven", "microservices", "product-service"]
+draft: false
+---
+
+## 배경
+
+상품 검수(승인/반려/복귀)가 admin-service로 이관되면서, admin-service가 공유 `product` 테이블에 직접 쓰기 시작했다. 그런데 admin-service엔 Kafka 발행 코드가 전혀 없어, 상품이 판매 상태(ON_SALE)로 바뀌어도 그 사실을 아무도 알 수 없었다 — 검색 색인 파이프라인이 의존하는 신호가 통째로 빠진 상태였다.
+
+## 고려한 선택지
+
+1. **admin-service가 Kafka를 직접 발행** — DB 쓰기와 발행이 별도 단계라, 커밋은 됐는데 발행이 실패하면 유실되는 구조(dual-write). admin-service에 Kafka 인프라를 처음부터 새로 들여야 한다.
+2. **주기적 배치 폴링**(DB를 다시 읽어 검색 인덱스와 동기화) — 유실 위험은 없지만 실시간성이 떨어지고, "상태 변화 = Kafka 발행"이라는 팀 전체 컨벤션과 어긋난다.
+3. **CDC**(Debezium 등으로 DB 로그 자체를 구독) — 누가 썼는지와 무관하게 근본적으로 해결되지만, 이 프로젝트 규모엔 별도 인프라(Kafka Connect 등)가 과하다.
+4. **아웃박스 패턴** (택함) — DB 쓰기와 이벤트 기록을 같은 트랜잭션으로 묶어 유실을 구조적으로 없앤다. 이미 팀의 다른 서비스(order-service, settlement-service)에 검증된 구현이 있어 재사용 가능하다.
+
+## 결정
+
+아웃박스 패턴을 채택하되, 테이블 소유권을 조정했다. admin-service는 여러 서비스의 스키마를 넘나들며 읽고 쓰지만 `ddl-auto: none`(스키마 변경 금지)이 명시적으로 걸려 있어 **자기 소유의 새 테이블을 만들 수 없다.** 그래서:
+
+- 아웃박스 테이블은 **product-service 스키마**에 만든다(product-service의 정상적인 마이그레이션으로).
+- admin-service는 그 테이블에 **행을 insert만** 한다 — Kafka 의존성이나 설정을 전혀 새로 추가하지 않는다.
+- 실제로 Kafka에 발행하는 릴레이(주기적으로 테이블을 확인해 전송)는 **product-service가 소유**한다 — 이미 Kafka 인프라가 있고, 이 신호를 소비할 컨슈머도 product-service 쪽에 있기 때문이다.
+
+<details>
+<summary>💡 왜 admin-service가 직접 발행하지 않았나</summary>
+
+DB 저장과 Kafka 전송이 분리된 두 단계면, 저장은 성공했는데 전송 직전에 프로세스가 죽거나 네트워크가 끊기는 경우 이벤트가 조용히 사라질 수 있다. 아웃박스 패턴은 "이벤트를 기록한다"를 DB 저장과 **같은 트랜잭션**으로 묶어서, 이 유실 가능성 자체를 구조적으로 없앤다.
+
+</details>
+
+## 결과
+
+admin-service 쪽 변경은 "테이블 하나에 행 insert" 수준으로 최소화됐고, Kafka 관련 인프라(클라이언트, 설정, 이벤트 타입 정의)는 전혀 새로 들어가지 않았다. product-service는 이미 갖고 있는 Kafka 인프라를 그대로 재사용한다. 유실 위험 없이, 초 단위 지연으로 실시간에 가깝게 반영된다.
