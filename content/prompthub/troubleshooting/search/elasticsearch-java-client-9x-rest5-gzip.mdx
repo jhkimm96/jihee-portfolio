@@ -1,0 +1,37 @@
+---
+title: "Elasticsearch Java 클라이언트 9.x — RestClient 폐기와 gzip 응답 디코딩 버그"
+slug: "elasticsearch-java-client-9x-rest5-gzip"
+date: "2026-07-23"
+summary: "co.elastic.clients:elasticsearch-java 9.0.2로 ES 클라이언트를 구성하며 7.x/8.x 자료 그대로 RestClient/RestClientTransport를 썼다가 컴파일부터 실패했고, Rest5Client로 바꾼 뒤에도 모든 요청이 gzip 디코딩 에러로 실패해 httpclient5의 자동 압축 해제를 직접 꺼야 했다."
+tags: ["elasticsearch", "java", "http-client", "spring-boot", "product-service"]
+draft: false
+---
+
+## 문제
+
+product-service에 ES 색인 파이프라인을 붙이면서 `co.elastic.clients:elasticsearch-java:9.0.2`로 클라이언트를 구성했는데, 로컬 ES(9.4.3)에 어떤 요청을 보내도(단순 정보 조회부터 인덱스 생성까지) 전부 실패했다.
+
+## 원인
+
+두 가지 문제가 겹쳐 있었다.
+
+**1) `RestClient`/`RestClientTransport`가 이제 없다.** 7.x/8.x 시절 자료에 나오는 `org.elasticsearch.client.RestClient` + `RestClientTransport` 조합으로 클라이언트를 짰는데 컴파일부터 실패했다 — 9.0.2엔 그 클래스 자체가 클래스패스에 없었다. 실제 의존성 트리를 확인해보니 httpclient5(Apache HttpComponents Client 5) 기반의 `Rest5Client`/`Rest5ClientTransport`(`co.elastic.clients.transport.rest5_client` 패키지)로 교체되어 있었다.
+
+**2) 클래스만 바꿔 다시 붙였더니 이번엔 응답 디코딩이 실패했다.** `TransportException: Failed to decode response`를 따라가보면 `java.util.zip.ZipException: Not in GZIP format`. 서버는 200을 정상 반환했는데 클라이언트가 응답 바디를 gzip으로 착각해 풀려다 실패한 것이었다. `Rest5ClientBuilder.setCompressionEnabled(false)`로 꺼봐도 동일하게 실패했다 — 이 옵션은 이 문제와 무관했다. 실제 원인은 `Rest5Client`가 내부적으로 만드는 httpclient5의 기본 async 클라이언트가 응답 압축 해제를 자동으로 처리하는데, 이 조합에서 깨지는 것이었다.
+
+## 해결
+
+1. `Rest5Client` + `Rest5ClientTransport`로 클라이언트 구성을 교체했다.
+2. httpclient5의 `HttpAsyncClients.custom().disableContentCompression()`으로 직접 만든 `CloseableHttpAsyncClient`를 `Rest5ClientBuilder.setHttpClient(...)`로 주입해, 애초에 압축 협상 자체를 안 하게 만들었다.
+
+정확한 API 시그니처를 몰라서 문서 대신 실제 jar를 리플렉션으로 뜯어봤다 — `javap`이 PATH에 없어서, 클래스패스에 올린 jar의 public 생성자·메서드를 출력하는 짧은 리플렉션 프로그램을 직접 짜서 `Rest5Client.builder(...)`와 `Rest5ClientTransport` 생성자 시그니처를 확인했다.
+
+## 결과
+
+로컬 ES(9.4.3 + nori) 대상으로 인덱스 생성·조회·삭제·부분 업데이트 전부(Testcontainers 통합 테스트 포함) 정상 동작을 확인했다.
+
+## 배운 점
+
+- 메이저 버전이 하나 오른 공식 클라이언트라도 저수준 전송 계층이 통째로 바뀔 수 있다. 8.x→9.x처럼 최근에 나온 변경은 학습 자료(블로그, LLM 지식)가 구버전 API를 전제로 할 가능성이 높다.
+- "라이브러리 자체에 압축 옵션이 있으니 그걸 끄면 되겠지"라는 추측은 틀렸다 — 실제 원인은 그 라이브러리가 감싸는 하위 HTTP 클라이언트의 기본 동작이었다. 설정을 추측으로 끄기보다, Testcontainers를 거치지 않고 이미 떠 있는 로컬 ES에 최소 재현 코드로 직접 붙여 문제를 일으키는 레이어를 하나씩 격리하는 게 빨랐다.
+- `javap` 없이도 리플렉션 한 조각이면 실제 클래스패스의 API 표면을 바로 확인할 수 있다.
