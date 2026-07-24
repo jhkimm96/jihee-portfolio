@@ -3,7 +3,7 @@ title: "상품 목록·검색 API를 Elasticsearch 우선 조회로 전환 — �
 slug: "product-list-search-elasticsearch-migration"
 date: "2026-07-24"
 status: "accepted"
-summary: "ES 색인 파이프라인(#376)은 이미 있었지만 실제 조회는 여전히 RDB만 쓰던 상태를 ES 우선 + RDB 폴백으로 전환했다. 전환 과정에서 발견한 삭제 정합성 버그, 부트스트랩 레이스 컨디션, 페이지 좌표계 불일치까지 같은 브랜치에서 함께 해결했다."
+summary: "ES 색인 파이프라인(#376)은 이미 있었지만 실제 조회는 여전히 RDB만 쓰던 상태를 ES 우선 + RDB 폴백으로 전환했다. 전환 과정에서 발견한 삭제 정합성 버그, 부트스트랩 레이스 컨디션, 페이지 좌표계 불일치에 더해, PR을 올리기 전 마지막 점검 중 발견한 page/size 전달 방식 문제와 구매 salesCount 유실 버그까지 같은 브랜치에서 함께 해결했다."
 tags: ["elasticsearch", "spring-boot", "kafka", "pagination", "search", "race-condition", "product"]
 draft: false
 ---
@@ -73,6 +73,45 @@ ES로 전환해 nori 형태소 검색과 인기 가산 랭킹을 실제로 동�
    가정에 의존하는 fragile한 해법.
 2. 재조정 로직 진입부에 방어적 가드(택함) — 이미 있는 `existsAlias` 체크 패턴 재사용.
 
+이 5가지는 PR을 만들기 전 브레인스토밍·구현 단계에서 발견한 것들이다. 그런데 커밋을 다
+끝내고 PR을 실제로 올리기 직전, 마지막 점검(다른 열려 있는 PR과의 충돌 확인, PR 본문 작성)을
+하는 과정에서 **완전히 새로운 문제 2개를 추가로 발견**했다. 둘 다 PR이 아직 GitHub에
+올라가기 전에(즉 커밋만 하고 push는 안 한 상태에서) 발견해서 같은 브랜치의 커밋으로 추가할지
+말지부터 판단해야 했다 — PR 본문에 이 둘을 나중에 별도 PR로 미루지 않고 포함한 이유는 각
+섹션 하단의 토글에 정리했다.
+
+**F. page/size를 계층 간에 전달하는 방식** — PR을 올리기 전, 같은 시기에 열려 있던 다른
+PR(#558, admin-service 상품 목록 필터)이 이 브랜치와 충돌 없이 머지되는지 확인하던 김에
+그쪽 리뷰 코멘트도 같이 살펴보다가, 정확히 같은 패턴이 지적된 걸 발견했다: "int page, int
+size가 여러 계층을 개별 값으로 관통하다 끝에서 다시 조합된다." 이번 브랜치가 새로 추가한
+조회 경로(`ProductQueryService`→`ProductSearchQueryService`→
+`ElasticsearchProductSearchQuerier`→`ProductSearchQueryBuilder`, 4개 계층)를 다시 보니 정확히
+같은 모양이었다 — 즉 이 PR엔 아직 아무도 리뷰를 달지 않은 시점에, 다른 PR의 리뷰를 참고해서
+선제적으로 고친 것이다.
+1. 그대로 둔다 — 지금 당장은 동작하지만, 정렬 기준이 하나 늘거나 계층이 하나 더 생길
+   때마다 시그니처 4곳을 전부 고쳐야 한다. 실제로 리뷰에서 지적된 패턴을 알면서 그냥
+   두는 것도 이상하다.
+2. Pageable로 통일(택함) — Spring Data가 이미 제공하는 표준 페이징 객체. `getOffset()`/
+   `getPageNumber()`/`getPageSize()`가 캡슐화돼 있어 계층마다 offset 계산식을 다시 쓸 필요가
+   없다.
+
+**G. 구매로 인한 salesCount 반영 대상** — popular 정렬의 salesCount 가중치가 실제로 정확한지
+검증하려고 "구매 시 salesCount가 정확히 어디에 반영되는지"를 코드로 끝까지 추적하다가 발견한
+버그다.
+1. 그대로 둔다(`family.currentOnSale()`에 반영) — "salesCount는 family 전체 합산으로
+   노출되니 가족 중 어느 row에 붙어도 최종 합계는 같다"는 전제 자체는 맞다. 하지만 결제
+   이벤트가 비동기로 처리되는 사이(주문 완료 → Kafka 이벤트 전파 → 소비 처리) 판매자가 이미
+   그 상품을 판매중단해버리면 `currentOnSale()`이 통째로 비어서, `ifPresent`가 아무것도 안
+   하고 그 주문의 카운트 자체가 조용히 사라진다.
+2. `currentOnSale()`이 비었을 때 family 내 다른 멤버로 폴백(`decrementSalesCount`가 이미
+   쓰던 방식과 대칭) — 유실을 줄이긴 하지만 "어떤 멤버로 폴백할지"를 고르는 로직이 또
+   필요해지고, 여전히 "우연히 그 순간 조건에 맞는 멤버가 하나도 없으면" 실패할 수 있는
+   구조는 남는다.
+3. 구매된 그 productId(anchor row) 자신에 직접 반영(택함) — anchor row는 구매 시점에
+   `ON_SALE`이었던 게 보장되므로, 그 뒤에 무슨 일이 있어도(판매중단이든 뭐든) row 자체는
+   항상 존재한다. 유실이 설계상 원천적으로 불가능해지고, family 재조회 자체가 없어져
+   코드도 더 단순해진다.
+
 ## 결정
 
 ### A. 컨트롤러는 `product` 패키지에 그대로
@@ -87,7 +126,7 @@ flowchart TD
     Client["클라이언트 GET /api/v2/products?q=..&sort=..&page=0&size=20"]
     Client --> Controller["ProductController.getProducts (변경 없음, 위임만)"]
     Controller --> Service["ProductQueryService.getProducts"]
-    Service --> Normalize["정규화: keyword/productType/sort<br/>page 0-base(음수만 0으로), size 1 이상"]
+    Service --> Normalize["정규화: keyword/productType/sort<br/>page/size → Pageable 생성(0-base)"]
     Normalize --> TryES["searchViaElasticsearch 시도"]
     TryES -->|성공| Builder["ProductSearchQueryBuilder.build<br/>(ES 없이 순수 쿼리 구성)"]
     Builder --> Query["ElasticsearchProductSearchQuerier<br/>client.search 실행 + 히트 매핑"]
@@ -104,13 +143,18 @@ flowchart TD
 잡아서 RDB로 넘어간다:
 
 ```java
+Pageable pageable = PageRequest.of(normalizePage(page), normalizePositive(size));
 try {
-    return searchViaElasticsearch(keyword, selectedProductType, selectedSort, normalizedPage, normalizedSize);
+    return searchViaElasticsearch(keyword, selectedProductType, selectedSort, pageable);
 } catch (RuntimeException e) {
     log.warn("ES 조회에 실패해 RDB로 폴백합니다.", e);
-    return searchViaRdb(keyword, selectedProductType, selectedSort, normalizedPage, normalizedSize);
+    return searchViaRdb(keyword, selectedProductType, selectedSort, pageable);
 }
 ```
+
+`pageable`은 **딱 한 번만** 만들어져서 ES 경로와 RDB 경로 양쪽에 그대로 전달된다(각 경로가
+자기 나름대로 page/size를 다시 계산하거나 재조합하지 않는다) — 이 "한 번만 만들어서 그대로
+넘긴다"는 원칙이 뒤에 나올 F번 결정(Pageable 통일)의 핵심이다.
 
 `RuntimeException`을 넓게 잡는 이유는, `ElasticsearchProductSearchQuerier.search()`가 ES
 클라이언트에서 나올 수 있는 어떤 실패든(연결 거부, 타임아웃, 응답 파싱 실패 등) 전부
@@ -134,8 +178,8 @@ try {
 <details>
 <summary>🔍 normalize 단계에서 정확히 무슨 일이 일어나나</summary>
 
-`ProductQueryService.getProducts()`가 ES/RDB 어느 경로로도 넘어가기 전에 5개 값을 전부
-정규화한다:
+`ProductQueryService.getProducts()`가 ES/RDB 어느 경로로도 넘어가기 전에 4개 값을 정규화하고,
+그중 페이지 관련 2개는 곧바로 `Pageable` 객체 하나로 합쳐진다:
 
 - `normalizeKeyword(q)` — 앞뒤 공백 제거 + 소문자화, null/공백이면 `""`
 - `normalizeProductType(productType)` — null/공백/"all"이면 `"all"`, 아니면 `ProductType`
@@ -143,13 +187,15 @@ try {
   호출 전이다)
 - `normalizeSort(sort)` — `"rating"`/`"price-asc"`만 그대로 인정, 나머지(빈 값, 오타,
   `"price-desc"` 등)는 전부 `"popular"`로 떨어진다(에러 아님)
-- `normalizePage(page)` — 음수만 `0`으로 올림(0-base라 최솟값이 0)
-- `normalizePositive(size)` — `size`는 최솟값 1(0이나 음수면 1로 올림 — 페이지 크기가
-  0일 순 없음)
+- `normalizePage(page)`/`normalizePositive(size)` — 각각 음수→0, 0/음수→1로 올림 보정한 뒤
+  바로 `Pageable pageable = PageRequest.of(normalizePage(page), normalizePositive(size))`로
+  묶인다. 처음엔(리팩터 전) 이 둘을 `normalizedPage`/`normalizedSize`라는 별개의 `int` 값
+  두 개로 두고 ES/RDB 양쪽에 각각 전달했는데, 뒤의 F번 결정에서 이 둘을 애초에 `Pageable`
+  하나로 만들어서 넘기는 지금 형태로 바꿨다.
 
-이 정규화 결과(`selectedProductType`, `selectedSort`, `normalizedPage`, `normalizedSize`)가
-ES 경로(`searchViaElasticsearch`)와 RDB 경로(`searchViaRdb`) 양쪽에 **동일하게** 전달된다
-— 그래서 정렬/필터 계약이 두 경로에서 어긋날 일이 없다.
+이 정규화 결과(`keyword`, `selectedProductType`, `selectedSort`, `pageable`)가 ES 경로
+(`searchViaElasticsearch`)와 RDB 경로(`searchViaRdb`) 양쪽에 **동일하게** 전달된다 — 그래서
+정렬/필터/페이징 계약이 두 경로에서 어긋날 일이 없다.
 
 </details>
 
@@ -214,13 +260,21 @@ private Query withPopularityBoost(Query base) {
 
 </details>
 
-페이지 좌표계는 `-1` 변환을 완전히 제거:
+페이지 좌표계는 `-1` 변환을 완전히 제거하고, 최종적으로는 offset 계산 자체도 `Pageable`에
+위임했다(이 형태에 이르기까지의 경위는 F번 결정 참고):
 
 ```java
-// ProductSearchQueryBuilder.java (ES)
-int from = Math.max(page, 0) * size;   // 예전: Math.max(page - 1, 0) * size
-// ProductQueryService.java (RDB)
-PageRequest.of(page, size)             // 예전: PageRequest.of(page - 1, size)
+// ProductQueryService.java — 한 번만 만들어서 ES/RDB 양쪽에 그대로 전달
+Pageable pageable = PageRequest.of(normalizePage(page), normalizePositive(size));
+
+// ProductSearchQueryBuilder.java (ES) — offset을 직접 계산하지 않고 Pageable에서 받음
+// 예전: int from = Math.max(page - 1, 0) * size;  (1-based 시절)
+// 그다음: int from = Math.max(page, 0) * size;    (0-based 전환 직후, 여전히 수동 계산)
+.from((int) pageable.getOffset())
+.size(pageable.getPageSize())
+
+// ProductRepository.findPublicProducts (RDB) — #377 이전부터 이미 Pageable을 받고 있어 무변경
+findPublicProducts(keyword, productType, sort, pageable)
 ```
 
 <details>
@@ -231,14 +285,18 @@ PageRequest.of(page, size)             // 예전: PageRequest.of(page - 1, size)
 `ElasticsearchProductSearchQuerier`가 한다:
 
 ```java
-public ProductSearchPageResult search(String keyword, String productType, String sort, int page, int size) {
-    SearchRequest request = queryBuilder.build(keyword, productType, sort, page, size);
-    SearchResponse<ProductSearchDocument> response = client.search(request, ProductSearchDocument.class);
-    List<ProductSearchHit> hits = response.hits().hits().stream()
-        .map(hit -> toHit(hit.source()))
-        .toList();
-    long total = response.hits().total() != null ? response.hits().total().value() : hits.size();
-    return new ProductSearchPageResult(hits, total);
+public ProductSearchPageResult search(String keyword, String productType, String sort, Pageable pageable) {
+    SearchRequest request = queryBuilder.build(keyword, productType, sort, pageable);
+    try {
+        SearchResponse<ProductSearchDocument> response = client.search(request, ProductSearchDocument.class);
+        List<ProductSearchHit> hits = response.hits().hits().stream()
+            .map(hit -> toHit(hit.source()))
+            .toList();
+        long total = response.hits().total() != null ? response.hits().total().value() : hits.size();
+        return new ProductSearchPageResult(hits, total);
+    } catch (IOException | RuntimeException e) {
+        throw new IllegalStateException("ES 검색에 실패했습니다.", e);
+    }
 }
 ```
 
@@ -406,6 +464,127 @@ if (client.indices().existsAlias(e -> e.name(ALIAS)).value()) {
 이 가드는 스케줄러와 온디맨드 리인덱스 컨트롤러(`/internal/search/reindex`) 양쪽에 자동으로
 적용된다 — 둘 다 같은 `reconcileAll()`을 부르기 때문이다.
 
+### F. 다른 PR의 리뷰를 참고해 선제적으로 반영 — page/size를 Pageable로 통일
+
+PR을 올리기 전 마지막 점검(다른 PR과의 충돌 확인) 과정에서, 같은 시기에 열려 있던 다른
+PR(#558, admin-service 상품 목록 필터)의 리뷰 코멘트를 함께 살펴보다가 정확히 같은 패턴이
+지적된 걸 발견했다: "`int page, int size`가 컨트롤러 → 서비스 → 리포지토리 여러 계층을
+개별 값으로 관통하다가, 마지막 계층에서 다시 `PageRequest`로 조립된다"는 지적이었다. 이번
+브랜치가 새로 추가한 조회 경로를 다시 보니 정확히 같은 모양이었다 — `ProductQueryService`가 `int page, int size`를 받아서
+`ProductSearchQueryService.search(..., int page, int size)`로 넘기고, 그게 다시
+`ElasticsearchProductSearchQuerier`를 거쳐 `ProductSearchQueryBuilder`까지 4단계 내내 두
+값을 원시 타입 그대로 들고 다니다가, `ProductSearchQueryBuilder.build()` 안에서야
+`from = page * size` 계산이 벌어지고 있었다.
+
+```java
+// Before — 4개 계층 시그니처 전부 (int page, int size)
+public PageResponse<ProductListItemResponse> getProducts(String q, String productType, String sort, int page, int size) { ... }
+ProductSearchPageResult search(String keyword, String productType, String sort, int page, int size);
+SearchRequest build(String keyword, String productType, String sort, int page, int size) {
+    int from = Math.max(page, 0) * size;
+    ...
+}
+
+// After — Pageable 하나로 통일
+Pageable pageable = PageRequest.of(normalizePage(page), normalizePositive(size)); // 컨트롤러 바로 다음, 딱 한 번
+ProductSearchPageResult search(String keyword, String productType, String sort, Pageable pageable);
+SearchRequest build(String keyword, String productType, String sort, Pageable pageable) {
+    .from((int) pageable.getOffset())
+    .size(pageable.getPageSize())
+    ...
+}
+```
+
+<details>
+<summary>🔍 왜 새로 추가한 코드에만 적용하고 기존 RDB 리포지토리는 안 건드렸나</summary>
+
+`ProductRepository.findPublicProducts(keyword, productType, sort, Pageable pageable)`는
+`#377` 이전부터 이미 `Pageable`을 받는 메서드였다 — 즉 RDB 쪽은 애초에 문제가 없었다. 이번에
+문제가 있었던 건 ES 조회를 위해 **새로 추가한** `ProductQueryService`/
+`ProductSearchQueryService`/`ElasticsearchProductSearchQuerier`/`ProductSearchQueryBuilder`
+4개뿐이었다. PR 범위를 "이번에 새로 작성한 코드"로 한정한 이유는, 이미 잘 동작하고 테스트도
+갖춰진 기존 코드를 굳이 건드려서 리스크를 늘릴 이유가 없었기 때문이다 — 리뷰 지적이 아니었다면
+안 건드렸을 코드까지 "겸사겸사" 고치는 건 이 PR의 목적(ES 전환)과 무관한 스코프 확장이 된다.
+
+</details>
+
+<details>
+<summary>🔍 Pageable로 바꾸면 구체적으로 뭐가 좋아지는지</summary>
+
+`int page, int size`를 계층마다 따로 들고 다니면, 나중에 "정렬 기준을 하나 더 받는다"거나
+"페이지 크기 상한을 검증한다" 같은 요구가 생길 때마다 관련된 모든 계층의 메서드 시그니처를
+전부 고쳐야 한다. `Pageable`은 Spring Data가 표준으로 제공하는 페이징 값 객체라 `getOffset()`
+/`getPageNumber()`/`getPageSize()`가 이미 캡슐화돼 있고, 나중에 `Sort`가 필요해지면 같은
+객체 안에 자연스럽게 얹을 수 있다. 이번 리팩터로 실제 효과를 본 부분은 `from` 계산이다 —
+`ProductSearchQueryBuilder`가 `page * size`를 직접 계산하던 걸 `pageable.getOffset()` 호출
+하나로 대체해서, "오프셋을 어떻게 계산하는지"에 대한 지식이 한 곳(Spring Data 내부)에만
+있게 됐다.
+
+</details>
+
+### G. 버그 수정 — 구매로 인한 salesCount가 조용히 유실되던 문제
+
+`popular` 정렬의 salesCount 가중치(F번 앞, B/C 섹션의 `withPopularityBoost` 참고)가 실제로
+정확한 값을 반영하고 있는지 검증하려고 "구매 시 salesCount가 정확히 어떻게 오르는지"를 코드로
+끝까지 추적하다가 발견한 버그다. 결제가 완료되면 `ProductSalesCountService.incrementSalesCount`가
+호출되는데, 원래 코드는 이랬다:
+
+```java
+// Before
+public void incrementSalesCount(List<UUID> productIds) {
+    forEachFamily(productIds, family ->
+        family.currentOnSale().ifPresent(onSale -> {
+            onSale.incrementSalesCount();
+            productRepository.save(onSale);
+        }));
+}
+```
+
+문제는 "구매된 그 상품 버전"이 아니라 family의 **"지금 시점 판매중인 버전"**을 다시 찾아서
+거기에 카운트를 올린다는 점이다. 주문 → 결제 완료 → Kafka 이벤트 전파 → 소비 처리는
+비동기라 시간차가 있는데, 그 사이 판매자가 이미 그 상품을 판매중단해버리면
+`family.currentOnSale()`이 완전히 비어서 `ifPresent`가 아무것도 안 하고 지나간다 — **그
+주문의 salesCount 반영 자체가 에러도 없이 조용히 사라진다.**
+
+```java
+// After
+public void incrementSalesCount(List<UUID> productIds) {
+    productRepository.findAllByIdIn(productIds).forEach(product -> {
+        product.incrementSalesCount();
+        productRepository.save(product);
+    });
+}
+```
+
+family를 다시 찾지 않고, **구매 시점에 실제로 존재가 보장되는 그 productId(anchor row)
+자신**에 바로 카운트를 올리도록 바꿨다. `decrementSalesCount`(환불)도 같은 방식으로
+통일하면서, 기존에 있던 "판매중인 버전 우선, 없으면 판매수>0인 최신 버전을 찾는" 복잡한
+폴백 로직(`decrementTarget`)도 함께 걷어냈다.
+
+<details>
+<summary>🔍 왜 anchor row에 바로 반영해도 안전한가</summary>
+
+검색에 노출되는 salesCount 값은 어차피 `sumSalesCountByFamilyRootId`로 family 전체 버전을
+합산한 값이다. 즉 salesCount 숫자가 family의 어느 멤버 row에 붙어있든, family 전체를
+다시 더하면 최종 합계는 똑같다. anchor row(구매된 그 버전)는 구매 시점에 `ON_SALE`이었던
+게 보장되므로, 그 뒤에 무슨 일이 있어도(판매중단이든 다른 버전으로 교체든) row 자체는
+항상 존재한다 — family를 다시 찾아서 "지금 판매중인 버전"을 조회하는 간접 경로를 거치지
+않아도 되니, 유실 가능성이 코드 구조상 원천적으로 없어진다.
+
+</details>
+
+<details>
+<summary>🔍 이 파일이 왜 #377/#553 스코프에 포함됐는가</summary>
+
+`ProductSalesCountService`는 검색(ES)과 직접 관련 없는, 주문 결제 도메인의 salesCount 반영
+로직이다. 원래 이 PR(#377/#553)의 범위 밖이지만, 인기순 랭킹 가중치를 리뷰하는 과정에서
+발견한 실제 데이터 유실 버그였고, 이번 PR이 popular 정렬 자체를 처음 사용자에게 노출시키는
+계기라 "인기순이 정확한 salesCount를 기반으로 계산되는지"까지 같은 브랜치에서 함께
+검증·수정하는 게 맞다고 판단했다. 별도 이슈로 미루면 이 PR의 popular 정렬은 처음부터
+부정확한 salesCount 위에서 동작을 시작하게 된다.
+
+</details>
+
 ## 결과
 
 - 로컬 docker-compose로 이 레이스 컨디션이 실제로 재현되는 것과, 고친 뒤엔 크래시 없이
@@ -419,3 +598,7 @@ if (client.indices().existsAlias(e -> e.name(ALIAS)).value()) {
 - `page` 좌표계 변경은 계약상 breaking change지만, 현재 이 API에 `page`를 명시적으로
   보내는 FE 호출이 없어 실질 영향은 없음 — FE 페이지네이션 구현 시점(후속 이슈)부터
   의미가 생김.
+- PR 생성 완료(`Closes #377, Closes #553`), PR을 올리기 전 마지막 점검 과정에서 F/G
+  (Pageable 통일, 구매 salesCount 유실 수정) 2건을 추가로 발견해 같은 브랜치에 포함.
+- FE 후속 이슈(`browse` 페이지 "더보기" 페이지네이션 구현)를 별도 저장소(`beadv6_6_3JMT_FE`)에
+  생성 완료 — BE 계약은 이미 준비돼 있어 FE 구현만 남은 상태.
