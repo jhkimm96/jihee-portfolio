@@ -1,0 +1,191 @@
+---
+title: "Specification으로 WHERE 조건 조립하기, 그리고 Pageable의 숨은 sort 파라미터"
+date: "2026-07-24"
+summary: "조건 조합이 상황마다 달라지는 목록 조회를 JPA Specification으로 레고처럼 조립한 이유와, 자동 Pageable 리졸버를 쓰지 않고 PageRequest를 직접 만든 이유를 PromptHub admin 상품 목록 구현 사례로 정리했다."
+tags: ["JPA", "Specification", "Pageable", "Spring Data"]
+draft: false
+---
+
+## 배경 — 탭 4개짜리 목록 화면 하나가 시작이었다
+
+PromptHub admin 상품 검수 화면에는 검수대기/게시중/반려/전체 탭이 있다. 원래 API는
+검수대기 상품만 돌려줘서 나머지 탭이 항상 비어 있었고, 검색도 페이지네이션도 없었다.
+이걸 `GET /admin/products?status=...&keyword=...&page=0&size=20` 하나로 처리하도록
+바꾸면서 두 가지 도구를 제대로 쓰게 됐다.
+
+같은 쿼리를 SQL로 쓰면 이렇다:
+
+```sql
+SELECT * FROM product
+WHERE status IN ('PENDING_REVIEW','ON_SALE','REJECTED')   -- 탭 조건 (전체 탭)
+  AND deleted_at IS NULL                                  -- 삭제 제외
+  AND (name LIKE '%검색어%' OR seller_id IN (...))         -- 검색 조건
+ORDER BY created_at DESC
+LIMIT 20 OFFSET 0
+```
+
+문제는 이 WHERE가 **상황마다 달라진다**는 것. status는 있을 때도 없을 때(전체)도 있고,
+keyword도 마찬가지다. 조합이 2×2=4가지, 조건이 하나 늘면 8가지가 된다.
+
+## 요청 하나가 흘러가는 길 — 클래스별 역할
+
+`GET /admin/products?status=on_sale&keyword=지피티&page=0&size=20` 요청 하나가
+클래스를 타고 내려가는 순서다.
+
+```
+ProductController (presentation)
+  → ProductUseCase 인터페이스 ← ProductService (application)
+      → ProductRepository 포트 ← ProductRepositoryAdapter (infrastructure)
+          → ProductSpecifications + ProductJpaRepository → SQL
+```
+
+**1. ProductController — HTTP 세계의 일만 한다**
+
+- `status=on_sale` 문자열을 switch로 `ProductStatus.ON_SALE`로 변환한다.
+  `ALL`이면 null(필터 없음), 미인식 값이면 400 예외.
+- `PageRequest.of(page, size, Sort.by(DESC, "createdAt"))`로 Pageable을 **여기서 딱
+  한 번** 조립한다(자동 리졸버를 안 쓰는 이유는 아래 섹션).
+- 이걸 `AdminProductListQuery(status, keyword, pageable)`로 묶어 유스케이스에 넘기고,
+  결과를 공통 `PageResponse`(meta: page/size/total/hasNext)로 감싸 반환한다.
+
+**2. ProductService (ProductUseCase 구현) — 재료 준비와 조립**
+
+- keyword를 trim하고 빈 문자열이면 null로 정규화한다.
+- keyword가 있으면 `SellerNicknameRepository`에서 닉네임 LIKE로 **판매자 ID 목록을
+  선조회**한다(조인 대신 — 아래 섹션).
+- 준비된 재료로 도메인 값 객체 `ProductListFilter(status, keyword, keywordSellerIds)`를
+  만들어 리포지토리 포트에 넘긴다.
+- 돌아온 `Page<Product>`의 내용물에 판매자 닉네임을 붙여(없으면 "알 수 없음") 응답
+  DTO로 조립한다. total·hasNext는 `Page`가 이미 알고 있어서 계산할 게 없다.
+
+**3. ProductRepository (도메인 포트) — 시그니처만 안다**
+
+```java
+Page<Product> findProducts(ProductListFilter filter, Pageable pageable);
+```
+
+도메인 계층은 "필터와 페이지 정보를 주면 상품 한 페이지를 돌려준다"는 약속만 안다.
+그걸 JPA로 하는지 뭘로 하는지는 모른다.
+
+**4. ProductRepositoryAdapter (인프라) — 블록 조립**
+
+`ProductListFilter`를 열어 Specification 블록 3개(`withStatus`·`notDeleted`·
+`withKeyword`)를 `.and()`로 끼워 맞추고 `productJpaRepository.findAll(spec, pageable)`을
+호출한다.
+
+**5. ProductSpecifications + ProductJpaRepository — SQL로 변환**
+
+블록 정의는 `ProductSpecifications`에, 실행은 `JpaSpecificationExecutor`를 상속한
+`ProductJpaRepository`가 맡는다. Spring Data JPA가 조합된 블록을 WHERE 절로, Pageable을
+ORDER BY + LIMIT/OFFSET으로 변환해 쿼리 한 방을 만든다.
+
+## Specification — WHERE 조건을 레고 블록으로
+
+문자열로 JPQL을 조립하면 if-else가 조합 수만큼 늘어난다. **JPA Specification은 WHERE
+조건 하나를 "레고 블록" 하나로 만들어서, 필요한 것만 끼워 맞추는 방식**이다.
+
+```java
+public class ProductSpecifications {
+
+	public static Specification<Product> withStatus(ProductStatus status) {
+		if (status == null) return (root, query, cb) -> root.get("status").in(ProductStatus.adminVisibleStatuses());
+		return (root, query, cb) -> cb.equal(root.get("status"), status);
+	}
+
+	public static Specification<Product> notDeleted() {
+		return (root, query, cb) -> cb.isNull(root.get("deletedAt"));
+	}
+
+	public static Specification<Product> withKeyword(String keyword, List<UUID> sellerIds) {
+		if (keyword == null || keyword.isBlank()) return (root, query, cb) -> cb.conjunction();
+		return (root, query, cb) -> {
+			String pattern = "%" + keyword.toLowerCase() + "%";
+			var titleLike = cb.like(cb.lower(root.get("name")), pattern);
+			if (sellerIds == null || sellerIds.isEmpty()) return titleLike;
+			return cb.or(titleLike, root.get("sellerId").in(sellerIds));
+		};
+	}
+}
+```
+
+블록 하나하나를 보면:
+
+- `withStatus`: 상태 필터. **null이면 "관리자 화면이 다루는 3개 상태 전체"**로 해석한다.
+  이 3개 목록은 처음엔 리포지토리 계층에 상수로 뒀는데, 코드리뷰에서 "admin이 볼 수 있는
+  상태가 뭔지는 상태 자체의 의미"라는 지적을 받고 `ProductStatus.adminVisibleStatuses()`
+  enum 정적 메서드로 옮겼다. 인프라 계층은 비즈니스 규칙을 몰라야 한다는 원칙 그대로다.
+- `notDeleted`: 소프트 딜리트 제외. 항상 끼우는 블록.
+- `withKeyword`: 조건이 없으면 `cb.conjunction()` — "항상 참"이라는 뜻으로, 블록을 끼워도
+  아무 필터가 안 걸리는 것과 같다.
+
+조립은 어댑터에서 한 줄이다:
+
+```java
+Specification<Product> spec = withStatus(filter.status())
+	.and(notDeleted())
+	.and(withKeyword(filter.keyword(), filter.keywordSellerIds()));
+
+Page<Product> page = productJpaRepository.findAll(spec, pageable);
+```
+
+리포지토리 인터페이스에 `JpaSpecificationExecutor<Product>`만 붙이면 `findAll(spec,
+pageable)`을 쓸 수 있고, Spring Data JPA가 블록 조합을 SQL WHERE로 변환해 준다.
+`Page<Product>`로 받으면 목록과 전체 건수(total), 다음 페이지 존재 여부(hasNext)까지
+한 번에 나와서 수동 계산 코드도 사라진다.
+
+## 판매자 닉네임 검색 — 조인 대신 선조회를 고른 이유
+
+검색은 "상품명 **또는** 판매자 닉네임"인데, 닉네임은 상품 테이블이 아니라 별도 테이블에
+있고 두 엔티티 사이에 JPA 연관관계도 없다. Specification으로 연관 없는 엔티티를 조인하는
+건 가능은 해도 코드가 많이 복잡해진다.
+
+그래서 순서를 바꿨다. **닉네임 테이블에서 검색어에 걸리는 판매자 ID 목록을 먼저 뽑고**,
+상품 쿼리에는 `상품명 LIKE :keyword OR seller_id IN (:ids)` 조건으로 넣는다. 쿼리가
+한 번 늘지만 닉네임 테이블은 판매자 수만큼만 있어서 부담이 없고, Specification 블록은
+단순하게 유지된다.
+
+## Pageable 자동 리졸버를 안 쓴 이유 — 메뉴판에 없는 주문
+
+Spring에는 편의 기능이 있다. 컨트롤러 파라미터에 `Pageable`을 그대로 선언하면:
+
+```java
+public PageResponse<...> listProducts(Pageable pageable) { ... }  // 자동 리졸버
+```
+
+Spring이 URL의 `?page=`, `?size=`를 읽어서 자동으로 만들어 준다. 편하다. 그런데 이
+자동 기능은 `?sort=`도 **같이** 읽는다. 즉 이렇게 호출하면:
+
+```
+GET /admin/products?page=0&size=20&sort=amount,desc
+```
+
+문서에 적은 적 없는 "가격순 정렬"이 몰래 동작한다. 아무 엔티티 필드명이나 정렬에 쓸 수
+있게 되고, 없는 필드를 넣으면 500이 난다. 식당 메뉴판에 없는 음식이 주방 뒷문으로 주문돼
+나오는 셈이다.
+
+그래서 `page`/`size`만 `@RequestParam`으로 받고, 정렬은 서버가 고정해서 직접 조립했다:
+
+```java
+public PageResponse<...> listProducts(
+	@RequestParam(defaultValue = "0") int page,
+	@RequestParam(defaultValue = "20") int size, ...
+) {
+	Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+	...
+}
+```
+
+API 계약(쿼리 파라미터)은 그대로 두고, `Pageable`은 컨트롤러 안에서 딱 한 번 만들어
+리포지토리까지 그대로 흘려보낸다. 처음엔 page/size int 두 개를 계층마다 들고 다니다가
+마지막에 재조립했는데, 리뷰에서 "중간에 값 두 개를 계속 들고 다니다 끝에서 재조립하는
+것보다 처음부터 Pageable로 전달하라"는 피드백을 받고 정리한 결과다.
+
+## 정리
+
+- WHERE 조건 조합이 상황마다 달라지는 목록 조회는 **Specification 블록 조립**이 if-else
+  문자열 조립보다 깔끔하다. 조건이 하나 늘어도 블록 하나만 추가하면 된다.
+- "필터 없음"은 `cb.conjunction()`(항상 참)으로 표현한다.
+- 비즈니스 의미가 있는 상수(어떤 상태를 노출할지)는 인프라가 아니라 **도메인(enum)이
+  들고 있어야** 한다.
+- `Pageable` 자동 리졸버는 편하지만 **문서에 없는 sort 파라미터를 암묵적으로 연다**.
+  정렬을 서버가 통제해야 하는 API라면 page/size만 받아 `PageRequest`를 직접 만들자.
