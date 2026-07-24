@@ -1,0 +1,77 @@
+---
+title: "ES 색인기 전용 Jackson ObjectMapper 구성 — 앱 공용 Bean 재사용 대신 격리"
+slug: "es-indexer-dedicated-object-mapper"
+date: "2026-07-24"
+status: "accepted"
+summary: "ElasticsearchClient의 날짜 직렬화 버그를 고치면서, 앱 전체가 쓰는 스프링의 공용 ObjectMapper를 재사용하지 않고 ES 전용 ObjectMapper를 별도로 만들었다. REST API 직렬화 설정과 ES 색인 직렬화 설정이 같은 객체를 공유하면 한쪽 변경이 다른 쪽을 조용히 깨뜨릴 수 있기 때문이다."
+tags: ["jackson", "elasticsearch", "spring-boot", "serialization"]
+draft: false
+---
+
+## 배경
+
+`ElasticsearchClient`가 내부적으로 쓰는 `JacksonJsonpMapper`에 `JavaTimeModule`이
+빠져 있어 `LocalDateTime` 필드 직렬화가 항상 실패하던 버그를 고치는 과정에서 생긴
+결정이다.
+
+**왜 이 문제가 생겼는지가 핵심이다.** 스프링 부트는 앱이 뜰 때 `JavaTimeModule`까지
+이미 등록된 "잘 갖춰진 `ObjectMapper`" 1개를 자동으로 만들어서 REST API 전역에
+공급해준다. 그런데 Elasticsearch 클라이언트 라이브러리는 이 스프링 표준 인스턴스를
+가져다 쓰지 않고, `JacksonJsonpMapper`를 생성할 때 자기 내부에서 `new ObjectMapper()`로
+완전히 별개의 순정 인스턴스를 새로 만들어 쓴다. 즉 같은 앱 안에 "스프링이 관리하는
+번역기"와 "ES 클라이언트가 자기 혼자 만든 번역기" 두 개가 공존하고 있었고, 이 사실을
+모른 채 아무 인자 없이 `new JacksonJsonpMapper()`를 호출했더니 후자(날짜 모듈이 빠진
+쪽)가 쓰이고 있었던 것이다.
+
+이 버그를 고치는 시점에 "ES 색인용 Jackson 설정을 어디서 가져올 것인가"를 정해야
+했다. 스프링의 공용 `ObjectMapper` 빈을 그대로 가져다 쓰면 코드 몇 줄 안 늘려도 됐다.
+
+## 고려한 선택지
+
+1. **스프링의 공용 `ObjectMapper` 빈을 그대로 주입** — 코드가 가장 짧고, 이미 검증된
+   설정을 재사용한다. 다만 REST API 응답용 설정과 ES 색인용 설정이 완전히 같은 객체를
+   공유하게 된다.
+2. **ES 전용 `ObjectMapper`를 새로 구성**(택함) — `JavaTimeModule`만 등록한 독립된
+   인스턴스를 만든다. 코드 몇 줄이 늘지만, REST 직렬화 설정과 ES 직렬화 설정이 서로
+   완전히 분리된다.
+3. **`ProductSearchDocument`의 개별 필드에 `@JsonFormat` 어노테이션 부착** — 필드
+   단위로 날짜 포맷을 지정. 지금 있는 2개 필드는 고칠 수 있지만, 앞으로 ES 문서에
+   날짜 필드가 추가될 때마다 매번 잊지 않고 붙여야 하는 방식이라 재발 여지가 남는다.
+4. **`ProductSearchDocument`의 날짜 필드 타입을 `LocalDateTime` 대신 `String`(사전
+   포맷된 ISO 문자열)으로 변경** — Jackson의 날짜 모듈 자체를 아예 안 타게 우회한다.
+   하지만 도메인 모델에선 여전히 `LocalDateTime`을 쓰는데 문서 필드만 `String`으로
+   바뀌면, 이 문서를 만드는 쪽(`buildDocument`)에서 매번 수동으로 포맷 변환을 해줘야
+   해서 실수하기 쉽다.
+
+## 결정
+
+2번(ES 전용 `ObjectMapper` 구성)을 택했다.
+
+```java
+ObjectMapper objectMapper = new ObjectMapper()
+    .registerModule(new JavaTimeModule())
+    .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+return new Rest5ClientTransport(rest5Client, new JacksonJsonpMapper(objectMapper));
+```
+
+<details>
+<summary>💡 왜 스프링 공용 Bean을 재사용하지 않았나</summary>
+
+앱의 공용 `ObjectMapper`는 모든 컨트롤러의 REST 응답 직렬화에 쓰인다. 만약 이 버그를
+고치면서 그 공용 빈을 ES 클라이언트에도 그대로 물려 썼다면, 나중에 누군가 REST API
+쪽 이유로(예: 네이밍 전략 변경, 특정 타입 커스텀 직렬화 추가) 그 공용 빈의 설정을
+바꿨을 때 ES 색인이 예고 없이 같이 깨질 수 있다 — "REST 응답 포맷을 바꿨을 뿐인데
+검색 색인이 왜 안 되지?"처럼 원인을 추적하기 어려운 결합이 생긴다.
+
+또한 3번(필드별 어노테이션)은 지금 당장은 필드가 2개뿐이라 감당되지만, ES 문서에
+날짜 필드가 늘어날 때마다 사람이 매번 기억해서 붙여야 하는 방식이라 오늘 고친 것과
+똑같은 종류의 버그가 다른 필드에서 재발할 여지가 남는다. 반면 매퍼 레벨에서 한 번
+고치면 앞으로 추가되는 모든 날짜 필드에 자동으로 적용된다.
+
+</details>
+
+## 결과
+
+REST API 직렬화와 ES 색인 직렬화가 서로 독립된 설정을 갖게 됐다. 한쪽 설정 변경이
+다른 쪽에 영향을 주지 않고, 앞으로 `ProductSearchDocument`에 날짜 필드가 추가돼도
+별도 조치 없이 정상 동작한다.
