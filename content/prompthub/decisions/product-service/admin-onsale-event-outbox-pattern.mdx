@@ -2,7 +2,8 @@
 title: "admin-service의 상품 판매전환 이벤트 발행 — 아웃박스 패턴, 테이블 소유는 product-service"
 slug: "admin-onsale-event-outbox-pattern"
 date: "2026-07-22"
-status: "accepted"
+status: "superseded"
+supersededBy: "incremental-reconcile-over-outbox-event"
 summary: "검수 기능이 admin-service로 이관되며 상품 판매 전환 시 Kafka 발행이 끊긴 문제를, 이미 검증된 아웃박스 패턴을 재사용하되 테이블 소유권만 product-service로 조정해 해결했다."
 tags: ["kafka", "outbox-pattern", "event-driven", "microservices", "product-service"]
 draft: false
