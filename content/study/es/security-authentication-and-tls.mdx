@@ -1,0 +1,252 @@
+---
+title: "Elasticsearch 보안 켜기 — 인증, TLS, 그리고 왜 한 번에 못 켜는가"
+slug: "security-authentication-and-tls"
+date: "2026-07-29"
+summary: "공유 Elasticsearch를 무인증 HTTP에서 인증 HTTPS로 옮기는 작업을 하면서 정리한 것. 인증과 암호화가 왜 다른 스위치인지, 자체 서명 인증서를 왜 따로 신뢰시켜야 하는지, 폴백을 왜 남겨야 하는지."
+tags: ["Elasticsearch", "보안", "TLS", "인증", "Kubernetes", "Secret"]
+draft: false
+---
+
+## 시작은 "남이 열어두고 간 문"이었다
+
+로그 수집(ELK) 담당자가 Elasticsearch를 붙이면서 PR 본문에 이렇게 적어뒀다.
+
+> 현재 `xpack.security.enabled=false`는 **의도된 임시 상태**입니다. 지금 보안을 활성화하면 Product 검색 기능이 중단될 수 있습니다.
+
+내가 만든 검색 서비스가 Elasticsearch에 **열쇠 없이** 붙고 있어서, 자물쇠를 채우는 순간 검색이 죽는다는 뜻이다. 그래서 문을 열어둔 채로 두고 "준비되면 잠그자"고 넘겨준 것이다.
+
+이 글은 그 숙제를 하면서 알게 된 것들이다.
+
+## 1. Elasticsearch는 원래 잠겨 있다
+
+먼저 놀란 것. `xpack.security.enabled`의 **기본값은 `true`**다.
+
+```yaml
+env:
+  - name: xpack.security.enabled
+    value: "false"        # ← 우리가 일부러 끈 것
+```
+
+즉 우리는 "보안을 아직 안 켰다"가 아니라 **"켜져 있는 걸 껐다"**였다. 8.x부터 Elastic이 기본값을 바꿨는데, 그전 습관대로 쓰다 보면 이걸 모르고 지나간다.
+
+이게 중요한 이유는 **책임의 방향이 달라지기 때문**이다. "아직 안 한 일"이 아니라 "이미 꺼둔 일"이면, 언제 다시 켤지에 대한 계획이 있어야 한다.
+
+## 2. 인증과 암호화는 다른 스위치다
+
+여기서 가장 오래 헷갈렸다. 나는 "보안을 켠다"를 하나의 동작으로 생각했는데, 실제로는 **스위치가 두 개**다.
+
+```
+xpack.security.enabled           → 누가 들어올 수 있나 (인증·권한)
+xpack.security.http.ssl.enabled  → 오가는 내용을 감쌀 것인가 (암호화)
+```
+
+비유하자면 이렇다.
+
+| 스위치 | 비유 | 없으면 |
+|---|---|---|
+| 인증 | 건물 출입증 | 아무나 들어와서 서류를 읽고 고친다 |
+| 암호화(TLS) | 편지 봉투 | 오가는 내용을 중간에서 누가 읽을 수 있다 |
+
+**둘은 독립적이다.** 출입증만 검사하고 봉투는 안 쓸 수도 있고(인증 + HTTP), 반대도 가능하다. Elastic 공식 문서도 단일 노드에 대해 "minimal security"라는 이름으로 **인증만 켜는** 구성을 따로 안내한다.
+
+우리가 겪던 문제 — "아무나 읽고 쓸 수 있다", "서비스마다 권한이 안 나뉜다" — 는 **인증 쪽 문제**다. 암호화를 안 해도 이건 풀린다.
+
+그래도 이번엔 둘 다 하기로 했다. 인수인계 문서에 "HTTPS 연결 방법"과 "CA 인증서 신뢰 설정"이 명시적으로 요청돼 있었기 때문이다. 혼자 정한 범위였다면 인증만 먼저 했을 것이다.
+
+## 3. 왜 "그냥 켜면" 안 되는가
+
+자물쇠는 Elasticsearch **하나**에 달려 있는데, 그 문을 쓰는 서비스는 **둘**이다.
+
+```
+검색 서비스  ──┐
+              ├──→  Elasticsearch  (자물쇠 1개)
+로그 수집기  ──┘
+```
+
+켜는 순간 둘 다 동시에 못 들어간다. 한쪽만 열쇠를 준비해두고 켜면 다른 쪽이 죽는다. 그래서 이 작업은 **혼자 끝낼 수 없다.**
+
+내가 한 일은 그래서 두 단계로 갈렸다.
+
+1. **내 서비스가 열쇠를 받을 수 있게 만든다** ← 혼자 가능, 배포해도 동작 안 바뀜
+2. **실제로 자물쇠를 채운다** ← 담당자와 시간 맞춰야 함
+
+## 4. 열쇠를 "받을 수 있게"가 무슨 뜻인가
+
+핵심은 **설정이 없으면 지금처럼 동작하는 것**이다.
+
+```java
+private void applyBasicAuth(HttpAsyncClientBuilder builder) {
+    if (username.isBlank() && password.isBlank()) {
+        return;                    // ← 설정이 없으면 아무것도 안 한다
+    }
+    ...
+}
+```
+
+이 한 줄 덕분에 **코드 배포와 보안 전환을 따로 할 수 있다.** 코드를 먼저 넣어두고, 나중에 준비가 되면 설정값만 채우면 된다. 만약 이 폴백이 없었다면 "코드 배포 = 보안 전환"이 되어 두 서비스 담당자가 같은 순간에 붙어 있어야 했다.
+
+로컬 개발 환경도 이 덕을 본다. 내 노트북의 Elasticsearch는 무인증인데, 같은 코드가 그대로 돈다.
+
+### 한쪽만 채워졌을 때
+
+이건 일부러 까다롭게 만들었다.
+
+```java
+if (username.isBlank() || password.isBlank()) {
+    log.warn("Elasticsearch 인증 설정이 한쪽만 채워져 있어 무인증으로 연결합니다. ...");
+    return;
+}
+```
+
+아이디만 있고 비밀번호가 없으면 **인증을 걸지 않고 경고를 남긴다.** 조용히 무인증으로 붙으면 나중에 401을 보고 원인을 **설정이 아니라 서버에서** 찾게 된다. 실수를 실수가 일어난 자리에서 드러내는 게 낫다.
+
+## 5. basic auth와 API key — 왜 전자를 골랐나
+
+Elasticsearch는 두 방식을 다 지원한다.
+
+| | basic auth | API key |
+|---|---|---|
+| 형태 | 아이디 + 비밀번호 | 발급받은 키 문자열 |
+| 비유 | 사원증 | 방문증(용도·기한 지정) |
+| 권한 좁히기 | 계정에 role 부여 | 키마다 범위 지정 가능 |
+| 만들려면 | 계정 생성 API | **보안이 이미 켜져 있어야 함** |
+
+원래 이슈에는 "API key가 권한 범위를 좁히기 쉬워 유력하다"고 적어뒀었는데, 구현하려고 보니 **순서 문제**가 있었다.
+
+```
+API key를 만들려면 → 보안이 켜져 있어야 하고
+보안을 켜려면      → 서비스가 열쇠를 갖고 있어야 하는데
+그 열쇠가 API key  → 닭이 먼저냐 달걀이 먼저냐
+```
+
+basic auth는 이 문제가 없다. 계정과 비밀번호는 보안을 켜는 시점에 함께 정하면 된다. 그리고 로그 수집기 쪽이 이미 `user`/`password` 방식을 쓰고 있어서 양쪽 설정 모양도 맞았다.
+
+API key는 나중에 추가해도 이 코드를 깨지 않는다 — 헤더 하나 더 붙이는 일이다.
+
+## 6. 자체 서명 인증서와 CA — 왜 따로 신뢰시켜야 하나
+
+HTTPS를 켜려면 서버에 인증서가 필요하다. 그런데 우리는 **공인 기관에서 발급받지 않는다.** 클러스터 안에서만 오가는 통신이라 그럴 이유가 없다.
+
+여기서 "자체 서명"의 문제가 생긴다.
+
+- 공인 인증서 = **여권**. 어느 나라에서든 통한다. 발급 기관 목록이 이미 모든 컴퓨터에 들어 있다
+- 자체 서명 인증서 = **우리 회사 사원증**. 우리끼리만 통한다. 처음 보는 사람은 "이게 진짜인지 모르겠다"며 거절한다
+
+그래서 **"이 발급처는 믿어도 된다"고 미리 알려주는 작업**이 필요하다. 그게 CA truststore다.
+
+```java
+KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+trustStore.load(null, null);                      // 빈 신뢰 목록을 만들고
+Certificate ca = CertificateFactory.getInstance("X.509").generateCertificate(in);
+trustStore.setCertificateEntry("elasticsearch-ca", ca);   // 우리 CA만 넣는다
+```
+
+`load(null, null)`이 **빈 목록에서 시작**한다는 뜻이다. 여기에 우리 CA 하나만 넣으므로, 이 클라이언트는 **우리 CA가 서명한 인증서만** 믿는다.
+
+### 실패하면 기동을 막는다
+
+```java
+} catch (Exception e) {
+    throw new IllegalStateException("Elasticsearch CA 인증서를 읽지 못했습니다. path=" + caPath, e);
+}
+```
+
+인증서를 주겠다고 설정해놓고 파일을 못 읽으면 **앱이 아예 안 뜨게** 했다. 여기서 예외를 삼키면 검증 없이 연결되거나, 원인을 알 수 없는 핸드셰이크 실패로 이어진다. 설정 실수는 기동 시점에 크게 터지는 게 낫다.
+
+## 7. 부트스트랩 체크 — 단일 노드가 왜 예외인가
+
+작업 중에 제일 불확실했던 부분이다. Elasticsearch에는 **부트스트랩 체크**라는 게 있다. "이 설정으로 운영에 나가면 위험하다" 싶은 조합이면 아예 기동을 거부한다.
+
+그중 하나가 이거다.
+
+> Transport SSL must be enabled if security is enabled.
+
+즉 **"보안을 켤 거면 노드 간 통신도 암호화해라"**. 이게 걸리면 우리는 인증서를 두 벌(HTTP용 + transport용) 만들어야 한다.
+
+그런데 공식 문서에 예외가 적혀 있다.
+
+> If you are running a single node in production, it is possible to evade the bootstrap checks, either by not binding transport to an external interface, or by **binding transport to an external interface and setting the discovery type to `single-node`**.
+
+**노드가 하나면 "노드 간 통신"이라는 게 존재하지 않는다.** 그래서 `discovery.type: single-node`를 주면 이 체크를 건너뛴다. 우리 구성이 정확히 그렇다.
+
+문서상으로는 확인됐지만, 실제로 그 버전에서 그렇게 도는지는 **로컬 도커로 한 번 띄워보고** 넘어가기로 했다. 전환 당일에 알면 늦는 종류의 문제다.
+
+## 8. httpclient5 배선 — TLS는 커넥션 매니저에 건다
+
+여기서 컴파일 에러로 한 번 막혔다.
+
+```java
+builder.setTlsStrategy(...);   // ❌ cannot find symbol
+```
+
+Elasticsearch 9의 자바 클라이언트는 내부적으로 Apache HttpClient 5를 쓰는데, **동기 클라이언트와 비동기 클라이언트의 배선 위치가 다르다.** 비동기 쪽은 TLS 전략을 빌더가 아니라 **커넥션 매니저**에 건다.
+
+```java
+builder.setConnectionManager(PoolingAsyncClientConnectionManagerBuilder.create()
+    .setTlsStrategy(ClientTlsStrategyBuilder.create().setSslContext(sslContext).buildAsync())
+    .build());
+```
+
+`buildAsync()`인 것도 이유가 있다. `build()`는 동기용 반환 타입이라 여기서는 deprecated다. 같은 빌더가 두 종류의 결과를 만들 수 있어서 메서드 이름으로 구분한다.
+
+## 9. Kubernetes Secret은 네임스페이스를 넘지 않는다
+
+이건 알고는 있었는데 이번에 실제로 걸릴 뻔했다.
+
+```
+로그 수집 네임스페이스      서비스 네임스페이스
+  Elasticsearch             검색 서비스
+  로그 수집기
+```
+
+두 서비스가 **다른 네임스페이스**에 있다. 그런데 Secret은 네임스페이스 안에서만 보인다. CA 인증서를 한쪽에만 만들어두면 다른 쪽 서비스는 **읽을 수 없다.**
+
+비유하면 **부서별로 잠긴 서류함**이다. 같은 건물에 있어도 다른 부서 서류함은 못 연다. 같은 인증서를 **양쪽에 각각** 넣어야 한다.
+
+전환 당일에 이걸 모르면 "설정은 다 했는데 왜 파일이 없다고 하지"로 시간을 버린다.
+
+## 10. 끊기면 어디가 먼저 깨지나 — 폴백의 유무
+
+마지막이 실무적으로 가장 쓸모 있었다. 전환 중 연결이 끊기면 **모든 기능이 똑같이 죽는 게 아니다.**
+
+| 기능 | ES 끊기면 | 이유 |
+|---|---|---|
+| 상품 목록·검색 | **계속 동작** | 실패하면 관계형 DB로 폴백 |
+| 비슷한 상품 추천 | **계속 동작** | 애초에 ES를 안 쓴다 |
+| 검색어 자동완성 | **조용히 빈 목록** | 폴백이 없다 |
+
+자동완성만 폴백이 없다. 관계형 DB에 대응하는 조회가 없어서, 실패하면 빈 목록을 돌려준다.
+
+```java
+} catch (RuntimeException e) {
+    log.warn("ES 자동완성 조회에 실패해 빈 목록을 반환합니다.", e);
+    return List.of();
+}
+```
+
+**이건 의도된 설계다.** 타이핑 중에 매 요청이 500으로 나가는 것보다 드롭다운이 안 뜨는 편이 낫다. 문제는 **조용하다**는 것 — 사용자도 모르고 모니터링도 안 걸린다.
+
+그리고 이 위험이 최근에 커졌다. 이슈를 처음 쓸 때는 자동완성 API를 부르는 화면이 없어서 무해했는데, 그 사이 프론트에 자동완성을 붙였다. **문서에 적힌 위험 평가가 코드 변경으로 낡아버린 사례**다.
+
+그래서 전환 절차서의 "증상별 원인" 표 맨 위를 이걸로 잡았다.
+
+> 목록·검색은 되는데 **자동완성만 빈 목록** → ES 연결 실패. 가장 먼저, 그리고 조용히 깨지는 곳
+
+## 정리하며
+
+작업 자체는 코드 몇십 줄이었는데, 알아야 했던 건 그보다 훨씬 넓었다.
+
+- 보안은 스위치 하나가 아니라 **인증과 암호화 두 개**다
+- 공유 자원의 설정은 **혼자 바꿀 수 없다** — 준비 단계와 실행 단계를 나눠야 한다
+- 폴백은 **배포 순서의 자유도**를 만든다. 설정이 없으면 예전처럼 동작하게 해두면 두 작업을 분리할 수 있다
+- 같은 장애라도 **기능마다 다르게 깨진다**. 폴백이 있는 곳과 없는 곳을 미리 알아야 절차서가 쓸모 있어진다
+
+가장 크게 배운 건 마지막이다. "리스크가 낮다"는 문장이 문서에 적혀 있어도, 그 근거가 된 전제(자동완성을 아무도 안 쓴다)는 코드가 바뀌면 조용히 무너진다. 문서를 쓸 때는 결론만 적지 말고 **그 결론이 기대는 전제**를 같이 적어야 나중에 검증할 수 있다.
+
+## 참고
+
+- [Bootstrap checks — Elastic](https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html)
+- [Bootstrap checks for X-Pack — Elastic](https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks-xpack.html)
+- [Set up minimal security — Elastic](https://www.elastic.co/docs/deploy-manage/security/set-up-minimal-security)
+- [Set up basic security plus HTTPS — Elastic](https://www.elastic.co/docs/deploy-manage/security/set-up-basic-security-plus-https)
+- [Security settings in Elasticsearch — Elastic](https://www.elastic.co/guide/en/elasticsearch/reference/current/security-settings.html)
