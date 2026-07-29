@@ -246,14 +246,14 @@ const validQualityFrontmatter = () => ({
 })
 
 describe('qualityFrontmatterSchema', () => {
-  it('accepts a valid quality frontmatter with all 11 categories', () => {
+  it('accepts a valid quality frontmatter with all known categories', () => {
     expect(qualityFrontmatterSchema.safeParse(validQualityFrontmatter()).success).toBe(true)
   })
 
-  it('rejects when a category is missing (findings must cover all categories)', () => {
+  it('accepts a legacy quality frontmatter with the original 11 categories', () => {
     const data = validQualityFrontmatter()
-    data.findings = data.findings.slice(1)
-    expect(qualityFrontmatterSchema.safeParse(data).success).toBe(false)
+    data.findings = data.findings.slice(0, 11)
+    expect(qualityFrontmatterSchema.safeParse(data).success).toBe(true)
   })
 
   it('rejects an unknown category', () => {
@@ -273,9 +273,10 @@ describe('qualityFrontmatterSchema', () => {
     expect(qualityFrontmatterSchema.safeParse(data).success).toBe(false)
   })
 
-  it('exposes exactly 11 fixed categories', () => {
-    expect(QUALITY_CATEGORIES).toHaveLength(11)
+  it('exposes the current 14 quality categories', () => {
+    expect(QUALITY_CATEGORIES).toHaveLength(14)
     expect(QUALITY_CATEGORIES[0]).toBe('controller-thin')
     expect(QUALITY_CATEGORIES[10]).toBe('service-boundary')
+    expect(QUALITY_CATEGORIES[13]).toBe('cohesion-coupling')
   })
 })
