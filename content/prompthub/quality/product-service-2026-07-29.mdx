@@ -1,0 +1,201 @@
+---
+title: "product-service 품질 스냅샷 (2026-07-29)"
+date: "2026-07-29"
+scope: "product-service"
+score: 61.0
+formulaVersion: 2
+metrics:
+  locTotal: 4726
+  files: 110
+  duplicationBlocks: 12
+  duplicationPct: 1.85
+  oversizedClasses: 4
+  longMethods: 0
+findings:
+  - { category: "controller-thin", high: 0, medium: 1, low: 0 }
+  - { category: "entity-encapsulation", high: 0, medium: 0, low: 0 }
+  - { category: "http-semantics", high: 0, medium: 0, low: 0 }
+  - { category: "logging-quality", high: 0, medium: 0, low: 0 }
+  - { category: "exception-discipline", high: 0, medium: 0, low: 0 }
+  - { category: "layer-separation", high: 0, medium: 2, low: 0 }
+  - { category: "dead-code", high: 0, medium: 3, low: 1 }
+  - { category: "duplication-semantic", high: 0, medium: 3, low: 2 }
+  - { category: "diagnosability", high: 0, medium: 0, low: 1 }
+  - { category: "integration-robustness", high: 1, medium: 0, low: 0 }
+  - { category: "service-boundary", high: 0, medium: 0, low: 0 }
+  - { category: "value-object-design", high: 0, medium: 2, low: 0 }
+  - { category: "polymorphism-opportunity", high: 0, medium: 1, low: 0 }
+  - { category: "cohesion-coupling", high: 0, medium: 1, low: 0 }
+summary: "v1(63.5점) 대비 실제 위반은 여럿 해소됐지만(gRPC 예외 삼킴·N+1·SellerClient 데드라인 미설정·죽은 엔드포인트 전부 제거), v2 신규 카테고리 3개의 첫 반영과 Kafka 발행 실패 무로깅(High)이 남아 61.0점."
+tags: ["code-quality", "refactoring", "spring", "msa", "elasticsearch"]
+draft: false
+---
+
+## 범위
+
+product-service `src/main/java` — 110개 파일, 4,726 LOC(주석·공백 제외, 테스트 제외).
+브랜치 `feat/#582-elasticsearch-auth-support`, 커밋 `10358ff4` 기준.
+정량 메트릭은 scan-metrics v2(jscpd min-tokens 70/min-lines 5, 비대 기준 300 LOC 또는
+메서드 15개 초과, 긴 메서드 50 LOC 초과), 정성 판정은 고정 루브릭 14개 카테고리로 측정했다.
+
+## 요약
+
+**61.0점** (High 1 · Medium 14 · Low 4 · 비대 클래스 4 · 중복률 1.85%로 기준 3% 이내).
+
+**v1(63.5점, 산식 v1) 대비 직접 비교는 안 된다** — v2는 산식에 `−longMethods` 항이 추가됐고
+카테고리가 3개(값객체 설계·다형성 기회·응집도/결합도) 늘었다. 이번 스냅샷은 그 3개 카테고리에서
+Medium 4건이 처음 잡혔는데(8점 상당), 이는 코드가 나빠진 게 아니라 v2에서 새로 보기 시작한
+관점이 처음 반영된 것이다.
+
+같은 잣대(11개 카테고리)로만 보면 **실질적으로 개선됐다**. v1의 diagnosability High 1건
+(`GetSellerStats` 실패를 0으로 위장)은 그 메서드 자체가 제거됐고(#483), gRPC 예외 처리도
+`IllegalArgumentException`/`ProductException`/일반 `Exception`을 gRPC status별로 명확히
+구분하도록 고쳐졌다. 판매자 정보 N+1 gRPC 호출과 `GrpcSellerClientAdapter`(데드라인 미설정)는
+판매자 정보 조합을 FE로 이관하며 그 경로 자체가 삭제됐다. 죽은 코드(`findPendingReviewProducts`
+체인, `InternalProductController`의 무호출 엔드포인트)도 사라졌다. `Product` 생성자의 긴
+파라미터 목록은 `ProductContent` 값객체(#405)로 해소됐다.
+
+새로 발견된 것은 두 갈래다. **Kafka 발행 실패가 여전히 무로깅**이다(`ProductEventProducer`) —
+v1에서 Medium으로 잡았던 게 이번엔 정의를 다시 보니 실제 리스크 기준(High: "원격 호출 실패
+무시로 데이터 불일치")에 더 정확히 맞아 High로 올렸다. 그리고 이번에 새로 생긴 하이브리드
+검색·임베딩 서브시스템(`ReciprocalRankFusion`, `QueryEmbeddingCache`,
+`ElasticsearchProductSearchQuerier` 등)은 검토한 범위에서 위반이 하나도 없었다 — 설계 의도와
+트레이드오프를 코드 주석에 촘촘히 남겨둔 게 눈에 띄었다.
+
+## 카테고리별 발견
+
+### integration-robustness (High 1)
+
+- **High** · `ProductEventProducer.java:81,85` — `kafkaTemplate.send(...)`의 반환값
+  (`CompletableFuture`)을 확인하지 않는다. AFTER_COMMIT 콜백 경로·즉시 발행 경로 둘 다
+  동일. Kafka 전송이 비동기로 실패해도 로그도, 알림도, 재시도도 없이 이벤트가 사라진다 —
+  가격 변경·판매중단 이벤트가 유실되면 ES 색인이 조용히 stale해진다.
+  `.whenComplete((result, ex) -> { if (ex != null) log.error(...); })` 권장.
+
+### dead-code (Medium 3 · Low 1)
+
+- **Medium** · `ProductListItemResponse.java:13` — `originalAmount` 필드가 선언만 되고
+  레포 전체 어디서도 실제 값으로 채워지지 않는다(`ProductQueryService.java:244,264`에서
+  항상 `null`).
+- **Medium** · `ProductDetailResponse.java:24` — `features` 필드도 동일 패턴, 항상
+  `List.of()`(`ProductQueryService.java:157`).
+- **Medium** · `Product.getBadge()`가 ES 색인엔 쓰이지만(`ElasticsearchProductSearchIndexer.java:105`)
+  `ProductSearchHit`에 그 필드가 없어 조회 응답으로 돌아올 길이 없다. 결국
+  `ProductListItemResponse`/`ProductDetailResponse`의 badge 자리는 소스와 무관하게
+  항상 `null`(`ProductQueryService.java:150,244,264`).
+- **Low** · `ProductExceptionHandler.java:67-68,80` — `handleNoResourceFound`/
+  `handleException`의 `HttpServletRequest request` 파라미터가 미사용. 같은 파일의 다른
+  핸들러들은 이미 요청ID-헤더 수동 로깅을 MDC 기반으로 걷어냈는데(#600) 이 둘만 남았다.
+
+### duplication-semantic (Medium 3 · Low 2)
+
+- **Medium** · `FileUploadController.java:110-114` ↔ `ProductSellerService.java:237-241` —
+  presigned URL에서 S3 키를 뽑는 `extractKey` 로직이 그대로 중복(v1에서도 지적, 미해소).
+- **Medium** · `EventMessage<JsonNode>` 파싱(try/catch로 감싸 역직렬화)이
+  `OrderEventConsumer.java:58-65`, `ProductInspectionResultConsumer.java:61-68`,
+  `ProductSearchEventConsumer.java:75-81` 3곳에 거의 그대로 중복. 게다가 앞 둘은
+  `tools.jackson.*`(Jackson 3.x), 마지막은 `com.fasterxml.jackson.*`(Jackson 2.x)로
+  **서로 다른 Jackson 메이저 버전**을 쓴다.
+- **Medium** · `ProductQueryGrpcService.java:44-53,71-81`의 인라인 스냅샷 매핑이
+  같은 파일의 `toOrderSnapshotResult`/`toCartSnapshotResult`(151-172)와 동일 로직 중복 —
+  다만 이건 `GetOrderSnapshots`/`GetCartSnapshots`가 order-service 전환 완료까지 유지되는
+  의도된 과도기 상태(product-api.md에 명시)라 Low가 아니라 이 항목만 예외적으로 정상
+  참작했다.
+- **Low** · `ProductJpaRepository.java`의 `findPublicProducts`(25-56)와
+  `findProjectionsByIds`(154-179)가 `ProductListProjection` 생성 JPQL을 거의 그대로
+  중복 — JPQL엔 조각 공유 수단이 마땅치 않아 구조적 제약에 가깝다.
+- **Low** · `new ProductContent(...)` 12개 인자 조립이 `ProductSellerService.java`의
+  `createProduct`(53-57)·`updateProduct`(86-90) 두 곳에 거의 동일하게 반복.
+
+### value-object-design (Medium 2) — v2 신규
+
+- **Medium** · `FileUploadController.resolveContentType(String purpose, String productType, String ext)`
+  (59-82) — `purpose`가 "file"/"thumbnail"/"image" 문자열 리터럴로 여러 분기에 반복돼
+  enum이면 막을 수 있는 오타·누락 위험이 컴파일 타임에 안 잡힌다.
+- **Medium** · `ProductDetailResponse`(19개 필드)·`ProductListItemResponse`(15개 필드)를
+  포지셔널 생성자로 조립하면서 미사용 필드 자리에 이름 없는 `null`/`List.of()`가 섞여
+  있다(`ProductQueryService.java:140-160` 등) — 같은 타입 인자 두 개가 바뀌어도 컴파일러가
+  못 잡는다.
+
+### polymorphism-opportunity (Medium 1) — v2 신규
+
+- **Medium** · `ProductType`(PROMPT/PPT·EXCEL/NOTION)별로 "어느 필드가 본문인가"를 판단하는
+  switch/분기가 `ProductContent.validateTypeFields`(43-47), `ProductGrpcService.resolveDeliverable`
+  (56-60), `PurchasedProductQueryService.buildResponse`(53-57) 3곳에 거의 동일하게 흩어져
+  있다. `ProductType`에 메서드를 두거나 작은 전략 객체로 묶으면 신규 유형 추가 시 한 곳만
+  고치면 된다.
+
+### cohesion-coupling (Medium 1) — v2 신규
+
+- **Medium** · `ProductQueryService`(303 LOC·19메서드, 스크립트가 비대로 표시한 4개 중
+  하나)가 검색 오케스트레이션(ES/RDB 폴백)·DTO 매핑 3벌·presigned URL 해석·버전 이력
+  조립을 한 클래스에 담고 있다 — 바뀌는 이유가 여러 개다.
+  *(참고: 비대로 표시된 나머지 3개 — `Product`·`ProductFamily`·`ProductRepositoryAdapter` —
+  는 직접 확인 결과 실질 문제는 아니었다. 앞의 둘은 상태 전이 가드/family 규칙마다 작고
+  단순한 메서드가 많아 응집도가 높고, `ProductRepositoryAdapter`는 1줄짜리 위임 24개라
+  메서드 수만 많을 뿐이다.)*
+
+### diagnosability (Low 1)
+
+- **Low** · `S3StorageAdapter.copyObject`(83) 실패 시 `S3_PRESIGN_FAILED`(메시지: "파일
+  업로드 URL 생성에 실패했습니다")를 재사용한다 — copy 실패인데 메시지는 "URL 생성 실패"라
+  로그·응답이 실제 원인과 안 맞는다(v1에서도 지적, 미해소).
+
+### controller-thin (Medium 1)
+
+- **Medium** · `FileUploadController.resolveContentType`(59-82) — 허용 확장자 정책·
+  productType별 분기가 컨트롤러에 그대로 있다(v1에서도 지적, 미해소).
+
+### layer-separation (Medium 2)
+
+- **Medium** · `ProductSellerService`가 `ProductEventProducer`(Kafka 발행 어댑터) 구체
+  클래스를 포트 없이 직접 주입받는다. 리포지토리 3종(Product/Review/ProcessedEvent)은
+  전부 domain 포트 + infra 어댑터 구조인데, 이벤트 발행만 이 패턴에서 빠져 있다(v1에서도
+  지적, 미해소).
+- **Medium** · `SellerProductDetailResponse`/`SellerProductListItemResponse`가
+  presentation DTO의 정적 팩토리 안에서 `StorageClient`로 S3 presign 원격 호출을 직접
+  수행한다. `ProductDetailResponse`/`ProductListItemResponse`는 이미 만들어진 URL 문자열만
+  받는 것과 대비된다(v1에서도 지적, 미해소).
+
+### http-semantics · logging-quality · exception-discipline · entity-encapsulation · service-boundary (위반 없음)
+
+- gRPC/HTTP 상태 코드 매핑 전부 의미에 부합.
+- 로그 메시지가 맥락 있고 과하지 않음.
+- 예외 처리가 대부분 의도가 명확히 문서화됨(멱등성 처리, ES/OpenAI 폴백 등).
+- `Product`는 setter 없이 상태 전이 가드로 스스로를 관리, `ProductContent` 값객체가 유형별
+  필드 조합을 생성 시점에 검증.
+- 타 서비스 DB 직접 접근·순환 호출 없음.
+
+## 개선된 항목 (v1 대비)
+
+- **diagnosability High 1건 해소** — `GetSellerStats`(gRPC) 자체가 삭제됨(#483).
+- **diagnosability Medium 1건 해소** — `getProductContent`가 예외 유형별 gRPC status로
+  분리됨.
+- **integration-robustness Medium 2건 해소** — `GrpcSellerClientAdapter`(데드라인 미설정)와
+  판매자 정보 N+1 gRPC 호출이 판매자 정보 FE 조합 전환으로 경로 자체가 삭제됨.
+- **dead-code Medium 2건 해소** — `findPendingReviewProducts` 체인, `InternalProductController`
+  무호출 엔드포인트 모두 제거됨.
+- **duplication-semantic Medium 1건 해소** — `ProductInternalService` 자체가 제거되며
+  family 해석 중복도 함께 사라짐.
+- **entity-encapsulation Low 1건 해소** — `Product` 생성자의 긴 파라미터 목록이
+  `ProductContent` 값객체(#405)로 정리됨.
+- **exception-discipline Low 1건 해소** — 원시 `RuntimeException`을 감싸던
+  `GrpcSellerClientAdapter` 자체가 제거됨.
+
+**판정 번복 2건(투명하게 공개)**: v1의 layer-separation 위반 중 (1) `Product`가
+`TagsConverter`를 직접 import하는 것과 (2) application이 presentation DTO에 의존해 응답을
+조립하는 것은, 이번에 다시 보니 실질적 문제로 보지 않기로 했다. (1)은 JPA
+`@Convert`의 관용적 사용이라 엔티티가 컨버터를 직접 참조하는 게 표준 패턴이다. (2)는
+`clean-architecture.md`가 user-service 전용 문서인데, product-service는 애초에 그
+Command/Result 계층 구조를 쓰지 않고 Service가 Response를 직접 조립하는 걸 전 서비스
+클래스에서 일관되게 쓰고 있어 — 이건 드리프트가 아니라 product-service의 실제 컨벤션으로
+판단했다.
+
+## 한계
+
+- 정적 스냅샷이다. 빌드·테스트 실행, 런타임 동작, 인덱스·쿼리 성능은 보지 않았다.
+- 서비스 단위 측정이라 상대 서비스 코드는 호출자 존재 확인 용도로만 참조했다.
+- 테스트 코드는 평가하지 않는다(억지 테스트 금지 원칙).
+- 구매 여부 미검증(`PurchasedProductQueryService.verifyPurchase`, #550 결정으로 추후
+  order-service gRPC 검증 예정)은 14개 카테고리 어디에도 정확히 들어맞지 않아 점수에는
+  반영하지 않았다 — 이미 추적 중인 이슈라는 점만 밝혀둔다.
