@@ -136,7 +136,10 @@ flowchart LR
 
 1. **행동 로그를 다시 연다.** 서버에서 검색 실행과 결과 클릭을 기록하고, 화면 쪽에서도
    "어떤 검색의 결과를 눌렀는지"를 함께 보내야 한다. 지금은 화면에서 클릭 정보를 서버로
-   보내는 코드가 아예 없다
+   보내는 코드가 아예 없다 →
+   **[행동 로그를 만든다면 — 추천이 아니라 "측정"을 위한 최소 설계](/decisions/prompthub/product-service/behavior-log-minimum-design-for-measurement)에
+   범위를 다시 잡아뒀다.** 원래 설계는 추천을 위한 것이었는데 그 소비자가 닫혀서, 소비자를
+   넷에서 하나(측정)로 줄였다
 2. **쌓인 기록으로 랭킹 가중치를 실측으로 바꾼다.** 지금 `추측` 등급인 값 8개
    ([검색 품질을 정하는 숫자들](/decisions/prompthub/product-service/search-quality-tuning-values-rationale) 참고)가
    여기서 처음으로 검증 가능해진다
@@ -166,6 +169,7 @@ flowchart LR
 
 - [검색어를 치면 무슨 일이 벌어지나 — 전 과정](/decisions/prompthub/product-service/es-vector-search-end-to-end-flow)
 - [검색 품질을 정하는 숫자들](/decisions/prompthub/product-service/search-quality-tuning-values-rationale)
+- [행동 로그를 만든다면 — 추천이 아니라 \"측정\"을 위한 최소 설계](/decisions/prompthub/product-service/behavior-log-minimum-design-for-measurement)
 - [\"아는 물건 검색\"이 아니라 \"의도 검색\"이다 — 범위 축소](/decisions/prompthub/product-service/search-feature-scope-by-intent-search-nature)
 - [검색 로그 파이프라인의 범위를 화면 의존으로 정한 판단](/decisions/prompthub/product-service/search-log-pipeline-scope-by-fe-dependency)
 - [행동 기반 추천 설계](/study/es/behavioral-recommendation-design)
