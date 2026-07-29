@@ -76,7 +76,7 @@ export const qualityFrontmatterSchema = s.object({
         low: s.number().int().min(0)
       })
     )
-    .length(11),
+    .min(1),
   summary: s.string().optional(),
   tags: s.array(s.string()).optional(),
   draft: s.boolean().default(false)

@@ -134,7 +134,10 @@ export const QUALITY_CATEGORIES = [
   'duplication-semantic',
   'diagnosability',
   'integration-robustness',
-  'service-boundary'
+  'service-boundary',
+  'value-object-design',
+  'polymorphism-opportunity',
+  'cohesion-coupling'
 ] as const
 
 export type QualityCategory = (typeof QUALITY_CATEGORIES)[number]
@@ -150,7 +153,10 @@ export const QUALITY_CATEGORY_DESCRIPTIONS: Record<QualityCategory, string> = {
   'duplication-semantic': '도구(jscpd)가 못 잡는 의미론적 중복 로직',
   diagnosability: '예외 삼킴·모호한 에러 메시지 등 오류 원인 추적을 방해하는 코드',
   'integration-robustness': '서비스 간 통신 견고성 — 타임아웃 없는 원격 호출·실패 무시·응답 무검증',
-  'service-boundary': '서비스 경계 위반 — 타 서비스 DB 직접 접근·도메인 로직 중복·과도한 동기 호출 체인'
+  'service-boundary': '서비스 경계 위반 — 타 서비스 DB 직접 접근·도메인 로직 중복·과도한 동기 호출 체인',
+  'value-object-design': '문자열·원시값·긴 포지셔널 인자 대신 값객체/enum으로 도메인 제약을 표현하는지',
+  'polymorphism-opportunity': '반복되는 타입 분기나 switch를 다형성/전략으로 모을 필요가 있는지',
+  'cohesion-coupling': '한 클래스나 모듈이 여러 변경 이유를 떠안아 응집도와 결합도 문제가 생기는지'
 }
 
 export type QualityFinding = {
