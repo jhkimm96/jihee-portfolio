@@ -7,6 +7,7 @@ import { Menu, X, Terminal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { HeaderSearch } from '@/components/header-search'
 import { getAbout } from '@/lib/content-data'
 
 const navItems = [
@@ -60,6 +61,7 @@ export function SiteNav() {
         </nav>
 
         <div className="flex items-center gap-1">
+          <HeaderSearch />
           <ThemeToggle />
           <Button
             variant="ghost"
