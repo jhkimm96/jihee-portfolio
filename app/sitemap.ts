@@ -9,7 +9,18 @@ import {
 import { SITE_URL } from '@/lib/site'
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const staticRoutes = ['', '/projects', '/troubleshooting', '/study', '/decisions', '/reviews', '/about', '/resume'].map((path) => ({
+  const staticRoutes = [
+    '',
+    '/projects',
+    '/troubleshooting',
+    '/study',
+    '/decisions',
+    '/reviews',
+    '/quality',
+    '/search',
+    '/about',
+    '/resume'
+  ].map((path) => ({
     url: `${SITE_URL}${path}`,
     lastModified: new Date()
   }))

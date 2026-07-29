@@ -6,7 +6,7 @@ import { TagList } from '@/components/content-badges'
 interface PostCardProps {
   href: string
   title: string
-  date: string
+  date?: string
   summary?: string
   tags?: string[]
   badges?: { label: string; kind?: 'project' | 'category' }[]
@@ -44,9 +44,11 @@ export function PostCard({ href, title, date, summary, tags, badges }: PostCardP
 
       <div className="mt-1 flex items-center justify-between gap-3">
         <TagList tags={tags} />
-        <time className="shrink-0 font-mono text-[0.7rem] text-muted-foreground" dateTime={date}>
-          {formatDate(date)}
-        </time>
+        {date ? (
+          <time className="shrink-0 font-mono text-[0.7rem] text-muted-foreground" dateTime={date}>
+            {formatDate(date)}
+          </time>
+        ) : null}
       </div>
     </Link>
   )

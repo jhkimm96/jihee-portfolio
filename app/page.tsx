@@ -1,11 +1,14 @@
 import Link from 'next/link'
-import { ArrowRight, GitFork, FileText, Wrench, BookOpen, FolderGit2 } from 'lucide-react'
+import { ArrowRight, GitFork, FileText, Wrench, BookOpen, FolderGit2, GitBranch, Code2, Gauge } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ProjectCard } from '@/components/project-card'
 import { PostCard } from '@/components/post-card'
 import {
   getAbout,
   getAllProjects,
+  getPublishedDecisions,
+  getPublishedQuality,
+  getPublishedReviews,
   getPublishedTroubleshooting,
   getPublishedStudy,
   getProjectTitle
@@ -14,13 +17,105 @@ import {
 export default function HomePage() {
   const about = getAbout()
   const featured = getAllProjects().filter((project) => project.featured)
-  const recentTs = getPublishedTroubleshooting().slice(0, 3)
-  const recentStudy = getPublishedStudy().slice(0, 3)
+  const recentActivity = [
+    ...getPublishedTroubleshooting().map((post) => ({
+      href: `/troubleshooting/${post.slug}`,
+      type: 'Troubleshooting',
+      title: post.title,
+      date: post.date,
+      summary: post.summary,
+      tags: post.tags,
+      badges: [
+        { label: 'Troubleshooting' },
+        { label: getProjectTitle(post.project), kind: 'project' as const },
+        { label: post.category, kind: 'category' as const }
+      ]
+    })),
+    ...getPublishedDecisions().map((entry) => ({
+      href: `/decisions/${entry.slug}`,
+      type: 'Decision',
+      title: entry.title,
+      date: entry.date,
+      summary: entry.summary,
+      tags: entry.tags,
+      badges: [
+        { label: 'Decision' },
+        { label: getProjectTitle(entry.project), kind: 'project' as const },
+        { label: entry.category, kind: 'category' as const }
+      ]
+    })),
+    ...getPublishedReviews().map((post) => ({
+      href: `/reviews/${post.slug}`,
+      type: 'Review',
+      title: post.title,
+      date: post.date,
+      summary: post.summary,
+      tags: post.tags,
+      badges: [{ label: 'Review' }, { label: getProjectTitle(post.project), kind: 'project' as const }]
+    })),
+    ...getPublishedStudy().map((post) => ({
+      href: `/study/${post.slug}`,
+      type: 'Study',
+      title: post.title,
+      date: post.date,
+      summary: post.summary,
+      tags: post.tags,
+      badges: [{ label: 'Study' }, { label: post.category, kind: 'category' as const }]
+    })),
+    ...getPublishedQuality().map((entry) => ({
+      href: `/quality/${entry.slug}`,
+      type: 'Quality',
+      title: entry.title,
+      date: entry.date,
+      summary: entry.summary,
+      tags: entry.tags,
+      badges: [
+        { label: 'Quality' },
+        { label: getProjectTitle(entry.project), kind: 'project' as const },
+        { label: entry.scope, kind: 'category' as const }
+      ]
+    }))
+  ]
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 6)
 
   const stats = [
     { label: 'Projects', value: getAllProjects().length, href: '/projects', icon: FolderGit2 },
     { label: 'Troubleshooting', value: getPublishedTroubleshooting().length, href: '/troubleshooting', icon: Wrench },
     { label: 'Study Notes', value: getPublishedStudy().length, href: '/study', icon: BookOpen }
+  ]
+
+  const intentLinks = [
+    {
+      href: '/projects',
+      label: '대표 프로젝트',
+      description: '구현 결과와 기술 스택',
+      icon: FolderGit2
+    },
+    {
+      href: '/troubleshooting',
+      label: '문제 해결',
+      description: '원인 분석과 해결 기록',
+      icon: Wrench
+    },
+    {
+      href: '/decisions',
+      label: '설계 판단',
+      description: '선택지와 결정 근거',
+      icon: GitBranch
+    },
+    {
+      href: '/reviews',
+      label: '코드 리뷰',
+      description: '개선점과 리팩터링 기록',
+      icon: Code2
+    },
+    {
+      href: '/quality',
+      label: '품질 관리',
+      description: '측정 지표와 변화 추세',
+      icon: Gauge
+    }
   ]
 
   return (
@@ -54,6 +149,32 @@ export default function HomePage() {
               </Link>
             </Button>
           ) : null}
+        </div>
+
+        <div className="mt-10">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold tracking-tight">보고 싶은 내용</h2>
+            <Link href="/search" className="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground">
+              검색으로 찾기
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            {intentLinks.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="group rounded-lg border border-border bg-card p-3 transition-colors hover:border-brand/50"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-secondary text-muted-foreground transition-colors group-hover:text-brand">
+                    <item.icon className="size-3.5" />
+                  </span>
+                  <span className="text-sm font-semibold">{item.label}</span>
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{item.description}</p>
+              </Link>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -97,68 +218,31 @@ export default function HomePage() {
         )}
       </section>
 
-      <section className="grid grid-cols-1 gap-8 border-t border-border py-10 md:grid-cols-2">
-        <div>
-          <div className="mb-5 flex items-baseline justify-between">
-            <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-              <Wrench className="size-4 text-muted-foreground" />
-              Recent Troubleshooting
-            </h2>
-            <Link
-              href="/troubleshooting"
-              className="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
-            >
-              더 보기
-            </Link>
-          </div>
-          {recentTs.length === 0 ? (
-            <p className="font-mono text-sm text-muted-foreground">아직 작성된 글이 없습니다.</p>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {recentTs.map((post) => (
-                <PostCard
-                  key={post.slug}
-                  href={`/troubleshooting/${post.slug}`}
-                  title={post.title}
-                  date={post.date}
-                  summary={post.summary}
-                  badges={[
-                    { label: getProjectTitle(post.project), kind: 'project' },
-                    { label: post.category, kind: 'category' }
-                  ]}
-                />
-              ))}
-            </div>
-          )}
+      <section className="border-t border-border py-10">
+        <div className="mb-5 flex items-baseline justify-between">
+          <h2 className="text-lg font-semibold tracking-tight">Recent Activity</h2>
+          <Link href="/search" className="inline-flex items-center gap-1 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground">
+            전체 검색
+            <ArrowRight className="size-3.5" />
+          </Link>
         </div>
-
-        <div>
-          <div className="mb-5 flex items-baseline justify-between">
-            <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-              <BookOpen className="size-4 text-muted-foreground" />
-              Recent Study
-            </h2>
-            <Link href="/study" className="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground">
-              더 보기
-            </Link>
+        {recentActivity.length === 0 ? (
+          <p className="font-mono text-sm text-muted-foreground">아직 작성된 글이 없습니다.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {recentActivity.map((item) => (
+              <PostCard
+                key={`${item.type}-${item.href}`}
+                href={item.href}
+                title={item.title}
+                date={item.date}
+                summary={item.summary}
+                tags={item.tags}
+                badges={item.badges}
+              />
+            ))}
           </div>
-          {recentStudy.length === 0 ? (
-            <p className="font-mono text-sm text-muted-foreground">아직 작성된 글이 없습니다.</p>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {recentStudy.map((post) => (
-                <PostCard
-                  key={post.slug}
-                  href={`/study/${post.slug}`}
-                  title={post.title}
-                  date={post.date}
-                  summary={post.summary}
-                  badges={[{ label: post.category, kind: 'category' }]}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        )}
       </section>
     </div>
   )
