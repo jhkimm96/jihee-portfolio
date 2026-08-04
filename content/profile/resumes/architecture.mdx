@@ -1,0 +1,32 @@
+---
+label: 아키텍처 개발자
+order: 2
+headline: 서비스 경계를 근거로 나누는 개발자
+summary: "MSA 환경에서 서비스 경계와 이벤트 흐름을 설계하는 데 집중했습니다. 추천을 독립 서비스로 분리하고, 서비스마다 다른 Outbox·Inbox 적용을 근거와 함께 정리했습니다. 안 쓰는 설계는 덜어내는 판단도 기록으로 남깁니다."
+skills:
+  - group: "Architecture"
+    items: ["MSA", "DDD", "Event-Driven", "gRPC", "Outbox·Inbox"]
+  - group: "Backend"
+    items: ["Java", "Spring Boot", "Spring Batch", "JPA"]
+  - group: "Data·Messaging"
+    items: ["PostgreSQL", "Elasticsearch", "Redis", "Kafka"]
+  - group: "Infra"
+    items: ["AWS", "Docker", "Kubernetes", "GitHub Actions"]
+picks:
+  - type: decision
+    slug: prompthub/product-service/ai-recommendation-independent-service
+    headline: 추천을 독립 서비스로 분리
+    summary: "맞춤 추천을 product-service가 아니라 ai-service에 뒀다. 여러 활동 신호를 평균이 아닌 가중 순위 합산으로 합치고, 저장부터 추천 노출까지 네 단계와 각 단계의 결정 근거를 한 장으로 정리했다."
+  - type: decision
+    slug: prompthub/product-service/behavior-log-minimum-design-for-measurement
+    headline: 목적이 사라진 설계의 범위 재설정
+    summary: "행동 로그의 원래 소비자(개인화 추천)가 전부 중단되자, 남은 목적(검색 품질 측정) 하나만 놓고 범위를 다시 잡았다. 필요 없어진 설계를 덜어내는 판단을 남겼다."
+  - type: study
+    slug: msa/msa-prompthub-service-map
+    headline: MSA 서비스 지도
+    summary: "MSA가 무엇이고 PromptHub가 왜 이렇게 서비스를 나눴는지, 서비스 간 관계를 지도로 그려 정리했다."
+  - type: project
+    slug: prompthub
+    headline: AI 프롬프트 마켓플레이스
+    summary: "MSA로 도메인을 나누고 서비스 간 통신·이벤트 파이프라인을 설계한 최종 프로젝트."
+---

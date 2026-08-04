@@ -31,6 +31,7 @@ export const studyFrontmatterSchema = s.object({
   date: s.string(),
   summary: s.string().optional(),
   tags: s.array(s.string()).optional(),
+  group: s.string().optional(),
   draft: s.boolean().default(false)
 })
 
@@ -80,6 +81,29 @@ export const qualityFrontmatterSchema = s.object({
   summary: s.string().optional(),
   tags: s.array(s.string()).optional(),
   draft: s.boolean().default(false)
+})
+
+const resumePickSchema = s.object({
+  type: s.enum(['project', 'decision', 'troubleshooting', 'study', 'review']),
+  slug: s.string(),
+  headline: s.string().optional(),
+  summary: s.string()
+})
+
+export const resumeVariantFrontmatterSchema = s.object({
+  label: s.string(),
+  order: s.number().default(0),
+  headline: s.string().optional(),
+  summary: s.string(),
+  skills: s
+    .array(
+      s.object({
+        group: s.string(),
+        items: s.array(s.string())
+      })
+    )
+    .optional(),
+  picks: s.array(resumePickSchema).default([])
 })
 
 export const aboutFrontmatterSchema = s.object({

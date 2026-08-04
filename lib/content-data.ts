@@ -1,4 +1,14 @@
-import { projects, troubleshootingPosts, studyPosts, decisions, reviews, quality, about, resume } from '#site/content'
+import {
+  projects,
+  troubleshootingPosts,
+  studyPosts,
+  decisions,
+  reviews,
+  quality,
+  about,
+  resume,
+  resumeVariants
+} from '#site/content'
 import {
   sortProjects,
   findProjectBySlug,
@@ -11,7 +21,13 @@ import {
   findBySlugPath,
   reviewsForProject,
   qualityScopes,
-  qualityTrendForScope
+  qualityTrendForScope,
+  qualityProjectGroups,
+  qualityTrendFor,
+  studyCategorySummaries,
+  studyByGroup,
+  groupByProject,
+  orderedGroups
 } from './content'
 
 export function getAllProjects() {
@@ -26,6 +42,13 @@ export function getPublishedTroubleshooting() {
   return sortByDateDesc(publishedOnly(troubleshootingPosts))
 }
 
+export function getTroubleshootingGrouped() {
+  return orderedGroups(groupByProject(getPublishedTroubleshooting())).map(([project, posts]) => ({
+    project,
+    categories: orderedGroups(groupByCategory(posts))
+  }))
+}
+
 export function getTroubleshootingForProject(projectSlug: string) {
   return troubleshootingForProject(troubleshootingPosts, projectSlug)
 }
@@ -36,6 +59,19 @@ export function getTroubleshootingBySlugPath(slugParts: string[]) {
 
 export function getPublishedStudyByCategory() {
   return groupByCategory(publishedOnly(studyPosts))
+}
+
+export function getStudyCategorySummaries() {
+  return studyCategorySummaries(publishedOnly(studyPosts))
+}
+
+export function getStudyCategories(): string[] {
+  return [...new Set(publishedOnly(studyPosts).map((post) => post.category))]
+}
+
+export function getStudyCategoryGroups(category: string) {
+  const posts = publishedOnly(studyPosts).filter((post) => post.category === category)
+  return studyByGroup(posts)
 }
 
 export function getStudyBySlugPath(slugParts: string[]) {
@@ -50,6 +86,43 @@ export function getResume() {
   return resume
 }
 
+export function getResumeVariants() {
+  return [...resumeVariants].sort((a, b) => a.order - b.order || a.label.localeCompare(b.label))
+}
+
+export function getResumeVariantBySlug(slug: string) {
+  return resumeVariants.find((variant) => variant.slug === slug)
+}
+
+/** picks의 {type, slug}를 실제 콘텐츠 항목의 링크·제목으로 변환한다. 없으면 null. */
+export function getPickTarget(type: string, slug: string): { href: string; title: string } | null {
+  const parts = slug.split('/')
+  switch (type) {
+    case 'project': {
+      const entry = findProjectBySlug(projects, slug)
+      return entry ? { href: `/projects/${entry.slug}`, title: entry.title } : null
+    }
+    case 'decision': {
+      const entry = findBySlugPath(publishedOnly(decisions), parts)
+      return entry ? { href: `/decisions/${entry.slug}`, title: entry.title } : null
+    }
+    case 'troubleshooting': {
+      const entry = findBySlugPath(publishedOnly(troubleshootingPosts), parts)
+      return entry ? { href: `/troubleshooting/${entry.slug}`, title: entry.title } : null
+    }
+    case 'study': {
+      const entry = findBySlugPath(publishedOnly(studyPosts), parts)
+      return entry ? { href: `/study/${entry.slug}`, title: entry.title } : null
+    }
+    case 'review': {
+      const entry = findBySlugPath(publishedOnly(reviews), parts)
+      return entry ? { href: `/reviews/${entry.slug}`, title: entry.title } : null
+    }
+    default:
+      return null
+  }
+}
+
 export function getProjectTitle(slug: string): string {
   return findProjectBySlug(projects, slug)?.title ?? slug
 }
@@ -60,6 +133,13 @@ export function getPublishedStudy() {
 
 export function getPublishedDecisions() {
   return sortByDateDesc(publishedOnly(decisions))
+}
+
+export function getDecisionsGrouped() {
+  return orderedGroups(groupByProject(getPublishedDecisions())).map(([project, entries]) => ({
+    project,
+    categories: orderedGroups(groupByCategory(entries))
+  }))
 }
 
 export function getDecisionsForProject(projectSlug: string) {
@@ -76,6 +156,10 @@ export function getDecisionTitle(fullSlug: string): string {
 
 export function getPublishedReviews() {
   return sortByDateDesc(publishedOnly(reviews))
+}
+
+export function getReviewsGrouped() {
+  return orderedGroups(groupByProject(getPublishedReviews()))
 }
 
 export function getReviewsForProject(projectSlug: string) {
@@ -96,6 +180,14 @@ export function getQualityScopes() {
 
 export function getQualityTrend(scope: string) {
   return qualityTrendForScope(quality, scope)
+}
+
+export function getQualityProjectGroups() {
+  return qualityProjectGroups(quality)
+}
+
+export function getQualityTrendFor(project: string, scope: string) {
+  return qualityTrendFor(quality, project, scope)
 }
 
 export function getQualityBySlugPath(slugParts: string[]) {
