@@ -29,6 +29,7 @@ import {
   groupByProject,
   orderedGroups
 } from './content'
+import type { QualityEntry } from './content'
 
 export function getAllProjects() {
   return sortProjects(projects)
@@ -184,6 +185,19 @@ export function getQualityTrend(scope: string) {
 
 export function getQualityProjectGroups() {
   return qualityProjectGroups(quality)
+}
+
+/** 한 프로젝트의 스코프별 최신 품질 스냅샷. 프로젝트 허브에서 요약 표시용. */
+export function getQualityForProject(projectSlug: string): { scope: string; latest: QualityEntry }[] {
+  const group = qualityProjectGroups(quality).find((entry) => entry.project === projectSlug)
+  if (!group) return []
+  const result: { scope: string; latest: QualityEntry }[] = []
+  for (const scope of group.scopes) {
+    const trend = qualityTrendFor(quality, projectSlug, scope)
+    const latest = trend[trend.length - 1]
+    if (latest) result.push({ scope, latest })
+  }
+  return result
 }
 
 export function getQualityTrendFor(project: string, scope: string) {

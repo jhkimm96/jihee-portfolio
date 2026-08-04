@@ -1,13 +1,20 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, GitFork, ExternalLink, Wrench, Scale } from 'lucide-react'
+import { ArrowLeft, GitFork, ExternalLink, Wrench, Scale, MessageSquare, Gauge } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Markdown } from '@/components/markdown'
 import { StatusBadge, TechChip } from '@/components/content-badges'
 import { PostCard } from '@/components/post-card'
-import { formatCategory } from '@/lib/format'
-import { getAllProjects, getProjectBySlug, getTroubleshootingForProject, getDecisionsForProject } from '@/lib/content-data'
+import { formatCategory, formatDate } from '@/lib/format'
+import {
+  getAllProjects,
+  getProjectBySlug,
+  getTroubleshootingForProject,
+  getDecisionsForProject,
+  getReviewsForProject,
+  getQualityForProject
+} from '@/lib/content-data'
 
 export function generateStaticParams() {
   return getAllProjects().map((project) => ({ slug: project.slug }))
@@ -42,6 +49,9 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
 
   const decisions = getDecisionsForProject(project.slug)
   const decisionCategories = Object.keys(decisions)
+
+  const reviews = getReviewsForProject(project.slug)
+  const quality = getQualityForProject(project.slug)
 
   const meta = [
     { label: '기간', value: project.period },
@@ -176,6 +186,57 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                   ))}
                 </div>
               </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="mt-12 border-t border-border pt-8">
+        <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+          <MessageSquare className="size-4 text-muted-foreground" />
+          Reviews
+        </h2>
+        {reviews.length === 0 ? (
+          <p className="mt-4 font-mono text-sm text-muted-foreground">아직 기록된 리뷰가 없습니다.</p>
+        ) : (
+          <div className="mt-6 grid grid-cols-1 gap-3">
+            {reviews.map((post) => (
+              <PostCard
+                key={post.slug}
+                href={`/reviews/${post.slug}`}
+                title={post.title}
+                date={post.date}
+                summary={post.summary}
+                tags={post.tags}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="mt-12 border-t border-border pt-8">
+        <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+          <Gauge className="size-4 text-muted-foreground" />
+          Quality
+        </h2>
+        {quality.length === 0 ? (
+          <p className="mt-4 font-mono text-sm text-muted-foreground">아직 품질 스냅샷이 없습니다.</p>
+        ) : (
+          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {quality.map(({ scope, latest }) => (
+              <Link
+                key={scope}
+                href={`/quality/${latest.slug}`}
+                className="group flex items-center justify-between rounded-lg border border-border bg-card p-4 transition-colors hover:border-brand/50"
+              >
+                <div>
+                  <div className="font-mono text-sm font-semibold">{scope}</div>
+                  <div className="mt-0.5 font-mono text-xs text-muted-foreground">
+                    {formatDate(latest.date)} · 산식 v{latest.formulaVersion}
+                  </div>
+                </div>
+                <span className="font-mono text-2xl font-semibold tabular-nums">{latest.score}</span>
+              </Link>
             ))}
           </div>
         )}
