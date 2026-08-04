@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { PageHeader, EmptyState } from '@/components/page-header'
 import { PostCard } from '@/components/post-card'
 import { ViewToggle } from '@/components/view-toggle'
@@ -51,7 +52,12 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
               {grouped.map(([project, projectPosts]) => (
                 <section key={project}>
                   <div className="mb-3 flex items-baseline gap-3">
-                    <h2 className="font-mono text-sm font-semibold tracking-tight">{getProjectTitle(project)}</h2>
+                    <Link
+                      href={`/projects/${project}`}
+                      className="font-mono text-sm font-semibold tracking-tight transition-colors hover:text-brand"
+                    >
+                      {getProjectTitle(project)}
+                    </Link>
                     <span className="font-mono text-xs text-muted-foreground">{projectPosts.length}</span>
                   </div>
                   <div className="grid grid-cols-1 gap-3">

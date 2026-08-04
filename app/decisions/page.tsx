@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { PageHeader, EmptyState } from '@/components/page-header'
 import { PostCard } from '@/components/post-card'
 import { ViewToggle } from '@/components/view-toggle'
@@ -55,7 +56,12 @@ export default async function DecisionsPage({ searchParams }: { searchParams: Pr
             <div className="mt-8 space-y-12">
               {grouped.map(({ project, categories }) => (
                 <div key={project} className="space-y-8">
-                  <h2 className="font-mono text-sm font-semibold tracking-tight">{getProjectTitle(project)}</h2>
+                  <Link
+                    href={`/projects/${project}`}
+                    className="font-mono text-sm font-semibold tracking-tight transition-colors hover:text-brand"
+                  >
+                    {getProjectTitle(project)}
+                  </Link>
                   {categories.map(([category, categoryEntries]) => (
                     <section key={category}>
                       <div className="mb-3 flex items-baseline gap-3">
