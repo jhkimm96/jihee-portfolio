@@ -7,7 +7,8 @@ import {
   reviewFrontmatterSchema,
   qualityFrontmatterSchema,
   aboutFrontmatterSchema,
-  resumeFrontmatterSchema
+  resumeFrontmatterSchema,
+  resumeVariantFrontmatterSchema
 } from './content/schemas'
 
 const projects = defineCollection({
@@ -99,8 +100,16 @@ const resume = defineCollection({
   schema: resumeFrontmatterSchema
 })
 
+const resumeVariants = defineCollection({
+  name: 'ResumeVariant',
+  pattern: 'profile/resumes/*.mdx',
+  schema: resumeVariantFrontmatterSchema
+    .extend({ path: s.path() })
+    .transform((data) => ({ ...data, slug: data.path.split('/').pop() as string }))
+})
+
 export default defineConfig({
   root: 'content',
   strict: true,
-  collections: { projects, troubleshootingPosts, studyPosts, decisions, reviews, quality, about, resume }
+  collections: { projects, troubleshootingPosts, studyPosts, decisions, reviews, quality, about, resume, resumeVariants }
 })

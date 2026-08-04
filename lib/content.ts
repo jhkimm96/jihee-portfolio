@@ -52,8 +52,48 @@ export type StudyEntry = {
   date: string
   summary?: string
   tags?: string[]
+  group?: string
   draft: boolean
   content: string
+}
+
+export type StudyCategorySummary = {
+  category: string
+  count: number
+  latest: string
+  recent: StudyEntry[]
+}
+
+const UNGROUPED = '기타'
+
+export function studyCategorySummaries(entries: StudyEntry[]): StudyCategorySummary[] {
+  const grouped = groupByCategory(entries)
+  return Object.entries(grouped)
+    .map(([category, posts]) => {
+      const sorted = sortByDateDesc(posts)
+      return {
+        category,
+        count: sorted.length,
+        latest: sorted[0]?.date ?? '',
+        recent: sorted.slice(0, 3)
+      }
+    })
+    .sort((a, b) => b.latest.localeCompare(a.latest))
+}
+
+export function studyByGroup(entries: StudyEntry[]): Record<string, StudyEntry[]> {
+  const grouped = sortByDateDesc(entries).reduce<Record<string, StudyEntry[]>>((groups, entry) => {
+    const key = entry.group ?? UNGROUPED
+    groups[key] = groups[key] ?? []
+    groups[key].push(entry)
+    return groups
+  }, {})
+  const keys = Object.keys(grouped).sort((a, b) => {
+    if (a === UNGROUPED) return 1
+    if (b === UNGROUPED) return -1
+    return 0
+  })
+  return Object.fromEntries(keys.map((key) => [key, grouped[key]]))
 }
 
 export type ReviewEntry = {
@@ -65,6 +105,28 @@ export type ReviewEntry = {
   tags?: string[]
   draft: boolean
   content: string
+}
+
+export type ResumePick = {
+  type: string
+  slug: string
+  headline?: string
+  summary: string
+}
+
+export type ResumeSkillGroup = {
+  group: string
+  items: string[]
+}
+
+export type ResumeVariantEntry = {
+  slug: string
+  label: string
+  order: number
+  headline?: string
+  summary: string
+  skills?: ResumeSkillGroup[]
+  picks: ResumePick[]
 }
 
 export function sortProjects(projects: ProjectEntry[]): ProjectEntry[] {
@@ -92,6 +154,21 @@ export function groupByCategory<T extends { category: string }>(entries: T[]): R
     groups[entry.category].push(entry)
     return groups
   }, {})
+}
+
+export function groupByProject<T extends { project: string }>(entries: T[]): Record<string, T[]> {
+  return entries.reduce<Record<string, T[]>>((groups, entry) => {
+    groups[entry.project] = groups[entry.project] ?? []
+    groups[entry.project].push(entry)
+    return groups
+  }, {})
+}
+
+/** Record를 [key, 최신순 정렬된 항목]의 배열로 펼치되, 그룹은 가장 최근 항목 날짜 기준 내림차순으로 정렬한다. */
+export function orderedGroups<T extends { date: string }>(record: Record<string, T[]>): [string, T[]][] {
+  return Object.entries(record)
+    .map(([key, entries]) => [key, sortByDateDesc(entries)] as [string, T[]])
+    .sort((a, b) => (b[1][0]?.date ?? '').localeCompare(a[1][0]?.date ?? ''))
 }
 
 export function troubleshootingForProject(
@@ -197,6 +274,24 @@ export function qualityScopes(entries: QualityEntry[]): string[] {
 export function qualityTrendForScope(entries: QualityEntry[], scope: string): QualityEntry[] {
   return publishedOnly(entries)
     .filter((entry) => entry.scope === scope)
+    .sort((a, b) => a.date.localeCompare(b.date))
+}
+
+export type QualityProjectGroup = { project: string; scopes: string[] }
+
+/** 프로젝트별로 묶은 품질 스코프 목록. 같은 scope 이름이 여러 프로젝트에 있어도 project로 분리된다. */
+export function qualityProjectGroups(entries: QualityEntry[]): QualityProjectGroup[] {
+  return Object.entries(groupByProject(publishedOnly(entries)))
+    .map(([project, list]) => ({
+      project,
+      scopes: [...new Set(list.map((entry) => entry.scope))].sort()
+    }))
+    .sort((a, b) => a.project.localeCompare(b.project))
+}
+
+export function qualityTrendFor(entries: QualityEntry[], project: string, scope: string): QualityEntry[] {
+  return publishedOnly(entries)
+    .filter((entry) => entry.project === project && entry.scope === scope)
     .sort((a, b) => a.date.localeCompare(b.date))
 }
 

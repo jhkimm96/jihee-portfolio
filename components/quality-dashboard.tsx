@@ -20,9 +20,16 @@ function Delta({ diff, downIsGood = true, title }: { diff: number; downIsGood?: 
   )
 }
 
-export function QualityDashboard({ scopes, trends }: { scopes: string[]; trends: Record<string, QualityEntry[]> }) {
-  const [scope, setScope] = useState(scopes[0])
-  const trend = trends[scope] ?? []
+export function QualityDashboard({
+  groups,
+  trends
+}: {
+  groups: { project: string; projectTitle: string; scopes: string[] }[]
+  trends: Record<string, QualityEntry[]>
+}) {
+  const firstKey = groups[0] ? `${groups[0].project}/${groups[0].scopes[0]}` : ''
+  const [selected, setSelected] = useState(firstKey)
+  const trend = trends[selected] ?? []
   const latest = trend[trend.length - 1]
   const previous = trend[trend.length - 2]
   const mixedFormula = new Set(trend.map((e) => e.formulaVersion)).size > 1
@@ -34,19 +41,29 @@ export function QualityDashboard({ scopes, trends }: { scopes: string[]; trends:
 
   return (
     <div className="mt-8 flex flex-col gap-8">
-      <div className="flex flex-wrap items-center gap-2">
-        {scopes.map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => setScope(s)}
-            className={cn(
-              'rounded-md border border-border px-3 py-1.5 font-mono text-xs transition-colors',
-              s === scope ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            {s}
-          </button>
+      <div className="flex flex-col gap-3">
+        {groups.map((group) => (
+          <div key={group.project} className="flex flex-wrap items-center gap-2">
+            {groups.length > 1 ? (
+              <span className="font-mono text-xs font-semibold text-muted-foreground">{group.projectTitle}</span>
+            ) : null}
+            {group.scopes.map((s) => {
+              const key = `${group.project}/${s}`
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setSelected(key)}
+                  className={cn(
+                    'rounded-md border border-border px-3 py-1.5 font-mono text-xs transition-colors',
+                    key === selected ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {s}
+                </button>
+              )
+            })}
+          </div>
         ))}
       </div>
 

@@ -1,0 +1,23 @@
+---
+label: 백엔드 개발자
+order: 1
+headline: 검색·추천을 설계하는 백엔드 개발자
+summary: "상품 도메인과 Elasticsearch 검색·벡터 검색 설계를 맡아, 키워드와 의미 기반 하이브리드 검색을 RRF로 결합하고 pgvector 기반 유사 상품 추천을 구현했습니다. 값 하나를 정할 때도 근거를 실측으로 확인하고 기록으로 남깁니다."
+picks:
+  - type: decision
+    slug: prompthub/product-service/es-vector-search-end-to-end-flow
+    headline: 하이브리드·벡터 검색 전 과정 설계
+    summary: "키워드 검색만으로는 표현이 다른 상품을 놓쳤다. 글자·의미 검색을 등수 기반(RRF)으로 합쳐 표현이 달라도 잡히는 하이브리드 검색을 설계·구현하고, 300ms 예산·인기순 한정 같은 트레이드오프를 문서로 남겼다."
+  - type: troubleshooting
+    slug: prompthub/search/nori-analyzer-silent-mismatch
+    headline: 조용히 틀리던 한글 검색 디버깅
+    summary: "검색 품질이 원인 없이 나빠졌다. 분석기가 '보고서'를 '보/고서'로 쪼갰는데 색인·질의에 같은 분석기가 걸려 왜곡이 대칭이라 눈에 안 띄었다. 측정을 두 번 틀린 끝에 대칭 왜곡까지 추적해 기본 분석기로 전환했다."
+  - type: review
+    slug: prompthub/recommendation-similarity-threshold-2026-07-31
+    headline: 제안을 두 번 실측으로 뒤집은 기록
+    summary: "'비슷한 상품' 품질을 점검하며 고칠 방법을 두 번 제안했고, 두 번 다 재보니 틀렸다. 추측이 아니라 측정으로 결론을 내는 과정을 남겼다."
+  - type: project
+    slug: prompthub
+    headline: AI 프롬프트 마켓플레이스
+    summary: "상품·검색·추천 도메인을 맡아 검색 파이프라인과 추천 로직을 설계·구현했다."
+---
