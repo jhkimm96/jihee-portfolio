@@ -1,0 +1,129 @@
+---
+title: "PromptHub 전체 이해"
+summary: "현재 develop을 기준으로 서비스 지도에서 시작해 인증, 상품·검색, 주문·결제, 정산, 알림·AI, 운영·품질까지 이어서 이해하는 경로입니다."
+updatedAt: "2026-08-04"
+status: "ready"
+stages:
+  - id: "overview"
+    title: "전체 구조와 서비스 경계"
+    goal: "8개 서비스의 데이터 소유권과 REST·gRPC·Kafka 연결을 설명합니다."
+    items:
+      - type: "project"
+        slug: "prompthub"
+        importance: "required"
+      - type: "study"
+        slug: "msa/prompthub-complete-learning-roadmap"
+        importance: "required"
+      - type: "study"
+        slug: "msa/msa-prompthub-service-map"
+        importance: "deep-dive"
+  - id: "identity"
+    title: "인증·사용자와 gateway"
+    goal: "JWT 검증, authorize hop, 역할 전달과 세션 무효화 경계를 이해합니다."
+    items:
+      - type: "study"
+        slug: "msa/prompthub-complete-learning-roadmap"
+        importance: "required"
+      - type: "study"
+        slug: "database/connection-pool-hikaricp"
+        importance: "reference"
+  - id: "product"
+    title: "상품 도메인과 버전 모델"
+    goal: "상품 유형, 구매 전후 콘텐츠, row-chain 버전과 family 단위 집계를 설명합니다."
+    items:
+      - type: "decision"
+        slug: "prompthub/product-service/product-type-fields-sparse-columns"
+        importance: "required"
+      - type: "decision"
+        slug: "prompthub/product-service/product-version-history-row-chain"
+        importance: "required"
+      - type: "decision"
+        slug: "prompthub/product-service/sales-count-family-aggregation"
+        importance: "deep-dive"
+      - type: "decision"
+        slug: "prompthub/product-service/product-content-parameter-object"
+        importance: "deep-dive"
+  - id: "search"
+    title: "색인·검색·벡터"
+    goal: "PostgreSQL 원본이 ES 문서가 되고 lexical·kNN 결과가 RRF로 합쳐지는 전 과정을 그립니다."
+    items:
+      - type: "study"
+        slug: "es/search-system-and-es-basics"
+        importance: "required"
+      - type: "decision"
+        slug: "prompthub/product-service/es-vector-search-end-to-end-flow"
+        importance: "required"
+      - type: "decision"
+        slug: "prompthub/product-service/incremental-reconcile-over-outbox-event"
+        importance: "deep-dive"
+      - type: "study"
+        slug: "es/reciprocal-rank-fusion"
+        importance: "deep-dive"
+      - type: "troubleshooting"
+        slug: "prompthub/search/search-false-positive-content-field"
+        importance: "reference"
+  - id: "commerce"
+    title: "주문·결제와 구매 권한"
+    goal: "주문 예약, PG 승인, 멱등성, 이벤트 반영과 구매 snapshot의 실패 지점을 구분합니다."
+    items:
+      - type: "study"
+        slug: "msa/outbox-inbox-per-service"
+        importance: "required"
+      - type: "study"
+        slug: "database/isolation-levels-and-locking"
+        importance: "deep-dive"
+      - type: "study"
+        slug: "jpa/transactional-and-propagation"
+        importance: "deep-dive"
+  - id: "settlement"
+    title: "정산·대사·전달"
+    goal: "주문 원천에서 정산 계산과 독립 대사, gRPC 전달·재처리까지 설명합니다."
+    items:
+      - type: "study"
+        slug: "spring/spring-batch-chunk-processing"
+        importance: "required"
+      - type: "study"
+        slug: "msa/outbox-inbox-when-needed"
+        importance: "deep-dive"
+  - id: "ai-notification"
+    title: "알림과 세 가지 AI 흐름"
+    goal: "SSE 알림, 상품 검수, 정산 챗, 개인화 추천을 서로 다른 책임으로 구분합니다."
+    items:
+      - type: "decision"
+        slug: "prompthub/product-service/ai-recommendation-independent-service"
+        importance: "required"
+      - type: "study"
+        slug: "es/behavioral-recommendation-design"
+        importance: "deep-dive"
+      - type: "review"
+        slug: "prompthub/recommendation-similarity-threshold-2026-07-31"
+        importance: "reference"
+  - id: "operations"
+    title: "배포·관측·품질과 리팩토링"
+    goal: "Kubernetes 배포와 ELK 추적을 이해하고 현재 개선 과제를 과거 완료 항목과 구분합니다."
+    items:
+      - type: "study"
+        slug: "kubernetes/cluster-control-plane-worker"
+        importance: "required"
+      - type: "study"
+        slug: "cicd/github-actions-parallel-build-registry"
+        importance: "deep-dive"
+      - type: "review"
+        slug: "prompthub/backend-full-review-2026-07-09"
+        importance: "reference"
+---
+
+## 이 경로를 관리하는 기준
+
+- `필수`는 다음 단계 전에 알아야 하는 문서입니다.
+- `심화`는 구현 선택과 내부 동작을 더 깊게 볼 때 읽습니다.
+- `참고`는 장애·리뷰·과거 판단을 확인할 때 사용합니다.
+- 현재 코드와 맞지 않는 문서는 경로에서 제거하거나 참고로 내리고, 대체 문서를 연결합니다.
+- 단계 순서는 기능 목록이 아니라 실제 사용자 요청과 데이터가 이동하는 순서를 따릅니다.
+
+<details>
+<summary>프로젝트가 추가되면 어떻게 관리하나요?</summary>
+
+`content/{project}/project.mdx` 옆에 `learning-path.mdx`를 하나 추가합니다. `stages`에 학습 목표와 기존 콘텐츠 참조를 적으면 학습 경로 목록과 상세 페이지가 자동으로 생성됩니다. Study 화면이나 React 코드를 프로젝트마다 수정하지 않습니다.
+
+</details>
