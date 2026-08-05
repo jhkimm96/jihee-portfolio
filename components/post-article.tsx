@@ -11,11 +11,12 @@ interface PostArticleProps {
   date: string
   content: string
   tags?: string[]
-  badges?: { label: string; kind: 'project' | 'category' }[]
+  badges?: { label: string; kind?: 'project' | 'category' }[]
+  related?: { href: string; title: string }[]
   banner?: React.ReactNode
 }
 
-export function PostArticle({ backHref, backLabel, title, date, content, tags, badges, banner }: PostArticleProps) {
+export function PostArticle({ backHref, backLabel, title, date, content, tags, badges, banner, related }: PostArticleProps) {
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
       <Link
@@ -59,6 +60,19 @@ export function PostArticle({ backHref, backLabel, title, date, content, tags, b
       <article className="mt-8">
         <Markdown content={content} />
       </article>
+
+      {related && related.length > 0 ? (
+        <aside className="mt-10 border-t border-border pt-6" aria-labelledby="related-notes-title">
+          <h2 id="related-notes-title" className="text-sm font-semibold">관련 노트</h2>
+          <div className="mt-3 flex flex-col gap-2">
+            {related.map((item) => (
+              <Link key={item.href} href={item.href} className="rounded-md border border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-brand/50 hover:text-foreground">
+                {item.title} →
+              </Link>
+            ))}
+          </div>
+        </aside>
+      ) : null}
     </div>
   )
 }
