@@ -1,0 +1,293 @@
+---
+title: "product-service 품질 스냅샷 (2026-08-05)"
+date: "2026-08-05"
+scope: "product-service"
+score: 41.5
+formulaVersion: 2
+metrics:
+  locTotal: 5014
+  files: 112
+  duplicationBlocks: 11
+  duplicationPct: 1.62
+  oversizedClasses: 6
+  longMethods: 0
+findings:
+  - { category: "controller-thin", high: 0, medium: 1, low: 0 }
+  - { category: "entity-encapsulation", high: 0, medium: 0, low: 0 }
+  - { category: "http-semantics", high: 0, medium: 0, low: 0 }
+  - { category: "logging-quality", high: 0, medium: 0, low: 0 }
+  - { category: "exception-discipline", high: 0, medium: 1, low: 0 }
+  - { category: "layer-separation", high: 0, medium: 2, low: 0 }
+  - { category: "dead-code", high: 0, medium: 4, low: 1 }
+  - { category: "duplication-semantic", high: 0, medium: 4, low: 3 }
+  - { category: "diagnosability", high: 0, medium: 1, low: 1 }
+  - { category: "integration-robustness", high: 2, medium: 3, low: 0 }
+  - { category: "service-boundary", high: 0, medium: 0, low: 0 }
+  - { category: "value-object-design", high: 0, medium: 2, low: 0 }
+  - { category: "polymorphism-opportunity", high: 0, medium: 1, low: 0 }
+  - { category: "cohesion-coupling", high: 0, medium: 1, low: 0 }
+summary: "리팩토링 사이클을 시작하기 전 바닥을 기록한 baseline. 41.5점으로 이전(61.0) 대비 19.5점 낮은데, 코드가 나빠져서 깎인 건 2점뿐이고 나머지는 이번에 더 넓게 훑어 새로 잡힌 High 1·Medium 7·Low 1이다. 07-29에 지적한 18건은 하나도 해소되지 않았다."
+tags: ["code-quality", "refactoring", "spring", "msa", "elasticsearch", "kafka"]
+draft: false
+---
+
+## 범위
+
+product-service `src/main/java` — 112개 파일, 5,014 LOC(주석·공백 제외, 테스트 제외).
+브랜치 `develop`, 커밋 `64de86be` 기준.
+
+정량 지표는 scan-metrics v2(jscpd min-tokens 70/min-lines 5, 비대 기준 300 LOC 또는 메서드
+15개 초과, 긴 메서드 50 LOC 초과), 정성 판정은 고정 루브릭 14개 카테고리로 측정했다.
+
+**이 스냅샷은 리팩토링 사이클의 시작점을 남기려고 찍었다.** 앞으로 항목별로 이슈를 끊어
+고쳐가면서 같은 잣대로 다시 측정할 예정이라, 손대기 전 바닥이 필요했다.
+
+## 요약
+
+**41.5점** (High 2 · Medium 20 · Low 5 · 비대 클래스 6 · 중복률 1.62%로 기준 3% 이내).
+
+계산은 `100 − 5×2 − 2×20 − 0.5×5 − 6 = 41.5`.
+
+이전 스냅샷(2026-07-29, 61.0점)보다 19.5점 낮다. **그런데 코드가 나빠져서 깎인 건 2점이다.**
+분해하면 이렇다.
+
+| 구분 | 내역 | 점수 |
+| --- | --- | --- |
+| 코드 변경으로 악화 | 비대 클래스 4 → 6 | −2 |
+| 이전 지적 미해소 | High 1 · Medium 13 · Low 4가 **그대로** | (유지) |
+| 이번에 새로 발견 | High 1 · Medium 7 · Low 1 | −17.5 |
+| 계산 정정 | 이전 회차의 산술 오류 보정 | +2 |
+
+이전 회차는 frontmatter의 Medium 합이 13인데 본문과 점수 계산에는 14를 썼다. 산식대로면
+61.0이 아니라 63.0이었어야 한다. 추세선에 이미 2점 오차가 껴 있었다는 뜻이라, **이번
+스냅샷(41.5)을 앞으로의 기준선으로 삼는다.**
+
+새로 비대 판정을 받은 둘은 `ProductSellerService`(242 LOC·17메서드)와
+`ProductJpaRepository`(307 LOC)다. 그 사이 작업(#689 검색 오탐 수정, #698 추천 서비스 분리,
+#699 supersede 누락 수정, #632 content 해시)이 전부 기능 쪽이었고, 구조 부채는 손대지 않은
+채 코드만 288 LOC 늘었다.
+
+**하락분의 대부분은 관측 범위가 넓어진 결과다.** 이전 회차는 "하이브리드 검색·임베딩
+서브시스템은 위반이 하나도 없었다"고 적었는데, 이번에 ES 색인 어댑터와 임베딩 캐시를
+다시 보니 운영 리스크가 셋 나왔다. 그중 bulk 부분 실패는 High다.
+
+## 카테고리별 발견
+
+### integration-robustness (High 2 · Medium 3)
+
+- **High** · `ElasticsearchProductSearchIndexer.java:70-84` — `client.bulk()`의 응답을 아예
+  읽지 않는다. `IOException` 계열만 잡고 반환값은 버린다. bulk는 **HTTP 200을 주면서 개별
+  item만 실패할 수 있는** API라, 지금 구조에서는 문서 절반이 색인에 실패해도
+  `ProductReindexService:89`의 "전체 재조정 완료" 로그가 그대로 찍힌다. 검색 결과에서
+  상품이 사라진 뒤에야 알게 된다. 응답 `errors()`와 item별 `error()`를 검사해 실패 ID·원인을
+  남기고, 재시도 가능한 오류만 제한적으로 재시도할 것(무제한 재시도는 금물 — 최종 실패는
+  다음 재대사 주기가 복구한다).
+
+<details>
+<summary>bulk 부분 실패가 왜 조용한가</summary>
+
+Elasticsearch의 bulk API는 여러 문서를 한 요청에 담아 보낸다. 이때 **요청 자체는 성공(200)
+하면서 그 안의 개별 문서만 실패**할 수 있다. 매핑이 안 맞거나, 특정 문서만 너무 크거나,
+샤드 하나가 일시적으로 못 받거나 하는 경우다. 그래서 응답 본문에 `errors: true`와 item별
+에러가 따로 담긴다. 클라이언트가 이걸 안 읽으면 "요청 성공"만 보고 전부 잘 됐다고 판단한다.
+
+</details>
+
+- **High** · `ProductEventProducer.java:86,90` — `kafkaTemplate.send(...)`가 돌려주는
+  `CompletableFuture`를 아무도 확인하지 않는다. AFTER_COMMIT 콜백 경로와 활성 트랜잭션이
+  없을 때의 즉시 발행 경로가 둘 다 같다. 전송이 비동기로 실패해도 로그·알림·재시도가 없어
+  이벤트가 사라진다. 가격 변경·판매중단 이벤트가 유실되면 ES 색인이 조용히 stale해진다.
+  (이전 회차에서도 High로 지적, 미해소) `.whenComplete((r, ex) -> { if (ex != null)
+  log.error(...) })`로 최소한 topic·eventType·aggregateId를 남길 것.
+
+- **Medium** · `ProductIndexBootstrap.java:26-34` — `existsAlias(ALIAS)` 하나만 검사한다.
+  `products`라는 이름의 *인덱스*가 alias 자리를 차지하고 있으면 `existsAlias`는 `false`를
+  주고, 이어지는 `putAlias`가 "an index exists with the same name as the alias"로 터진다.
+  기동 시점이라 크래시 루프가 된다. **실제로 겪은 장애다.** alias 존재 여부만이 아니라 대상
+  인덱스 이름과 필수 mapping까지 확인하고, 불일치면 조용히 넘어가지 말고 명시적으로 실패
+  시켜 복구 절차를 로그에 남길 것.
+
+- **Medium** · `ElasticsearchProductSearchIndexer.java:53` — `findAllIndexedFamilyRootIds`가
+  `size(10000)` 고정이다. 색인 문서가 1만 건을 넘으면 그 뒤 문서는 조회되지 않아, 이를 기준
+  으로 계산하는 고아 문서 탐지(`ProductReindexService:81-83`)가 불완전해진다. 지워져야 할
+  문서가 검색에 계속 남는다. `search_after` 페이지네이션으로 바꿀 것.
+
+- **Medium** · `QueryEmbeddingCache.java:71-77` — 외부 OpenAI 호출을
+  `CompletableFuture.supplyAsync(...)`로 **공용 ForkJoinPool**에 제출한다. 전용 executor가
+  없고 제출량 상한도 없다. 공용 풀은 CPU 바운드 작업을 전제로 크기가 정해지므로, 블로킹
+  HTTP 호출을 얹으면 같은 풀을 쓰는 다른 병렬 작업이 굶을 수 있다. 게다가 같은 검색어가
+  동시에 들어오면 중복 호출을 막는 장치(single-flight)가 없어 캐시 미스 순간에 같은 요청이
+  여러 번 나간다. 300ms 예산 초과 시 작업을 취소하지 않는 판단은 주석에 근거가 적혀 있지만
+  풀 선택 근거는 없다.
+
+### dead-code (Medium 4 · Low 1)
+
+- **Medium** · `ProductListItemResponse.java:13` — `originalAmount` 필드가 선언만 되고 레포
+  어디서도 실제 값으로 채워지지 않는다(`ProductQueryService.java:252,272`에서 항상 `null`).
+  (이전 회차에서도 지적, 미해소)
+- **Medium** · `ProductDetailResponse.java:24` — `features`도 동일 패턴. 항상 `List.of()`
+  (`ProductQueryService.java:157`). (이전 회차에서도 지적, 미해소)
+- **Medium** · `Product.getBadge()`가 ES 색인에는 들어가지만
+  (`ElasticsearchProductSearchIndexer.java:105`) `ProductSearchHit`에 그 필드가 없어 조회
+  응답으로 돌아올 경로가 없다. 값을 만드는 정책도 어디에도 없다. 결국 두 Response의 badge
+  자리는 소스와 무관하게 항상 `null`. (이전 회차에서도 지적, 미해소)
+- **Medium** · `ProductFamily.java:43,63` — `members()`는 프로덕션·테스트 어디서도 호출되지
+  않고, `mostRecentSuperseded()`는 자기 단위 테스트에서만 호출된다. 둘을 제거하면 메서드가
+  16개에서 14개가 되어 비대 판정에서도 빠진다.
+- **Low** · `ProductExceptionHandler.java:66-69,80` — `handleNoResourceFound`와
+  `handleException`의 `HttpServletRequest request` 파라미터가 미사용이다. 같은 파일의 다른
+  핸들러들은 이미 요청ID 수동 로깅을 MDC 기반으로 걷어냈는데 이 둘만 남았다.
+  (이전 회차에서도 지적, 미해소)
+
+### duplication-semantic (Medium 4 · Low 3)
+
+- **Medium** · `FileUploadController.java:110-115` ↔ `ProductSellerService.java:258-263` —
+  presigned URL에서 S3 키를 뽑는 `extractKey`가 **글자 그대로 같은 코드**로 두 곳에 있다.
+  (이전 회차에서도 지적, 미해소)
+- **Medium** · `EventMessage<JsonNode>` 파싱(try/catch로 감싼 역직렬화)이
+  `OrderEventConsumer.java`, `ProductInspectionResultConsumer.java`,
+  `ProductSearchEventConsumer.java:75-81` 세 곳에 거의 그대로 있다. 게다가 앞 둘은
+  `tools.jackson.*`(Jackson 3.x), 마지막은 `com.fasterxml.jackson.*`(Jackson 2.x)로 **서로
+  다른 Jackson 메이저 버전**을 쓴다. (이전 회차에서도 지적, 미해소)
+- **Medium** · `KafkaConfig.java:96-103,133-140,170-177` — `DefaultErrorHandler` 빈 3개의
+  **본문이 완전히 동일하다.** 같은 `DeadLetterPublishingRecoverer` 람다, 같은
+  `FixedBackOff(1000L, 2L)`. 토픽 이름조차 `record.topic() + ".DLT"`로 동적이라 다를 이유가
+  없다. `ConsumerFactory` 3개(71-80, 108-117, 145-154)와 `ContainerFactory` 3개(82-93,
+  119-130, 156-167)도 groupId만 다르고 나머지가 같다. 약 60줄이 복제돼 있어 Kafka 설정을
+  하나 바꾸려면 세 곳을 손봐야 한다.
+- **Medium** · `ProductQueryGrpcService.java:44-53,71-81`의 인라인 스냅샷 매핑이 같은 파일의
+  `toOrderSnapshotResult`/`toCartSnapshotResult`(205-226)와 동일 로직으로 중복된다. 다만
+  이건 `GetOrderSnapshots`/`GetCartSnapshots`를 order-service 소비자 전환이 끝날 때까지
+  유지하는 **의도된 과도기** 상태다(저장소 규칙 문서에 명시). 의도가 확인됐어도 산식상
+  점수에서 빼지는 않는다.
+- **Low** · `ProductJpaRepository`의 `findPublicProducts`와 `findProjectionsByIds`가
+  `ProductListProjection` 생성 JPQL을 거의 그대로 중복한다 — JPQL에 조각을 공유할 수단이
+  마땅치 않아 구조적 제약에 가깝다.
+- **Low** · `new ProductContent(...)` 12개 인자 조립이 `ProductSellerService.java`의
+  `createProduct`(53-57)와 `updateProduct`(86-90) 두 곳에 거의 동일하게 반복된다.
+- **Low** · `ProductController.java:71-79` — `POST /products/wishlists`와
+  `POST /products/orders`가 `productQueryUseCase.getProductsByIds(request.productIds())`로
+  **같은 유스케이스를 같은 인자로** 호출한다. 응답 타입도 같다. 앞으로 갈라질 계획이 있는지
+  미확인(아래 "확인이 필요한 지점" 참고).
+
+### diagnosability (Medium 1 · Low 1)
+
+- **Medium** · `ProductExceptionHandler.java:30-41` — `IllegalStateException`을 타입 통째로
+  잡아 `PRODUCT_INVALID_STATUS`(**409 CONFLICT**)에 매핑한다. 문제는 이 예외 타입을 도메인만
+  쓰는 게 아니라는 점이다. `ElasticsearchProductSearchIndexer`가 색인·alias 조회·bulk 실패에
+  전부 `IllegalStateException`을 던진다(34, 43, 60, 86행). 즉 **ES가 죽은 상황이 "현재
+  상태에서 처리할 수 없는 상품입니다" 409로 나갈 수 있다.** 지금은 웹 경로가 ES 예외를
+  중간에서 잡아줘서 드러나지 않지만, ES를 직접 타는 엔드포인트가 하나만 생겨도 서버 장애가
+  4xx로 위장된다. 모니터링이 5xx를 기준으로 본다면 장애를 놓친다.
+- **Low** · `S3StorageAdapter.java:83` — `copyObject` 실패에 `S3_PRESIGN_FAILED`(메시지:
+  "파일 업로드 URL 생성에 실패했습니다")를 재사용한다. copy 실패인데 메시지는 "URL 생성
+  실패"라 로그·응답이 실제 원인과 어긋난다. (이전 회차에서도 지적, 미해소)
+
+### exception-discipline (Medium 1)
+
+- **Medium** · `ProductQueryService.java:66` — ES 조회를 `catch (RuntimeException)`으로
+  감싸 RDB 폴백으로 넘긴다. 범위가 너무 넓어서 NPE·`IllegalArgumentException` 같은
+  프로그래밍 오류까지 "ES 조회에 실패해 RDB로 폴백합니다" 경고 한 줄로 묻힌다. 폴백은
+  동작하니 장애로 안 보이고, 실제 버그는 계속 남는다. ES 연결·타임아웃 등 예상 예외로 좁힐 것.
+
+### layer-separation (Medium 2)
+
+- **Medium** · `ProductSellerService.java:14,40` — `ProductEventProducer`(Kafka 발행 어댑터)
+  구체 클래스를 포트 없이 직접 주입받는다. 리포지토리 3종(Product/Review/ProcessedEvent)은
+  전부 domain 포트 + infra 어댑터 구조인데 이벤트 발행만 이 패턴에서 빠져 있다.
+  (이전 회차에서도 지적, 미해소)
+- **Medium** · `SellerProductDetailResponse.java:32,55,60` ·
+  `SellerProductListItemResponse.java:26,44` — presentation DTO의 정적 팩토리가
+  `StorageClient`를 인자로 받아 **DTO 안에서 S3 presign 원격 호출을 수행한다.** 같은
+  서비스의 `ProductDetailResponse`/`ProductListItemResponse`는 이미 만들어진 URL 문자열만
+  받는 것과 대비된다. 응답 조립 시점에 네트워크가 끼어들면 타임아웃도 실패 처리도 걸 자리가
+  없다. (이전 회차에서도 지적, 미해소)
+
+### value-object-design (Medium 2)
+
+- **Medium** · `FileUploadController.java:59-82` —
+  `resolveContentType(String purpose, String productType, String ext)`에서 `purpose`가
+  `"file"`/`"thumbnail"`/`"image"` 문자열 리터럴로 여러 분기에 반복된다. enum이면 컴파일
+  타임에 잡힐 오타·누락이 런타임까지 간다. (이전 회차에서도 지적, 미해소)
+- **Medium** · `ProductDetailResponse`(19개 필드)와 `ProductListItemResponse`(15개 필드)를
+  포지셔널 생성자로 조립하면서 미사용 필드 자리에 이름 없는 `null`/`List.of()`가 섞여 있다
+  (`ProductQueryService.java:140-168` 등). 같은 타입 인자 두 개의 순서가 바뀌어도 컴파일러가
+  못 잡는다. (이전 회차에서도 지적, 미해소)
+
+### polymorphism-opportunity (Medium 1)
+
+- **Medium** · `ProductType`(PROMPT / PPT·EXCEL / NOTION)별로 "어느 필드가 본문인가"를
+  판단하는 분기가 세 곳에 거의 동일하게 흩어져 있다 —
+  `ProductContent.java:43-47`(유형별 필수 필드 검증),
+  `ProductGrpcService.java:89-93`(구매자 산출물 결정),
+  `PurchasedProductQueryService.java:53-57`(구매 상품 응답 조립). 새 유형이 생기면 세 곳을
+  다 고쳐야 하고, 하나를 빠뜨려도 컴파일은 통과한다. `ProductType`에 메서드를 두거나 작은
+  전략 객체로 묶을 것. (이전 회차에서도 지적, 미해소)
+
+### cohesion-coupling (Medium 1)
+
+- **Medium** · `ProductQueryService`(311 LOC·19메서드)가 검색 오케스트레이션(ES/RDB 폴백)·
+  DTO 매핑 3벌·presigned URL 해석·버전 이력 조립을 한 클래스에 담고 있다. 바뀌는 이유가
+  여러 개다. 이전 회차(303 LOC) 대비 8줄 더 늘었다. (이전 회차에서도 지적, 미해소)
+
+  덧붙여 이 클래스에는 산식에 안 잡히는 문제가 둘 더 있다. `getProduct()`(133-136)가 조회
+  도중 `incrementViewCount()` + `save()`를 하는 CQS 위반이고, `getProductsByIds()`(219-220)가
+  상품마다 판매량 합계와 평균 평점을 각각 호출해 상품 N건에 집계 쿼리 2N번이 나간다.
+
+### controller-thin (Medium 1)
+
+- **Medium** · `FileUploadController.java:59-82` — "PPT면 pptx/ppt만, EXCEL이면 xlsx/xls만"
+  같은 허용 확장자 정책과 productType 분기가 컨트롤러 안에 그대로 있다. 컨트롤러는 HTTP
+  관심사만 다뤄야 한다. (이전 회차에서도 지적, 미해소)
+
+### http-semantics · logging-quality · entity-encapsulation · service-boundary (위반 없음)
+
+- HTTP 상태 매핑이 의미에 부합한다. 생성은 201(`ProductController.java:63`), 상태 충돌은
+  409, 없는 리소스는 404, 없는 경로는 `NoResourceFoundException` 전용 핸들러로 404다
+  (캐치올이 500으로 뭉개지 않게 일부러 분리해뒀고 주석에 이유가 적혀 있다).
+- 로그 메시지가 맥락을 담고 있고 과하지 않다. gRPC 실패 로그는 요청 파라미터를 함께 남긴다.
+- `Product`는 setter 없이 상태 전이 가드로 스스로를 관리하고, `ProductContent` 값객체가
+  유형별 필드 조합을 생성 시점에 검증한다. `applyContent`가 세 경로(create·update·nextVersion)를
+  한곳에서 덮도록 해시 계산을 모아둔 것도 주석에 근거가 있다.
+- Kafka DLT가 세 컨슈머 모두 설정돼 있고(`KafkaConfig`), 타 서비스 DB 직접 접근이나 순환
+  호출이 없다.
+
+## 개선된 항목
+
+**없다.** 이전 회차(2026-07-29)에 지적한 High 1 · Medium 13 · Low 4가 하나도 해소되지 않았다.
+
+그 사이 머지된 작업은 전부 기능이었다 — #689(검색 오탐 수정), #698(추천 기능 ai-service
+분리), #699(승인 시 구버전 전환 누락 수정), #632(본문 복제 탐지 해시). 구조 부채는 손대지
+않은 채 코드만 288 LOC 늘었고, 그 결과 비대 클래스가 둘 더 생겼다.
+
+이 스냅샷이 baseline인 이유가 여기 있다. 다음 회차부터는 이 41.5를 기준으로 항목별 해소분이
+쌓이는지 본다.
+
+## 확인이 필요한 지점
+
+분석 중 "보통 다른 선택을 하는데 여긴 다르다" 싶었던 세 곳이다. 셋 다 **아직 의도 미확인**
+이라 의도된 결정으로 처리하지 않았다. 해당 이슈를 작업하면서 전체 흐름을 확인한 뒤 결정할
+예정이다.
+
+1. **도메인 불변식 위반을 raw `IllegalStateException`으로 던지는 것** —
+   `Product.supersede()`·`submitForReview()`·`approve()`·`reject()`가 전부 그렇고,
+   `domain/exception` 패키지 자체가 없다. 저장소 규칙은 순수 도메인 예외를 두고 핸들러가
+   ErrorCode로 매핑하라고 한다. 지금 구조의 실제 대가는 위 diagnosability 항목이다.
+2. **`/products/wishlists`와 `/products/orders`를 별도 엔드포인트로 둔 것** — 현재 구현이
+   완전히 같다. 응답이 갈라질 계획이 있으면 그대로 두는 게 맞다.
+3. **`QueryEmbeddingCache`가 공용 ForkJoinPool을 쓰는 것** — 예산 초과 시 취소하지 않는
+   판단은 주석에 근거가 있는데, 풀 선택 근거는 없다.
+
+## 한계
+
+- 정적 스냅샷이다. 빌드·테스트 실행, 런타임 동작, 인덱스·쿼리 성능은 보지 않았다.
+- 서비스 단위 측정이라 상대 서비스 코드는 호출자 존재 확인 용도로만 참조했다. 통신·경계
+  판정은 이 서비스 쪽 코드만 대상이다.
+- 테스트 코드는 평가하지 않는다(억지 테스트 금지 원칙). 단, 프로덕션 코드의 사용처를
+  따질 때는 테스트 호출 여부를 근거로 썼다(`ProductFamily.mostRecentSuperseded()`).
+- 이번 회차의 신규 발견 9건은 코드가 그 사이 나빠져서 생긴 게 아니라 대부분 **이전 회차가
+  못 본 것**이다. 같은 코드를 더 넓게 훑은 결과이므로, 점수 차이를 전부 코드 악화로 읽으면
+  안 된다.
+- API 문서화 애너테이션(`@Operation`·`@Schema` 등) 부재는 루브릭 14개 카테고리에 없어
+  점수에 반영하지 않았다. `ProductController`에는 현재 Swagger 애너테이션이 하나도 없다는
+  점만 밝혀둔다.
