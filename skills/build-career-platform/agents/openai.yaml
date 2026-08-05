@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build Career AI Platform"
+  short_description: "근거 기반 커리어·지원 AI 플랫폼을 설계하고 구현합니다"
+  default_prompt: "Use $build-career-platform to design and implement the next verified milestone of the career application platform."
