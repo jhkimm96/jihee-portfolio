@@ -6,6 +6,7 @@ import {
   getStudyCategories,
   getPublishedDecisions,
   getPublishedReviews,
+  getLearningPaths,
   getResumeVariants
 } from '@/lib/content-data'
 import { SITE_URL } from '@/lib/site'
@@ -14,8 +15,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const staticRoutes = [
     '',
     '/projects',
+    '/engineering',
     '/troubleshooting',
     '/study',
+    '/study/paths',
     '/decisions',
     '/reviews',
     '/quality',
@@ -30,6 +33,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const projectRoutes = getAllProjects().map((project) => ({
     url: `${SITE_URL}/projects/${project.slug}`,
     lastModified: new Date()
+  }))
+
+  const learningPathRoutes = getLearningPaths().map((path) => ({
+    url: `${SITE_URL}/study/paths/${path.project}`,
+    lastModified: new Date(path.updatedAt)
   }))
 
   const troubleshootingRoutes = getPublishedTroubleshooting().map((entry) => ({
@@ -67,6 +75,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     ...staticRoutes,
     ...projectRoutes,
+    ...learningPathRoutes,
     ...troubleshootingRoutes,
     ...studyRoutes,
     ...studyCategoryRoutes,

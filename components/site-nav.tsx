@@ -11,12 +11,9 @@ import { HeaderSearch } from '@/components/header-search'
 import { getAbout } from '@/lib/content-data'
 
 const navItems = [
-  { href: '/', label: 'Home' },
   { href: '/projects', label: 'Projects' },
-  { href: '/troubleshooting', label: 'Troubleshooting' },
-  { href: '/study', label: 'Study' },
-  { href: '/decisions', label: 'Decisions' },
-  { href: '/reviews', label: 'Reviews' },
+  { href: '/engineering', label: 'Engineering' },
+  { href: '/study', label: 'Study Notes' },
   { href: '/quality', label: 'Quality' },
   { href: '/about', label: 'About' },
   { href: '/resume', label: 'Resume' }
