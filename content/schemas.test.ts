@@ -18,6 +18,9 @@ describe('projectFrontmatterSchema', () => {
       period: '2026.03 - 2026.05',
       team: '개인 프로젝트',
       role: 'Backend',
+      highlight: '검색 품질 개선 과정을 기록했습니다.',
+      responsibility: '검색 시스템 백엔드',
+      contributions: ['검색 API 구현'],
       stack: ['Spring Boot', 'MySQL'],
       github: 'https://github.com/example/prompthub',
       status: 'archived',
@@ -33,6 +36,7 @@ describe('projectFrontmatterSchema', () => {
       period: '2026.03 - 2026.05',
       team: '개인 프로젝트',
       role: 'Backend',
+      highlight: '공유 링크 보안을 설계했습니다.',
       stack: ['Spring Boot'],
       status: 'archived',
       statusNote: '중단됨'
@@ -62,6 +66,9 @@ describe('projectFrontmatterSchema', () => {
       period: '2026.06 - 2026.07',
       team: '개인 프로젝트',
       role: 'Backend',
+      highlight: '공유 링크 보안을 설계했습니다.',
+      responsibility: '인증 시스템 백엔드',
+      contributions: ['JWT 인증 구현'],
       stack: ['Spring Boot'],
       github: 'https://github.com/example/career-link',
       demo: 'https://career-link.example.com',
@@ -93,11 +100,12 @@ describe('troubleshootingFrontmatterSchema', () => {
 
 describe('studyFrontmatterSchema', () => {
   it('accepts minimal valid study frontmatter', () => {
-    const result = studyFrontmatterSchema.safeParse({
+    const result = studyFrontmatterSchema.parse({
       title: 'Spring Batch 정리',
       date: '2026-05-01'
     })
-    expect(result.success).toBe(true)
+    expect(result.status).toBe('growing')
+    expect(result.related).toEqual([])
   })
 })
 
