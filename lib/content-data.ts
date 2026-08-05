@@ -2,6 +2,7 @@ import {
   projects,
   troubleshootingPosts,
   studyPosts,
+  learningPaths,
   decisions,
   reviews,
   quality,
@@ -130,6 +131,14 @@ export function getProjectTitle(slug: string): string {
 
 export function getPublishedStudy() {
   return sortByDateDesc(publishedOnly(studyPosts))
+}
+
+export function getLearningPaths() {
+  return [...learningPaths].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+}
+
+export function getLearningPathByProject(project: string) {
+  return learningPaths.find((path) => path.project === project)
 }
 
 export function getPublishedDecisions() {

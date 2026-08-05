@@ -7,6 +7,9 @@ export type ProjectEntry = {
   period: string
   team: string
   role: string
+  highlight: string
+  responsibility: string
+  contributions: string[]
   stack: string[]
   github: string
   demo?: string
@@ -50,6 +53,10 @@ export type StudyEntry = {
   category: string
   title: string
   date: string
+  updatedAt?: string
+  status: 'seed' | 'growing' | 'evergreen' | 'archived'
+  reviewAfter?: string
+  related: string[]
   summary?: string
   tags?: string[]
   group?: string
@@ -62,6 +69,23 @@ export type StudyCategorySummary = {
   count: number
   latest: string
   recent: StudyEntry[]
+}
+
+export type LearningPathImportance = 'required' | 'deep-dive' | 'reference'
+
+export type LearningPathEntry = {
+  project: string
+  title: string
+  summary: string
+  updatedAt: string
+  status: 'draft' | 'growing' | 'ready'
+  stages: {
+    id: string
+    title: string
+    goal: string
+    items: { type: string; slug: string; importance: LearningPathImportance }[]
+  }[]
+  content: string
 }
 
 const UNGROUPED = '기타'
@@ -249,6 +273,7 @@ export type QualityMetrics = {
   duplicationBlocks: number
   duplicationPct: number
   oversizedClasses: number
+  longMethods?: number
 }
 
 export type QualityEntry = {

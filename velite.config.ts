@@ -3,6 +3,7 @@ import {
   projectFrontmatterSchema,
   troubleshootingFrontmatterSchema,
   studyFrontmatterSchema,
+  learningPathFrontmatterSchema,
   decisionFrontmatterSchema,
   reviewFrontmatterSchema,
   qualityFrontmatterSchema,
@@ -44,6 +45,14 @@ const studyPosts = defineCollection({
       const slug = parts.slice(1).join('/')
       return { ...data, category, slug }
     })
+})
+
+const learningPaths = defineCollection({
+  name: 'LearningPath',
+  pattern: '*/learning-path.mdx',
+  schema: learningPathFrontmatterSchema
+    .extend({ path: s.path(), content: s.markdown() })
+    .transform((data) => ({ ...data, project: data.path.split('/')[0] }))
 })
 
 const decisions = defineCollection({
@@ -111,5 +120,5 @@ const resumeVariants = defineCollection({
 export default defineConfig({
   root: 'content',
   strict: true,
-  collections: { projects, troubleshootingPosts, studyPosts, decisions, reviews, quality, about, resume, resumeVariants }
+  collections: { projects, troubleshootingPosts, studyPosts, learningPaths, decisions, reviews, quality, about, resume, resumeVariants }
 })
