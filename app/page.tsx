@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowRight, GitFork, FileText, Wrench, BookOpen, FolderGit2, GitBranch, Code2, Gauge } from 'lucide-react'
+import { ArrowRight, GitFork, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ProjectCard } from '@/components/project-card'
 import { PostCard } from '@/components/post-card'
@@ -79,45 +79,6 @@ export default function HomePage() {
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 6)
 
-  const stats = [
-    { label: 'Projects', value: getAllProjects().length, href: '/projects', icon: FolderGit2 },
-    { label: 'Troubleshooting', value: getPublishedTroubleshooting().length, href: '/troubleshooting', icon: Wrench },
-    { label: 'Study Notes', value: getPublishedStudy().length, href: '/study', icon: BookOpen }
-  ]
-
-  const intentLinks = [
-    {
-      href: '/projects',
-      label: '대표 프로젝트',
-      description: '구현 결과와 기술 스택',
-      icon: FolderGit2
-    },
-    {
-      href: '/troubleshooting',
-      label: '문제 해결',
-      description: '원인 분석과 해결 기록',
-      icon: Wrench
-    },
-    {
-      href: '/decisions',
-      label: '설계 판단',
-      description: '선택지와 결정 근거',
-      icon: GitBranch
-    },
-    {
-      href: '/reviews',
-      label: '코드 리뷰',
-      description: '개선점과 리팩터링 기록',
-      icon: Code2
-    },
-    {
-      href: '/quality',
-      label: '품질 관리',
-      description: '측정 지표와 변화 추세',
-      icon: Gauge
-    }
-  ]
-
   return (
     <div className="mx-auto max-w-5xl px-4 sm:px-6">
       <section className="border-b border-border py-14 sm:py-20">
@@ -151,54 +112,14 @@ export default function HomePage() {
           ) : null}
         </div>
 
-        <div className="mt-10">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold tracking-tight">보고 싶은 내용</h2>
-            <Link href="/search" className="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground">
-              검색으로 찾기
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
-            {intentLinks.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="group rounded-lg border border-border bg-card p-3 transition-colors hover:border-brand/50"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-secondary text-muted-foreground transition-colors group-hover:text-brand">
-                    <item.icon className="size-3.5" />
-                  </span>
-                  <span className="text-sm font-semibold">{item.label}</span>
-                </div>
-                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{item.description}</p>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="grid grid-cols-1 gap-3 border-b border-border py-6 sm:grid-cols-3">
-        {stats.map((stat) => (
-          <Link
-            key={stat.label}
-            href={stat.href}
-            className="group flex items-center justify-between rounded-lg border border-border bg-card p-4 transition-colors hover:border-brand/50"
-          >
-            <div className="flex items-center gap-3">
-              <span className="flex size-9 items-center justify-center rounded-md bg-secondary text-muted-foreground transition-colors group-hover:text-brand">
-                <stat.icon className="size-4.5" />
-              </span>
-              <span className="font-mono text-xs text-muted-foreground">{stat.label}</span>
-            </div>
-            <span className="font-mono text-2xl font-semibold tabular-nums">{stat.value}</span>
-          </Link>
-        ))}
       </section>
 
       <section className="py-10">
         <div className="mb-5 flex items-baseline justify-between">
-          <h2 className="text-lg font-semibold tracking-tight">Featured Projects</h2>
+          <div>
+            <p className="font-mono text-xs font-medium uppercase tracking-widest text-brand">Selected work</p>
+            <h2 className="mt-1 text-xl font-semibold tracking-tight">어떤 프로젝트를 살펴볼까요?</h2>
+          </div>
           <Link
             href="/projects"
             className="inline-flex items-center gap-1 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
