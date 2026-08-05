@@ -2,8 +2,25 @@ import Link from 'next/link'
 import { ArrowUpRight, Calendar, Users } from 'lucide-react'
 import type { ProjectEntry } from '@/lib/content'
 import { StatusBadge, TechStack } from '@/components/content-badges'
+import {
+  getDecisionsForProject,
+  getQualityForProject,
+  getReviewsForProject,
+  getTroubleshootingForProject
+} from '@/lib/content-data'
+
+function countGroups(groups: Record<string, unknown[]>): number {
+  return Object.values(groups).reduce((total, entries) => total + entries.length, 0)
+}
 
 export function ProjectCard({ project }: { project: ProjectEntry }) {
+  const evidence = [
+    { label: '문제 해결', count: countGroups(getTroubleshootingForProject(project.slug)) },
+    { label: '설계 결정', count: countGroups(getDecisionsForProject(project.slug)) },
+    { label: '리뷰', count: getReviewsForProject(project.slug).length },
+    { label: '품질 측정', count: getQualityForProject(project.slug).length }
+  ].filter((item) => item.count > 0)
+
   return (
     <Link
       href={`/projects/${project.slug}`}
@@ -28,11 +45,25 @@ export function ProjectCard({ project }: { project: ProjectEntry }) {
               <ArrowUpRight className="size-4 text-muted-foreground transition-colors group-hover:text-brand" />
             </h3>
             <p className="font-mono text-xs text-muted-foreground">{project.role}</p>
+            <p className="text-xs leading-relaxed text-muted-foreground">{project.responsibility}</p>
           </div>
           <StatusBadge status={project.status} />
         </div>
 
+        <div className="rounded-md border border-brand/20 bg-brand/5 px-3 py-2.5">
+          <p className="mb-1 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-brand">Key outcome</p>
+          <p className="text-sm font-medium leading-relaxed text-foreground">{project.highlight}</p>
+        </div>
+
         <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">{project.description}</p>
+
+        {evidence.length > 0 ? (
+          <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-border pt-3 font-mono text-[0.7rem] text-muted-foreground">
+            {evidence.map((item) => (
+              <span key={item.label}>{item.label} {item.count}</span>
+            ))}
+          </div>
+        ) : null}
 
         <div className="mt-auto space-y-3 pt-1">
           <TechStack items={project.stack} max={4} />
