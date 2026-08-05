@@ -79,7 +79,9 @@ export function SeverityTrendChart({ data }: { data: { date: string; high: numbe
   const maxTotal = Math.max(...data.map((d) => d.high + d.medium + d.low), 0)
   const ticks = niceTicks(maxTotal)
   const tickMax = ticks[ticks.length - 1]
-  const x = scaleLinear(0, Math.max(data.length - 1, 1), PAD.left + 24, W - PAD.right - 24)
+  const xStart = data.length <= 2 ? W * 0.32 : PAD.left + 24
+  const xEnd = data.length <= 2 ? W * 0.68 : W - PAD.right - 24
+  const x = scaleLinear(0, Math.max(data.length - 1, 1), xStart, xEnd)
   const y = scaleLinear(0, tickMax, H - PAD.bottom, PAD.top)
   const barWidth = Math.min(40, Math.max(12, (W - PAD.left - PAD.right) / Math.max(data.length, 1) - 16))
 

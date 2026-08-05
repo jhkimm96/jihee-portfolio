@@ -22,12 +22,15 @@ function Delta({ diff, downIsGood = true, title }: { diff: number; downIsGood?: 
 
 export function QualityDashboard({
   groups,
-  trends
+  trends,
+  initialProject
 }: {
   groups: { project: string; projectTitle: string; scopes: string[] }[]
   trends: Record<string, QualityEntry[]>
+  initialProject?: string
 }) {
-  const firstKey = groups[0] ? `${groups[0].project}/${groups[0].scopes[0]}` : ''
+  const initialGroup = groups.find((group) => group.project === initialProject) ?? groups[0]
+  const firstKey = initialGroup ? `${initialGroup.project}/${initialGroup.scopes[0]}` : ''
   const [selected, setSelected] = useState(firstKey)
   const trend = trends[selected] ?? []
   const latest = trend[trend.length - 1]
@@ -43,26 +46,30 @@ export function QualityDashboard({
     <div className="mt-8 flex flex-col gap-8">
       <div className="flex flex-col gap-3">
         {groups.map((group) => (
-          <div key={group.project} className="flex flex-wrap items-center gap-2">
-            {groups.length > 1 ? (
-              <span className="font-mono text-xs font-semibold text-muted-foreground">{group.projectTitle}</span>
-            ) : null}
-            {group.scopes.map((s) => {
-              const key = `${group.project}/${s}`
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setSelected(key)}
-                  className={cn(
-                    'rounded-md border border-border px-3 py-1.5 font-mono text-xs transition-colors',
-                    key === selected ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  {s}
-                </button>
-              )
-            })}
+          <div key={group.project} className="rounded-lg border border-border bg-card p-3">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="font-mono text-[0.65rem] font-medium uppercase tracking-wider text-muted-foreground">Project</span>
+              <span className="text-sm font-semibold">{group.projectTitle}</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-[0.65rem] font-medium uppercase tracking-wider text-muted-foreground">Scope</span>
+              {group.scopes.map((s) => {
+                const key = `${group.project}/${s}`
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSelected(key)}
+                    className={cn(
+                      'rounded-md border border-border px-3 py-1.5 font-mono text-xs transition-colors',
+                      key === selected ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    {s}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         ))}
       </div>
@@ -103,6 +110,9 @@ export function QualityDashboard({
 
       <section>
         <h2 className="mb-2 font-mono text-sm font-semibold">심각도별 발견 건수</h2>
+        <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
+          매일 수집하는 모니터링 지표가 아니라, 코드 품질을 점검한 날짜별 스냅샷을 비교합니다.
+        </p>
         <SeverityTrendChart data={trend.map((e) => ({ date: e.date, ...severityTotals(e) }))} />
       </section>
 
