@@ -1,14 +1,16 @@
 ---
 summary: "REST API 설계부터 AWS 배포까지 백엔드 서비스의 전 구간을 다루는 개발자입니다. 안정적인 트랜잭션 설계와 외부 시스템 연동, 그리고 학습 내용을 기록으로 남기는 습관을 중요하게 생각합니다."
 experience:
-  - company: "개인 프로젝트 — Prompthub"
-    period: "2026.03 - 2026.05"
-    role: "Backend Developer"
-    description: "AI 프롬프트 마켓플레이스 백엔드 API 설계 및 AWS 배포"
+  - company: "팀 프로젝트 — PromptHub"
+    period: "2026.07.07 - 2026.07.30"
+    role: "Product Service / AI Recommendation Backend Developer"
+    description: "상품 도메인·검색 파이프라인과 독립 ai-service의 개인화 추천 담당"
     highlights:
-      - "주문/결제 상태 머신 설계로 중복 결제 및 실패 복구 처리"
-      - "Redis Sorted Set 기반 인기 프롬프트 랭킹 캐시 구현"
-      - "Resilience4j로 외부 결제 API 429 대응"
+      - "PostgreSQL 원본과 Elasticsearch 검색 사본을 분리한 증분 색인 파이프라인 구축"
+      - "OpenAI text-embedding·pgvector 기반 의미 검색과 유사 상품 탐색 구현"
+      - "글자·의미 검색을 RRF로 결합하고 Elasticsearch 장애 시 RDB 폴백 적용"
+      - "판매수·조회수·평점·신선도를 조합한 인기 랭킹 설계"
+      - "장바구니·구매 활동별 유사 상품을 가중 RRF로 결합하는 독립 ai-service 구현"
   - company: "개인 프로젝트 — Career Link"
     period: "2026.06 - 2026.07"
     role: "Backend / Frontend Developer"
