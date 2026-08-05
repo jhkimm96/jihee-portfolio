@@ -34,15 +34,20 @@ export default async function StudyDetailPage({ params }: { params: Promise<{ sl
   const post = getStudyBySlugPath(slug)
 
   if (post) {
+    const related = post.related
+      .map((relatedSlug) => getStudyBySlugPath(relatedSlug.split('/')))
+      .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+      .map((entry) => ({ href: `/study/${entry.slug}`, title: entry.title }))
     return (
       <PostArticle
         backHref="/study"
         backLabel="Study"
         title={post.title}
-        date={post.date}
+        date={post.updatedAt ?? post.date}
         content={post.content}
         tags={post.tags}
-        badges={[{ label: post.category, kind: 'category' }]}
+        badges={[{ label: post.category, kind: 'category' }, { label: post.status }]}
+        related={related}
       />
     )
   }
