@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, GitFork, ExternalLink, Wrench, Scale, MessageSquare, Gauge } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Wrench, Scale, MessageSquare, Gauge } from 'lucide-react'
+import { GithubIcon } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { Markdown } from '@/components/markdown'
 import { StatusBadge, TechChip } from '@/components/content-badges'
@@ -102,16 +103,16 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         </div>
         <p className="text-base leading-relaxed text-muted-foreground text-pretty">{project.description}</p>
 
-        <div className="rounded-lg border border-brand/20 bg-brand/5 px-4 py-3">
+        <div className="rounded-xl border border-brand/20 bg-brand/5 px-4 py-3">
           <p className="mb-1 font-mono text-[0.7rem] font-semibold uppercase tracking-wider text-brand">이 프로젝트에서 가장 보여주고 싶은 것</p>
           <p className="text-base font-semibold leading-relaxed">{project.highlight}</p>
         </div>
 
-        <section aria-labelledby="project-contribution-title" className="rounded-lg border border-border bg-card p-5">
-          <p className="font-mono text-[0.7rem] font-semibold uppercase tracking-wider text-muted-foreground">담당 영역</p>
-          <h2 id="project-contribution-title" className="mt-1 text-lg font-semibold tracking-tight">
+        <section aria-labelledby="project-contribution-title" className="rounded-xl border border-border bg-card p-5 shadow-e2">
+          <h2 id="project-contribution-title" className="font-mono text-xs font-medium text-muted-foreground">담당 영역</h2>
+          <p className="mt-1.5 text-lg font-semibold tracking-tight text-foreground text-pretty">
             {project.responsibility}
-          </h2>
+          </p>
           <ul className="mt-4 grid gap-2 sm:grid-cols-2">
             {project.contributions.map((contribution) => (
               <li key={contribution} className="flex gap-2 text-sm leading-relaxed text-muted-foreground">
@@ -140,7 +141,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         <div className="flex flex-wrap gap-3">
           <Button asChild size="sm" variant="outline">
             <Link href={project.github} target="_blank" rel="noopener noreferrer">
-              <GitFork className="size-4" />
+              <GithubIcon className="size-4" />
               GitHub
             </Link>
           </Button>
@@ -168,7 +169,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             ['troubleshooting', `문제 해결 ${troubleshootingCount}`],
             ['decisions', `설계 판단 ${decisionsCount}`],
             ['reviews', `리뷰 ${allReviews.length}`],
-            ['quality', `품질 ${quality.length}`]
+            ['quality', `코드 품질 ${quality.length}`]
           ].map(([id, label]) => (
             <Link key={id} href={`#${id}`} className="rounded-md px-3 py-2 font-mono text-xs text-muted-foreground hover:bg-secondary hover:text-foreground">{label}</Link>
           ))}
@@ -176,11 +177,10 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       </nav>
 
       {featuredQuality ? (
-        <section className="mt-8 rounded-lg border border-brand/20 bg-brand/5 p-5" aria-labelledby="quality-summary-title">
+        <section className="mt-8 rounded-xl border border-brand/20 bg-brand/5 p-5" aria-labelledby="quality-summary-title">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="font-mono text-[0.7rem] font-semibold uppercase tracking-wider text-brand">Code quality</p>
-              <h2 id="quality-summary-title" className="mt-1 text-lg font-semibold tracking-tight">
+              <h2 id="quality-summary-title" className="text-lg font-semibold tracking-tight">
                 {featuredQuality.scope} 품질 추세
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">반복 측정한 코드 품질 점수와 개선 흐름입니다.</p>
@@ -248,7 +248,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           {decisionsCount > 3 ? <Link href={`/decisions?project=${project.slug}`} className="font-mono text-xs text-muted-foreground hover:text-foreground">전체 {decisionsCount}개 보기 →</Link> : null}
         </div>
         {decisionCategories.length === 0 ? (
-          <p className="mt-4 font-mono text-sm text-muted-foreground">아직 기록된 설계 결정이 없습니다.</p>
+          <p className="mt-4 font-mono text-sm text-muted-foreground">아직 기록된 설계 판단이 없습니다.</p>
         ) : (
           <div className="mt-6 space-y-8">
             {decisionCategories.map((category) => (
@@ -318,7 +318,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
               <Link
                 key={scope}
                 href={`/quality/${latest.slug}`}
-                className="group flex items-center justify-between rounded-lg border border-border bg-card p-4 transition-colors hover:border-brand/50"
+                className="group flex items-center justify-between rounded-xl border border-border bg-card p-4 shadow-e2 transition-[transform,box-shadow,border-color] duration-300 ease-[var(--ease-out-soft)] hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-e3"
               >
                 <div>
                   <div className="font-mono text-sm font-semibold">{scope}</div>

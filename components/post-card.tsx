@@ -16,7 +16,7 @@ export function PostCard({ href, title, date, summary, tags, badges }: PostCardP
   return (
     <Link
       href={href}
-      className="group flex flex-col gap-2.5 rounded-lg border border-border bg-card p-5 transition-colors hover:border-brand/50"
+      className="group flex flex-col gap-2.5 rounded-xl border border-border bg-card p-5 shadow-e2 transition-[transform,box-shadow,border-color] duration-300 ease-[var(--ease-out-soft)] hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-e3"
     >
       {badges && badges.length > 0 ? (
         <div className="flex flex-wrap items-center gap-1.5">
@@ -37,7 +37,7 @@ export function PostCard({ href, title, date, summary, tags, badges }: PostCardP
 
       <div className="flex items-start justify-between gap-3">
         <h3 className="text-[0.95rem] font-semibold leading-snug tracking-tight text-pretty">{title}</h3>
-        <ArrowUpRight className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-brand" />
+        <ArrowUpRight className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-all duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-brand" />
       </div>
 
       {summary ? <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">{summary}</p> : null}

@@ -43,17 +43,15 @@ export default async function StudyPage({
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <PageHeader
-        eyebrow="Learning Notes"
         title="Study Notes"
         description="기억이 흐릿해졌을 때 키워드나 주제로 빠르게 다시 찾는 개인 기술 지식창고입니다."
         count={allPosts.length}
       />
 
-      <section className="mt-6 rounded-lg border border-brand/25 bg-brand/5 p-5" aria-labelledby="learning-paths-title">
+      <section className="mt-6 rounded-xl border border-brand/25 bg-brand/5 p-5" aria-labelledby="learning-paths-title">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-brand">Guided path</p>
-            <h2 id="learning-paths-title" className="mt-1 text-lg font-semibold">프로젝트 학습 경로</h2>
+            <h2 id="learning-paths-title" className="text-lg font-semibold">프로젝트 학습 경로</h2>
             <p className="mt-1 max-w-xl text-sm leading-relaxed text-muted-foreground">프로젝트가 늘어나도 경로 파일만 추가하면 단계와 연결 문서가 자동으로 표시됩니다. 현재 코드와 최신 근거를 기준으로 순서대로 읽습니다.</p>
           </div>
           <Link href="/study/paths" className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">전체 경로 보기 <ArrowRight className="size-4" /></Link>
@@ -65,7 +63,7 @@ export default async function StudyPage({
         </div>
       </section>
 
-      <section className="mt-6 rounded-lg border border-border bg-card p-4">
+      <section className="mt-6 rounded-xl border border-border bg-card p-4">
         <div className="mb-3 flex items-center gap-2">
           <Search className="size-4 text-brand" />
           <h2 className="text-sm font-semibold">나중에 다시 찾기</h2>
@@ -102,11 +100,10 @@ export default async function StudyPage({
       </section>
 
       {dueForReview.length > 0 ? (
-        <section className="mt-6 rounded-lg border border-brand/20 bg-brand/5 p-4" aria-labelledby="review-notes-title">
+        <section className="mt-6 rounded-xl border border-brand/20 bg-brand/5 p-4" aria-labelledby="review-notes-title">
           <div className="flex items-baseline justify-between gap-3">
             <div>
-              <p className="font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-brand">Review queue</p>
-              <h2 id="review-notes-title" className="mt-1 text-sm font-semibold">다시 볼 노트</h2>
+              <h2 id="review-notes-title" className="text-sm font-semibold">다시 볼 노트</h2>
             </div>
             <span className="font-mono text-xs text-muted-foreground">{dueForReview.length}개</span>
           </div>
@@ -139,7 +136,7 @@ export default async function StudyPage({
       ) : (
         <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
           {categories.map((category) => (
-            <Link key={category.category} href={`/study/${category.category}`} className="group flex flex-col rounded-lg border border-border bg-card p-4 transition-colors hover:border-brand/50">
+            <Link key={category.category} href={`/study/${category.category}`} className="group flex flex-col rounded-xl border border-border bg-card p-4 shadow-e2 transition-[transform,box-shadow,border-color] duration-300 ease-[var(--ease-out-soft)] hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-e3">
               <div className="flex items-baseline justify-between gap-3">
                 <h2 className="font-mono text-sm font-semibold uppercase tracking-wider text-brand">{formatCategory(category.category)}</h2>
                 <span className="font-mono text-xs text-muted-foreground">{category.count} notes · {formatDate(category.latest)}</span>

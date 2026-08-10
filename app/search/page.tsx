@@ -5,7 +5,7 @@ import { groupSearchResults, searchContent, searchResultTypeLabels } from '@/lib
 
 export const metadata: Metadata = {
   title: 'Search',
-  description: '프로젝트, 문제 해결 기록, 설계 결정, 리뷰, 학습 노트를 한 번에 검색합니다.'
+  description: '프로젝트, 문제 해결 기록, 설계 판단, 리뷰, 학습 노트를 한 번에 검색합니다.'
 }
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
@@ -17,9 +17,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <PageHeader
-        eyebrow="Site Search"
         title="Search"
-        description="프로젝트, 트러블슈팅, 설계 결정, 리뷰, 학습 노트, 품질 기록을 타입별로 나누어 보여줍니다."
+        description="프로젝트, 문제 해결, 설계 판단, 리뷰, 학습 노트, 코드 품질을 타입별로 나누어 보여줍니다."
         count={query ? results.length : undefined}
       />
 

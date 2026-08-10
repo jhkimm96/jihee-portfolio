@@ -8,23 +8,24 @@ import {
   getReviewsForProject,
   getTroubleshootingForProject
 } from '@/lib/content-data'
+import { withCounts } from '@/lib/record-types'
 
 function countGroups(groups: Record<string, unknown[]>): number {
   return Object.values(groups).reduce((total, entries) => total + entries.length, 0)
 }
 
 export function ProjectCard({ project }: { project: ProjectEntry }) {
-  const evidence = [
-    { label: '문제 해결', count: countGroups(getTroubleshootingForProject(project.slug)) },
-    { label: '설계 결정', count: countGroups(getDecisionsForProject(project.slug)) },
-    { label: '리뷰', count: getReviewsForProject(project.slug).length },
-    { label: '품질 측정', count: getQualityForProject(project.slug).length }
-  ].filter((item) => item.count > 0)
+  const evidence = withCounts({
+    troubleshooting: countGroups(getTroubleshootingForProject(project.slug)),
+    decisions: countGroups(getDecisionsForProject(project.slug)),
+    reviews: getReviewsForProject(project.slug).length,
+    quality: getQualityForProject(project.slug).length
+  })
 
   return (
     <Link
       href={`/projects/${project.slug}`}
-      className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-brand/50"
+      className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-e2 transition-[transform,box-shadow,border-color] duration-300 ease-[var(--ease-out-soft)] hover:-translate-y-1 hover:border-brand/40 hover:shadow-e3"
     >
       {project.thumbnail ? (
         <div className="relative aspect-[1200/500] w-full overflow-hidden border-b border-border bg-muted">
@@ -42,7 +43,7 @@ export function ProjectCard({ project }: { project: ProjectEntry }) {
           <div className="space-y-1">
             <h3 className="flex items-center gap-1 text-base font-semibold tracking-tight">
               {project.title}
-              <ArrowUpRight className="size-4 text-muted-foreground transition-colors group-hover:text-brand" />
+              <ArrowUpRight className="size-4 text-muted-foreground transition-all duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-brand" />
             </h3>
             <p className="font-mono text-xs text-muted-foreground">{project.role}</p>
             <p className="text-xs leading-relaxed text-muted-foreground">{project.responsibility}</p>
@@ -51,7 +52,7 @@ export function ProjectCard({ project }: { project: ProjectEntry }) {
         </div>
 
         <div className="rounded-md border border-brand/20 bg-brand/5 px-3 py-2.5">
-          <p className="mb-1 font-mono text-[0.65rem] font-semibold uppercase tracking-wider text-brand">Key outcome</p>
+          <p className="mb-1 font-mono text-[0.68rem] font-medium text-brand">Key outcome</p>
           <p className="text-sm font-medium leading-relaxed text-foreground">{project.highlight}</p>
         </div>
 
