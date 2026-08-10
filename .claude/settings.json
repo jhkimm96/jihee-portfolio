@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -f \"${CLAUDE_PROJECT_DIR}/.claude/PENDING.md\" ] && cat \"${CLAUDE_PROJECT_DIR}/.claude/PENDING.md\" || true",
+            "timeout": 5,
+            "statusMessage": "미결 사항 확인"
+          }
+        ]
+      }
+    ]
+  }
+}
