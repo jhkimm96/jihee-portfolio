@@ -34,7 +34,6 @@ export default async function QualityPage({ searchParams }: { searchParams: Prom
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <PageHeader
-        eyebrow="Code Quality"
         title="Quality"
         description="같은 잣대(고정 루브릭·고정 산식)로 반복 측정한 프로젝트·서비스별 품질 스냅샷입니다. 점수와 카테고리별 발견 건수의 추세를 보여줍니다."
         count={totalScopes}

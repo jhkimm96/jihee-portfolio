@@ -18,7 +18,7 @@ export default function LearningPathsPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
-      <PageHeader eyebrow="Guided Learning" title="Learning Paths" description="주제별 문서를 무작정 읽지 않고, 프로젝트의 데이터 흐름과 선행 지식에 맞춰 단계별로 학습합니다." count={paths.length} />
+      <PageHeader title="Learning Paths" description="주제별 문서를 무작정 읽지 않고, 프로젝트의 데이터 흐름과 선행 지식에 맞춰 단계별로 학습합니다." count={paths.length} />
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         {projects.map((project) => {
           const path = byProject.get(project.slug)
@@ -34,7 +34,7 @@ export default function LearningPathsPage() {
           }
           const itemCount = path.stages.reduce((sum, stage) => sum + stage.items.length, 0)
           return (
-            <Link key={project.slug} href={`/study/paths/${project.slug}`} className="group rounded-lg border border-brand/25 bg-brand/5 p-5 transition-colors hover:border-brand/60">
+            <Link key={project.slug} href={`/study/paths/${project.slug}`} className="group rounded-xl border border-brand/25 bg-brand/5 p-5 transition-colors hover:border-brand/60">
               <div className="flex items-center justify-between"><BookOpen className="size-5 text-brand" /><span className="font-mono text-xs text-brand">{statusLabel[path.status]}</span></div>
               <h2 className="mt-4 text-lg font-semibold">{path.title}</h2>
               <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{path.summary}</p>

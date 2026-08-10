@@ -20,7 +20,6 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <PageHeader
-        eyebrow="Project Review"
         title={project ? `${getProjectTitle(project)} Reviews` : 'Reviews'}
         description="프로젝트 전체를 분석한 리뷰와 리스크 레지스터를 기록합니다. 프로젝트로 묶어 보거나 최신순으로 확인할 수 있습니다."
         count={posts.length}

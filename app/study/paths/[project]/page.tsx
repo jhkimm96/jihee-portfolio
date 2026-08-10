@@ -31,17 +31,18 @@ export default async function LearningPathDetailPage({ params }: { params: Promi
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <Link href="/study/paths" className="inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground hover:text-foreground"><ArrowLeft className="size-3.5" />Learning Paths</Link>
       <header className="mt-6 border-b border-border pb-6">
-        <p className="font-mono text-xs font-medium uppercase tracking-widest text-brand">{getProjectTitle(project)}</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight">{path.title}</h1>
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{path.summary}</p>
-        <p className="mt-3 font-mono text-xs text-muted-foreground">최종 검증 {path.updatedAt} · {path.stages.length}단계</p>
+        <h1 className="text-3xl font-bold tracking-[-0.02em] text-balance">{path.title}</h1>
+        <p className="mt-3 max-w-[62ch] text-sm leading-relaxed text-muted-foreground text-pretty">{path.summary}</p>
+        <p className="mt-3 font-mono text-xs text-muted-foreground">
+          {getProjectTitle(project)} · 최종 검증 {path.updatedAt} · {path.stages.length}단계
+        </p>
       </header>
 
       <ol className="mt-8 space-y-6">
         {path.stages.map((stage, index) => {
           const resolved = stage.items.map((item) => ({ item, target: getPickTarget(item.type, item.slug) }))
           return (
-            <li key={stage.id} id={stage.id} className="scroll-mt-24 rounded-lg border border-border bg-card p-5">
+            <li key={stage.id} id={stage.id} className="scroll-mt-24 rounded-xl border border-border bg-card p-5">
               <div className="flex gap-4"><span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary font-mono text-sm text-primary-foreground">{index + 1}</span><div><h2 className="text-lg font-semibold">{stage.title}</h2><p className="mt-1 text-sm leading-relaxed text-muted-foreground">{stage.goal}</p></div></div>
               <div className="mt-5 divide-y divide-border rounded-md border border-border">
                 {resolved.map(({ item, target }) => target ? (

@@ -46,7 +46,7 @@ export function QualityDashboard({
     <div className="mt-8 flex flex-col gap-8">
       <div className="flex flex-col gap-3">
         {groups.map((group) => (
-          <div key={group.project} className="rounded-lg border border-border bg-card p-3">
+          <div key={group.project} className="rounded-xl border border-border bg-card p-3">
             <div className="mb-2 flex items-center gap-2">
               <span className="font-mono text-[0.65rem] font-medium uppercase tracking-wider text-muted-foreground">Project</span>
               <span className="text-sm font-semibold">{group.projectTitle}</span>
