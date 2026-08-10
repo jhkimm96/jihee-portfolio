@@ -15,7 +15,6 @@ export default function ResumePage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <PageHeader
-        eyebrow="Resume"
         title="지원 역할별 이력서"
         description="같은 사람, 다른 강조점. 역할에 맞춘 요약과 직접 고른 대표 사례로 구성했습니다. 각 버전은 그대로 PDF로 내보낼 수 있습니다."
         count={variants.length}
@@ -31,7 +30,7 @@ export default function ResumePage() {
             <Link
               key={variant.slug}
               href={`/resume/${variant.slug}`}
-              className="group flex flex-col rounded-lg border border-border bg-card p-5 transition-colors hover:border-brand/50"
+              className="group flex flex-col rounded-xl border border-border bg-card p-5 shadow-e2 transition-[transform,box-shadow,border-color] duration-300 ease-[var(--ease-out-soft)] hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-e3"
             >
               <p className="font-mono text-xs text-muted-foreground">{`--role ${variant.slug}`}</p>
               <h2 className="mt-1 text-lg font-semibold tracking-tight">{variant.label}</h2>

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { ArrowRight, GitFork, Mail, MapPin, Download } from 'lucide-react'
+import { ArrowRight, Mail, MapPin, Download } from 'lucide-react'
+import { GithubIcon } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/page-header'
 import { getAbout, getResumeVariants } from '@/lib/content-data'
@@ -16,12 +17,12 @@ export default function AboutPage() {
   const contacts = [
     about.location ? { icon: MapPin, label: about.location, href: undefined } : null,
     about.email ? { icon: Mail, label: about.email, href: `mailto:${about.email}` } : null,
-    about.github ? { icon: GitFork, label: 'GitHub', href: about.github } : null
+    about.github ? { icon: GithubIcon, label: 'GitHub', href: about.github } : null
   ].filter(Boolean) as { icon: typeof MapPin; label: string; href?: string }[]
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-      <PageHeader eyebrow="Profile" title="About" />
+      <PageHeader title="About" />
 
       <div className="mt-8 space-y-8">
         <div className="space-y-2">

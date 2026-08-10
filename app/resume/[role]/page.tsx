@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { GitFork, Mail, MapPin } from 'lucide-react'
+import { Mail, MapPin } from 'lucide-react'
+import { GithubIcon } from '@/components/icons'
 import { PrintButton } from '@/components/print-button'
 import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -63,8 +64,7 @@ export default async function ResumeRolePage({ params }: { params: Promise<{ rol
 
       <div className="print-page">
         <header className="border-b border-border pb-6">
-          <p className="font-mono text-xs text-muted-foreground">{`resume --role ${variant.slug}`}</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight">{about.name}</h1>
+          <h1 className="text-3xl font-bold tracking-[-0.02em]">{about.name}</h1>
           <p className="mt-1 font-mono text-sm text-brand">{variant.headline ?? variant.label}</p>
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs text-muted-foreground">
             {about.location ? (
@@ -81,7 +81,7 @@ export default async function ResumeRolePage({ params }: { params: Promise<{ rol
             ) : null}
             {about.github ? (
               <span className="inline-flex items-center gap-1.5">
-                <GitFork className="size-3.5" />
+                <GithubIcon className="size-3.5" />
                 {about.github.replace('https://', '')}
               </span>
             ) : null}
