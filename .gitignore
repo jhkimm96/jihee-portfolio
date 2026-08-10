@@ -7,3 +7,11 @@ node_modules
 .superpowers
 *.tsbuildinfo
 .vercel
+
+# impeccable: 설치형 디자인 스킬(3.3MB). `npx impeccable install`로 복원 가능하며
+# 훅 명령이 파일 부재를 이미 방어한다. 산출물(PRODUCT/DESIGN/.impeccable)만 버전 관리한다.
+.claude/skills/impeccable/
+.impeccable/hook.cache.json
+
+# Windows bash 크래시 덤프
+*.stackdump
