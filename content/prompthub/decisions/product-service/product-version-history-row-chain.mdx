@@ -8,6 +8,8 @@ tags: ["spring-boot", "jpa", "ddd", "versioning", "data-integrity", "product"]
 draft: false
 ---
 
+> **후속 변경:** 반려된 major 수정본은 새 버전을 만들지 않고 같은 row·version에서 보정한 뒤 별도로 재요청한다. 판매자 대표 선택도 `PENDING_REVIEW → REJECTED → ON_SALE` 순서로 변경됐다. 자세한 원인과 검증은 [판매 중 버전에 가려진 반려 수정본을 같은 버전으로 복구](/troubleshooting/prompthub/product/rejected-major-same-version-edit)에서 설명한다.
+
 ## 배경
 
 product-service에서 판매 중(ON_SALE)인 상품을 판매자가 크게 수정(MAJOR)하면, 검수 승인 전인데도

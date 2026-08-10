@@ -1,7 +1,7 @@
 ---
 title: "PromptHub 전체 이해"
 summary: "현재 develop을 기준으로 서비스 지도에서 시작해 인증, 상품·검색, 주문·결제, 정산, 알림·AI, 운영·품질까지 이어서 이해하는 경로입니다."
-updatedAt: "2026-08-10"
+updatedAt: "2026-08-11"
 status: "ready"
 stages:
   - id: "overview"
@@ -46,6 +46,9 @@ stages:
       - type: "decision"
         slug: "prompthub/product-service/object-key-upload-and-transaction-compensation"
         importance: "deep-dive"
+      - type: "troubleshooting"
+        slug: "prompthub/product/rejected-major-same-version-edit"
+        importance: "reference"
   - id: "search"
     title: "색인·검색·벡터"
     goal: "PostgreSQL 원본이 ES 문서가 되고 lexical·kNN 결과가 RRF로 합쳐지는 전 과정을 그립니다."
