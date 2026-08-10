@@ -8,6 +8,8 @@ tags: ["spring-boot", "aws-s3", "presigned-url", "jvm", "gc", "performance", "pr
 draft: false
 ---
 
+> **후속 결정:** presigned PUT 방식은 유지하되, 상품 저장 계약은 만료 URL 대신 `objectKey`를 사용하도록 변경했다. 실패 시 파일 정리 방식은 [업로드 미리보기 URL과 저장 키 분리](/decisions/prompthub/product-service/object-key-upload-and-transaction-compensation)에서 이어서 설명한다.
+
 ## 배경
 
 판매자 파일 업로드가 서버 경유 multipart 방식이었다. `FileUploadController`가 `MultipartFile`을
