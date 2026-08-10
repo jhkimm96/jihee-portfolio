@@ -1,0 +1,489 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-09T00:00:00Z",
+  "title": "Design System: 김지희 개발 포트폴리오",
+  "extensions": {
+    "colorMeta": {
+      "signal-blue": {
+        "role": "primary",
+        "displayName": "시그널 블루 / Signal Blue",
+        "canonical": "oklch(0.55 0.13 255)",
+        "dark": "oklch(0.72 0.12 255)",
+        "purpose": "유일한 유채색. 근거 링크, Key outcome, 활성 내비게이션, 인용문 바, 호버 테두리, 히어로 광원.",
+        "tonalRamp": [
+          "oklch(0.16 0.05 255)",
+          "oklch(0.26 0.09 255)",
+          "oklch(0.37 0.12 255)",
+          "oklch(0.46 0.13 255)",
+          "oklch(0.55 0.13 255)",
+          "oklch(0.66 0.125 255)",
+          "oklch(0.78 0.09 255)",
+          "oklch(0.94 0.03 255)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "잉크 / Ink",
+        "canonical": "oklch(0.22 0.012 260)",
+        "dark": "oklch(0.94 0.004 260)",
+        "purpose": "본문과 제목. 순수 검정이 아닌 살짝 푸른 먹색.",
+        "tonalRamp": [
+          "oklch(0.15 0.012 260)",
+          "oklch(0.22 0.012 260)",
+          "oklch(0.31 0.014 260)",
+          "oklch(0.42 0.013 260)",
+          "oklch(0.53 0.012 260)",
+          "oklch(0.68 0.009 260)",
+          "oklch(0.82 0.006 260)",
+          "oklch(0.95 0.002 260)"
+        ]
+      },
+      "graphite": {
+        "role": "neutral",
+        "displayName": "그라파이트 / Graphite",
+        "canonical": "oklch(0.26 0.018 262)",
+        "dark": "oklch(0.92 0.004 260)",
+        "purpose": "기본 버튼과 프로젝트 배지의 바탕. 다크 모드에서 반전된다.",
+        "tonalRamp": [
+          "oklch(0.15 0.014 262)",
+          "oklch(0.26 0.018 262)",
+          "oklch(0.36 0.018 262)",
+          "oklch(0.47 0.016 262)",
+          "oklch(0.58 0.014 262)",
+          "oklch(0.71 0.01 262)",
+          "oklch(0.84 0.006 262)",
+          "oklch(0.96 0.003 262)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "페이퍼 / Paper",
+        "canonical": "oklch(0.992 0.001 260)",
+        "dark": "oklch(0.17 0.008 260)",
+        "purpose": "페이지 지반. 순백이 아니라 한 톤 낮춘 종이.",
+        "tonalRamp": [
+          "oklch(0.17 0.008 260)",
+          "oklch(0.28 0.008 260)",
+          "oklch(0.40 0.006 260)",
+          "oklch(0.53 0.005 260)",
+          "oklch(0.68 0.004 260)",
+          "oklch(0.82 0.003 260)",
+          "oklch(0.93 0.002 260)",
+          "oklch(0.992 0.001 260)"
+        ]
+      },
+      "card-white": {
+        "role": "neutral",
+        "displayName": "카드 화이트 / Card White",
+        "canonical": "oklch(1 0 0)",
+        "dark": "oklch(0.205 0.009 260)",
+        "purpose": "카드 표면. 지반보다 밝아 들려 보인다.",
+        "tonalRamp": [
+          "oklch(0.205 0.009 260)",
+          "oklch(0.31 0.009 260)",
+          "oklch(0.43 0.007 260)",
+          "oklch(0.56 0.005 260)",
+          "oklch(0.70 0.004 260)",
+          "oklch(0.84 0.002 260)",
+          "oklch(0.94 0.001 260)",
+          "oklch(1 0 0)"
+        ]
+      },
+      "quiet-surface": {
+        "role": "neutral",
+        "displayName": "콰이엇 서피스 / Quiet Surface",
+        "canonical": "oklch(0.965 0.003 260)",
+        "dark": "oklch(0.255 0.01 260)",
+        "purpose": "코드 블록, 기술 칩, 활성 내비게이션, 표 헤더. 강조 없는 성격 구분.",
+        "tonalRamp": [
+          "oklch(0.19 0.01 260)",
+          "oklch(0.255 0.01 260)",
+          "oklch(0.38 0.008 260)",
+          "oklch(0.51 0.006 260)",
+          "oklch(0.66 0.005 260)",
+          "oklch(0.80 0.004 260)",
+          "oklch(0.90 0.003 260)",
+          "oklch(0.965 0.003 260)"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "룰 / Rule",
+        "canonical": "oklch(0.912 0.004 260)",
+        "dark": "oklch(1 0 0 / 9%)",
+        "purpose": "모든 테두리와 구분선. 이 시스템에서 가장 자주 등장하는 선.",
+        "tonalRamp": [
+          "oklch(0.20 0.006 260)",
+          "oklch(0.30 0.006 260)",
+          "oklch(0.42 0.006 260)",
+          "oklch(0.55 0.005 260)",
+          "oklch(0.68 0.005 260)",
+          "oklch(0.80 0.004 260)",
+          "oklch(0.912 0.004 260)",
+          "oklch(0.97 0.002 260)"
+        ]
+      },
+      "secondary-text": {
+        "role": "neutral",
+        "displayName": "세컨더리 텍스트 / Secondary Text",
+        "canonical": "oklch(0.505 0.012 260)",
+        "dark": "oklch(0.68 0.01 260)",
+        "purpose": "요약문, 날짜, 메타데이터. 본문보다 물러나되 읽힌다.",
+        "tonalRamp": [
+          "oklch(0.17 0.012 260)",
+          "oklch(0.27 0.013 260)",
+          "oklch(0.38 0.013 260)",
+          "oklch(0.505 0.012 260)",
+          "oklch(0.62 0.011 260)",
+          "oklch(0.75 0.008 260)",
+          "oklch(0.87 0.005 260)",
+          "oklch(0.96 0.002 260)"
+        ]
+      },
+      "status-live": {
+        "role": "tertiary",
+        "displayName": "라이브 그린 / Live Green",
+        "canonical": "oklch(0.62 0.14 155)",
+        "dark": "oklch(0.72 0.14 155)",
+        "purpose": "데모가 실제로 운영 중임. 상태 배지 전용, 액센트로 승격 금지.",
+        "tonalRamp": [
+          "oklch(0.18 0.05 155)",
+          "oklch(0.29 0.09 155)",
+          "oklch(0.40 0.12 155)",
+          "oklch(0.51 0.14 155)",
+          "oklch(0.62 0.14 155)",
+          "oklch(0.73 0.13 155)",
+          "oklch(0.85 0.09 155)",
+          "oklch(0.95 0.03 155)"
+        ]
+      },
+      "status-archived": {
+        "role": "tertiary",
+        "displayName": "아카이브 앰버 / Archive Amber",
+        "canonical": "oklch(0.68 0.13 75)",
+        "dark": "oklch(0.78 0.12 80)",
+        "purpose": "종료·보관된 프로젝트. 상태 배지 전용.",
+        "tonalRamp": [
+          "oklch(0.19 0.05 75)",
+          "oklch(0.30 0.08 75)",
+          "oklch(0.42 0.11 75)",
+          "oklch(0.55 0.13 75)",
+          "oklch(0.68 0.13 75)",
+          "oklch(0.79 0.11 75)",
+          "oklch(0.89 0.07 75)",
+          "oklch(0.96 0.025 75)"
+        ]
+      },
+      "status-github": {
+        "role": "tertiary",
+        "displayName": "깃허브 그레이 / GitHub Grey",
+        "canonical": "oklch(0.55 0.01 260)",
+        "dark": "oklch(0.7 0.01 260)",
+        "purpose": "코드만 공개, 실행 인스턴스 없음. 무채색인 것이 의도다.",
+        "tonalRamp": [
+          "oklch(0.18 0.01 260)",
+          "oklch(0.28 0.01 260)",
+          "oklch(0.40 0.01 260)",
+          "oklch(0.55 0.01 260)",
+          "oklch(0.66 0.01 260)",
+          "oklch(0.78 0.008 260)",
+          "oklch(0.88 0.005 260)",
+          "oklch(0.96 0.002 260)"
+        ]
+      },
+      "destructive": {
+        "role": "tertiary",
+        "displayName": "디스트럭티브 레드 / Destructive Red",
+        "canonical": "oklch(0.577 0.222 27.2)",
+        "dark": "oklch(0.704 0.191 22.2)",
+        "purpose": "오류 상태와 파괴적 동작. Mermaid 렌더 실패 메시지 등.",
+        "tonalRamp": [
+          "oklch(0.20 0.08 27.2)",
+          "oklch(0.31 0.14 27.2)",
+          "oklch(0.42 0.19 27.2)",
+          "oklch(0.50 0.21 27.2)",
+          "oklch(0.577 0.222 27.2)",
+          "oklch(0.69 0.19 27.2)",
+          "oklch(0.82 0.12 27.2)",
+          "oklch(0.94 0.04 27.2)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "홈 히어로의 이름 한 줄에만. 640px 이상에서 3rem으로 커진다. 사이트 전체에서 한 번 등장."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "목록 페이지와 문서의 제목. 640px 이상에서 2.25rem. text-balance 적용."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "섹션 제목과 문서 내 h2. 문서의 h2는 아래에 구분선을 깐다."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "본문과 요약. 문서 본문은 90% 불투명으로 살짝 눌러 제목과 위계를 만든다."
+      },
+      "label": {
+        "displayName": "Label (Mono)",
+        "purpose": "날짜·개수·태그·기술 칩·상태·내비게이션. 시스템이 아는 사실 전용. 사람이 쓴 문장에는 쓰지 않는다."
+      },
+      "code": {
+        "displayName": "Code",
+        "purpose": "인라인 코드와 코드 블록. 인라인은 콰이엇 서피스 바탕, 블록은 테두리."
+      }
+    },
+    "shadows": [
+      {
+        "name": "e1",
+        "value": "0 1px 2px oklch(0.32 0.02 260 / 0.05), 0 1px 1px oklch(0.32 0.02 260 / 0.04)",
+        "valueDark": "0 1px 2px oklch(0.06 0.012 260 / 0.5)",
+        "purpose": "버튼과 작은 표면. 바닥에서 살짝 떼어 놓는 정도. 카드에는 쓰지 않는다."
+      },
+      {
+        "name": "e2",
+        "value": "0 2px 4px oklch(0.32 0.02 260 / 0.05), 0 5px 14px oklch(0.32 0.02 260 / 0.07)",
+        "valueDark": "0 2px 6px oklch(0.06 0.012 260 / 0.5), 0 8px 22px oklch(0.06 0.012 260 / 0.36)",
+        "purpose": "카드의 정지 상태. 목록 항목이 지반과 분리되어 보이게 한다."
+      },
+      {
+        "name": "e3",
+        "value": "0 4px 8px oklch(0.32 0.02 260 / 0.06), 0 14px 30px oklch(0.32 0.02 260 / 0.1)",
+        "valueDark": "0 4px 10px oklch(0.06 0.012 260 / 0.55), 0 18px 40px oklch(0.06 0.012 260 / 0.45)",
+        "purpose": "카드의 호버·포커스 상태. 가장 강한 그림자이며 상호작용에만 허용."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-soft",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "이 시스템의 유일한 이징. 새 이징을 발명하지 않는다."
+      },
+      {
+        "name": "duration-feedback",
+        "value": "200ms",
+        "purpose": "즉각적 피드백 — 버튼, 아이콘 이동, 색 전환."
+      },
+      {
+        "name": "duration-surface",
+        "value": "300ms",
+        "purpose": "표면 이동 — 카드 리프트, 그림자 전환, 테두리 색 전환."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "0.01ms",
+        "purpose": "prefers-reduced-motion에서 모든 애니메이션·전환이 강제로 무력화되고 스무스 스크롤도 꺼진다."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ],
+    "texture": [
+      {
+        "name": "grain-overlay",
+        "value": "SVG feTurbulence fractalNoise, baseFrequency 0.85, 4 octaves; opacity 0.028 (light) / 0.05 (dark); position fixed, pointer-events none",
+        "purpose": "완전히 평평한 디지털 표면을 아주 조금 깬다. 알아채는 순간 실패다."
+      },
+      {
+        "name": "hero-ambient",
+        "value": "radial-gradient(60% 55% at 22% 12%, brand@10%, transparent 70%), radial-gradient(45% 50% at 78% 0%, brand@6%, transparent 72%)",
+        "purpose": "히어로 뒤 방사형 광원 두 겹. 45도 선형 그라디언트의 균일함을 피한다."
+      }
+    ],
+    "chartPalette": {
+      "note": "품질 대시보드 전용. UI 토큰과 분리된 hex 팔레트이며 카드 표면 위에서 대비를 검증했다. UI 토큰으로 대체하지 말 것.",
+      "light": {
+        "series": "#2a78d6",
+        "sev-high": "#d03b3b",
+        "sev-medium": "#ec835a",
+        "sev-low": "#fab219",
+        "grid": "#e1e0d9",
+        "axis": "#c3c2b7",
+        "delta-good": "#006300",
+        "delta-bad": "#d03b3b"
+      },
+      "dark": {
+        "series": "#3987e5",
+        "grid": "#2c2c2a",
+        "axis": "#383835",
+        "delta-good": "#0ca30c",
+        "delta-bad": "#e66767"
+      }
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "기본 동작 버튼. 높이 32px로 작고 조밀하다 — 이 사이트에서 버튼은 주인공이 아니다.",
+      "html": "<button class=\"ds-btn-primary\">프로젝트 보기<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 12h14\"/><path d=\"m12 5 7 7-7 7\"/></svg></button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid transparent; border-radius: 0.5rem; background: var(--primary, oklch(0.26 0.018 262)); color: var(--primary-foreground, oklch(0.985 0.002 260)); font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; white-space: nowrap; cursor: pointer; box-shadow: var(--elevation-1, 0 1px 2px oklch(0.32 0.02 260 / 0.05)); transition: all 200ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-btn-primary svg { width: 16px; height: 16px; flex-shrink: 0; } .ds-btn-primary:hover { background: color-mix(in oklch, var(--primary, oklch(0.26 0.018 262)), transparent 20%); box-shadow: var(--elevation-2, 0 2px 4px oklch(0.32 0.02 260 / 0.05), 0 5px 14px oklch(0.32 0.02 260 / 0.07)); } .ds-btn-primary:focus-visible { outline: none; border-color: var(--ring, oklch(0.55 0.13 255)); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring, oklch(0.55 0.13 255)), transparent 70%); } .ds-btn-primary:active { transform: translateY(1px); box-shadow: none; }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "보조 동작. 테두리와 지반색으로 서고, 호버에서 콰이엇 서피스로 채워진다.",
+      "html": "<button class=\"ds-btn-outline\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\"/><path d=\"M14 2v4a2 2 0 0 0 2 2h4\"/></svg>이력서</button>",
+      "css": ".ds-btn-outline { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid var(--border, oklch(0.912 0.004 260)); border-radius: 0.5rem; background: var(--background, oklch(0.992 0.001 260)); color: var(--foreground, oklch(0.22 0.012 260)); font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; white-space: nowrap; cursor: pointer; transition: all 200ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-btn-outline svg { width: 16px; height: 16px; flex-shrink: 0; } .ds-btn-outline:hover { background: var(--muted, oklch(0.965 0.003 260)); } .ds-btn-outline:focus-visible { outline: none; border-color: var(--ring, oklch(0.55 0.13 255)); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring, oklch(0.55 0.13 255)), transparent 70%); } .ds-btn-outline:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Post Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "목록의 기본 항목. 배지 → 제목 → 요약 → 태그·날짜 4층 구조. 정지 e2, 호버 e3 + 2px 리프트.",
+      "html": "<a class=\"ds-card-post\" href=\"#\"><div class=\"ds-card-post__badges\"><span class=\"ds-badge-strong\">PromptHub</span><span class=\"ds-badge-weak\">Infra</span></div><div class=\"ds-card-post__head\"><h3>kubeadm over managed EKS</h3><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M7 7h10v10\"/><path d=\"M7 17 17 7\"/></svg></div><p>관리형 서비스 대신 kubeadm으로 직접 구성해 컨트롤 플레인 동작을 학습 가능한 상태로 남겼다.</p><div class=\"ds-card-post__foot\"><span class=\"ds-tags\">#kubernetes #infra</span><time datetime=\"2026-07-22\">2026.07.22</time></div></a>",
+      "css": ".ds-card-post { display: flex; flex-direction: column; gap: 10px; padding: 20px; border: 1px solid var(--border, oklch(0.912 0.004 260)); border-radius: 0.675rem; background: var(--card, oklch(1 0 0)); color: var(--card-foreground, oklch(0.22 0.012 260)); text-decoration: none; box-shadow: var(--elevation-2, 0 2px 4px oklch(0.32 0.02 260 / 0.05), 0 5px 14px oklch(0.32 0.02 260 / 0.07)); transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 300ms cubic-bezier(0.22, 1, 0.36, 1), border-color 300ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-card-post:hover { transform: translateY(-2px); box-shadow: var(--elevation-3, 0 4px 8px oklch(0.32 0.02 260 / 0.06), 0 14px 30px oklch(0.32 0.02 260 / 0.1)); border-color: color-mix(in oklch, var(--brand, oklch(0.55 0.13 255)), transparent 60%); } .ds-card-post__badges { display: flex; flex-wrap: wrap; gap: 6px; } .ds-badge-strong, .ds-badge-weak { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 0.35rem; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.7rem; font-weight: 500; } .ds-badge-strong { background: var(--primary, oklch(0.26 0.018 262)); color: var(--primary-foreground, oklch(0.985 0.002 260)); } .ds-badge-weak { border: 1px solid var(--border, oklch(0.912 0.004 260)); color: var(--muted-foreground, oklch(0.505 0.012 260)); } .ds-card-post__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; } .ds-card-post__head h3 { margin: 0; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.95rem; font-weight: 600; line-height: 1.375; letter-spacing: -0.015em; text-wrap: pretty; } .ds-card-post__head svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px; color: var(--muted-foreground, oklch(0.505 0.012 260)); transition: all 200ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-card-post:hover .ds-card-post__head svg { transform: translate(2px, -2px); color: var(--brand, oklch(0.55 0.13 255)); } .ds-card-post p { margin: 0; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; line-height: 1.625; color: var(--muted-foreground, oklch(0.505 0.012 260)); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; } .ds-card-post__foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.7rem; color: var(--muted-foreground, oklch(0.505 0.012 260)); font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Key Outcome Block",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "시그니처 컴포넌트. 프로젝트 카드에서 유일하게 색을 쓰는 자리로, 채용 담당자가 반드시 읽어야 할 한 줄을 담는다. 카드당 하나만 허용된다.",
+      "html": "<div class=\"ds-keyout\"><span class=\"ds-keyout__label\">Key outcome</span><p>상품·검색 파이프라인과 독립 ai-service를 맡아 하이브리드 검색부터 사용자 행동 기반 개인화 추천까지 구현했습니다.</p></div>",
+      "css": ".ds-keyout { padding: 10px 12px; border: 1px solid color-mix(in oklch, var(--brand, oklch(0.55 0.13 255)), transparent 80%); border-radius: 0.35rem; background: color-mix(in oklch, var(--brand, oklch(0.55 0.13 255)), transparent 95%); } .ds-keyout__label { display: block; margin-bottom: 4px; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.68rem; font-weight: 500; color: var(--brand, oklch(0.55 0.13 255)); } .ds-keyout p { margin: 0; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; line-height: 1.625; color: var(--foreground, oklch(0.22 0.012 260)); }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge-status",
+      "description": "프로젝트가 지금 접근 가능한지를 알리는 알약형 배지. 점만 상태색이고 테두리·바탕은 중립이다.",
+      "html": "<span class=\"ds-status ds-status--live\"><i></i>Live</span> <span class=\"ds-status ds-status--gh\"><i></i>GitHub Only</span>",
+      "css": ".ds-status { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--border, oklch(0.912 0.004 260)); border-radius: 9999px; background: var(--card, oklch(1 0 0)); font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.7rem; font-weight: 500; } .ds-status i { display: block; width: 6px; height: 6px; border-radius: 9999px; } .ds-status--live { color: var(--status-live, oklch(0.62 0.14 155)); } .ds-status--live i { background: var(--status-live, oklch(0.62 0.14 155)); } .ds-status--gh { color: var(--status-github, oklch(0.55 0.01 260)); } .ds-status--gh i { background: var(--status-github, oklch(0.55 0.01 260)); }"
+    },
+    {
+      "name": "Tech Chip",
+      "kind": "chip",
+      "refersTo": "chip-tech",
+      "description": "기술 스택 칩. 테두리 없이 콰이엇 서피스 바탕만. 4개까지 노출하고 나머지는 +N으로 접는다.",
+      "html": "<span class=\"ds-chip\">Java 21</span> <span class=\"ds-chip\">Spring Boot</span> <span class=\"ds-chip\">PostgreSQL</span> <span class=\"ds-chip\">+3</span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 0.35rem; background: var(--secondary, oklch(0.965 0.003 260)); color: var(--secondary-foreground, oklch(0.26 0.018 262)); font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.7rem; font-weight: 500; }"
+    },
+    {
+      "name": "Nav Link",
+      "kind": "nav",
+      "refersTo": "nav-link",
+      "description": "내비게이션 항목. 활성은 콰이엇 서피스로 채워지고, 비활성은 텍스트만. 모노스페이스인 것이 이 사이트 헤더의 성격을 결정한다.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav__link is-active\" href=\"#\">Projects</a><a class=\"ds-nav__link\" href=\"#\">Engineering</a><a class=\"ds-nav__link\" href=\"#\">Study Notes</a><a class=\"ds-nav__link\" href=\"#\">Quality</a></nav>",
+      "css": ".ds-nav { display: flex; align-items: center; gap: 4px; } .ds-nav__link { padding: 6px 12px; border-radius: 0.35rem; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 0.8rem; font-weight: 500; text-decoration: none; color: var(--muted-foreground, oklch(0.505 0.012 260)); transition: color 200ms cubic-bezier(0.22, 1, 0.36, 1), background 200ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-nav__link:hover { background: color-mix(in oklch, var(--secondary, oklch(0.965 0.003 260)), transparent 40%); color: var(--foreground, oklch(0.22 0.012 260)); } .ds-nav__link.is-active { background: var(--secondary, oklch(0.965 0.003 260)); color: var(--foreground, oklch(0.22 0.012 260)); } .ds-nav__link:focus-visible { outline: 2px solid var(--ring, oklch(0.55 0.13 255)); outline-offset: 2px; }"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "input-search",
+      "description": "검색 필드. 포커스에서 링을 두르지 않고 테두리만 액센트로 전환하는 유일한 컴포넌트.",
+      "html": "<div class=\"ds-search\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/></svg><input type=\"search\" placeholder=\"트러블슈팅, 설계 결정, 학습 노트 검색\" /></div>",
+      "css": ".ds-search { position: relative; display: block; width: 100%; max-width: 340px; } .ds-search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; pointer-events: none; color: var(--muted-foreground, oklch(0.505 0.012 260)); } .ds-search input { width: 100%; height: 40px; padding: 0 12px 0 36px; border: 1px solid var(--border, oklch(0.912 0.004 260)); border-radius: 0.35rem; background: var(--background, oklch(0.992 0.001 260)); color: var(--foreground, oklch(0.22 0.012 260)); font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; outline: none; transition: border-color 200ms cubic-bezier(0.22, 1, 0.36, 1); } .ds-search input::placeholder { color: var(--muted-foreground, oklch(0.505 0.012 260)); } .ds-search input:focus { border-color: var(--brand, oklch(0.55 0.13 255)); }"
+    },
+    {
+      "name": "Empty State",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "아직 콘텐츠가 없는 목록. 점선 테두리가 '오류가 아니라 비어 있음'을 형태로 말한다.",
+      "html": "<div class=\"ds-empty\"><span class=\"ds-empty__icon\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M22 12h-6l-2 3h-4l-2-3H2\"/><path d=\"M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z\"/></svg></span><p>이 프로젝트에는 아직 품질 측정 기록이 없습니다.</p></div>",
+      "css": ".ds-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 64px 24px; border: 1px dashed var(--border, oklch(0.912 0.004 260)); border-radius: 0.675rem; background: color-mix(in oklch, var(--muted, oklch(0.965 0.003 260)), transparent 75%); text-align: center; } .ds-empty__icon { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid var(--border, oklch(0.912 0.004 260)); border-radius: 0.5rem; background: var(--card, oklch(1 0 0)); color: var(--muted-foreground, oklch(0.505 0.012 260)); box-shadow: var(--elevation-1, 0 1px 2px oklch(0.32 0.02 260 / 0.05)); } .ds-empty__icon svg { width: 20px; height: 20px; } .ds-empty p { margin: 0; max-width: 42ch; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; line-height: 1.625; color: var(--muted-foreground, oklch(0.505 0.012 260)); text-wrap: pretty; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "엔지니어링 노트북",
+    "overview": "이 사이트는 실험 노트다. 완성된 결과물을 전시하는 갤러리가 아니라, 무엇을 관찰했고 왜 그렇게 판단했는지가 날짜와 함께 적힌 기록물이다. 그래서 화면은 설득하려 들지 않고 기록한다. 방문자가 느껴야 할 것은 감탄이 아니라 신뢰다 — \"이 사람은 지어내지 않는구나.\"\n\n그 태도가 시각적으로 드러나는 방식은 하나다. 기계가 아는 사실과 사람이 쓴 문장을 서체로 구분한다. 날짜, 개수, 태그, 기술 스택, 경로, 상태 라벨처럼 시스템에서 나온 값은 모노스페이스로 등폭 정렬되어 흔들리지 않는다. 그 옆에서 사람이 판단하고 쓴 문장은 산세리프로 편안하게 흐른다. 이 대비가 이 사이트 개성의 90%이며, 다른 어떤 장식도 이만큼 일하지 않는다.\n\n바탕은 순수한 흰색이나 검정이 아니라 hue 260으로 아주 살짝 기운 쿨 그레이다. 그림자도 같은 hue를 머금는다. 그래서 화면 전체가 한 장의 종이처럼 한 덩어리로 읽힌다. 그 위에 0.028 불투명도의 미세한 그레인이 깔려 완전히 평평한 디지털 표면을 아주 조금 깬다 — 눈치채면 안 되고, 없으면 허전한 정도의 질감이다. 유채색은 사실상 파랑 하나뿐이고, 그 하나조차 아껴 쓴다.",
+    "keyCharacteristics": [
+      "모노스페이스가 메타데이터를, 산세리프가 서술을 담당하는 이중 서체 체계",
+      "hue 260으로 통일된 쿨 그레이 중립 — 배경, 테두리, 그림자가 같은 계열",
+      "유채색은 시그널 블루 하나. 상태색 3종은 별도 어휘로 격리",
+      "카드는 정지 상태부터 또렷이 들려 있고, 호버에서 한 단 더 올라온다",
+      "섹션은 상자가 아니라 한 줄의 선으로 나뉜다",
+      "등폭 숫자(tabular-nums)가 전역 기본값 — 수치가 세로로 정렬된다"
+    ],
+    "rules": [
+      {
+        "name": "The Signal Rule",
+        "body": "시그널 블루는 가리킬 때만 쓴다. 근거·경로·활성 상태를 지시하는 자리에만 나타나고, 넓은 면을 칠하거나 분위기를 내는 데 쓰지 않는다. 한 화면에서 파란 픽셀이 10%를 넘으면 그건 이미 신호가 아니라 배경이다.",
+        "section": "colors"
+      },
+      {
+        "name": "The Status-Is-Not-Accent Rule",
+        "body": "라이브/아카이브/깃허브 3색은 상태 표시 전용이다. 초록이 예뻐 보인다는 이유로 버튼이나 강조에 승격시키지 않는다. 이 3색이 다른 데서 보이는 순간 배지의 의미가 죽는다.",
+        "section": "colors"
+      },
+      {
+        "name": "The Cool-260 Rule",
+        "body": "새로 만드는 중립은 hue 260을 지킨다. 순수 회색(chroma 0)이나 다른 hue의 회색을 섞으면 화면이 두 장의 종이로 갈라진다. 그림자도 검정이 아니라 oklch(0.32 0.02 260) 계열이다.",
+        "section": "colors"
+      },
+      {
+        "name": "The Mono-Is-Metadata Rule",
+        "body": "모노스페이스는 시스템이 아는 사실에만 쓴다 — 날짜, 개수, 슬러그, 기술명, 상태, 경로, 내비게이션 라벨. 사람이 판단해서 쓴 문장은 절대 모노로 조판하지 않는다. 이 경계가 흐려지면 노트북이 터미널 흉내로 전락한다.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular-By-Default Rule",
+        "body": ".font-mono, <time>, tabular 클래스는 전역에서 font-variant-numeric: tabular-nums를 받는다. 수치가 세로로 정렬되지 않는 곳은 버그로 본다.",
+        "section": "typography"
+      },
+      {
+        "name": "The 62ch Rule",
+        "body": "페이지 설명문은 62ch, 빈 상태 안내는 42ch, 히어로 리드는 max-w-2xl에서 끊는다. 측정 가능한 상한이 있고, 눈대중으로 넘기지 않는다.",
+        "section": "typography"
+      },
+      {
+        "name": "The Rule-Not-Box Rule",
+        "body": "섹션은 카드로 감싸지 않고 border-b / border-t 한 줄로 나눈다. 상자 안의 상자는 이 시스템에 없다. 카드는 목록의 항목일 때만 등장한다.",
+        "section": "layout"
+      },
+      {
+        "name": "The Two-Step Rule",
+        "body": "카드는 정지 e2 → 호버 e3, 딱 두 단만 오간다. 세 단계 이상으로 쌓지 않고, 카드에 e1을 쓰지 않는다.",
+        "section": "elevation"
+      },
+      {
+        "name": "The One-Light Rule",
+        "body": "모든 그림자의 광원은 위쪽 하나다. 방향이 다른 그림자를 새로 만들지 않는다.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Tinted-Shadow Rule",
+        "body": "그림자는 oklch(... 260) 계열로 물들인다. rgba(0,0,0,...)를 새로 쓰지 않는다.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Radius-Ladder Rule",
+        "body": "곡률은 담는 것의 크기를 따라간다. 칩이 카드보다 둥글거나, 카드가 배지보다 둥근 상황을 만들지 않는다.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Two-Duration Rule",
+        "body": "200ms 아니면 300ms. 새 지속 시간을 발명하지 않는다.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "Do 시스템이 아는 값(날짜·개수·태그·스택·상태·경로)은 Geist Mono로, 사람이 쓴 문장은 Geist로 조판한다.",
+      "Do 새 중립색은 hue 260, chroma 0.001–0.018 범위에서 만든다.",
+      "Do 카드를 정지 e2 / 호버 e3 두 단으로만 운용하고, 호버 이동은 4px 이내로 제한한다.",
+      "Do 새 전환에 --ease-out-soft와 200ms/300ms 중 하나를 쓴다.",
+      "Do 프로젝트에 status와 statusNote를 붙여 지금 접근 가능한지 밝힌다.",
+      "Do 긴 텍스트에 상한을 둔다 — 설명 62ch, 빈 상태 42ch.",
+      "Do 새 인터랙티브 요소에 focus-visible 링을 주고, 새 애니메이션을 prefers-reduced-motion 블록에서 무력화한다.",
+      "Do 수치가 세로로 나열되는 곳에 tabular-nums를 확인한다.",
+      "Do 인쇄 대상 화면의 장식 요소에 .no-print를 붙인다."
+    ],
+    "donts": [
+      "Don't 시그널 블루로 넓은 면을 칠하거나 분위기를 낸다. 가리키는 자리에만 쓴다.",
+      "Don't 상태 3색(라이브·아카이브·깃허브)을 배지 밖으로 꺼내 강조색으로 쓴다.",
+      "Don't 차트 hex 팔레트를 UI 토큰으로 바꾸거나, 액센트를 차트 계열색으로 끌어다 쓴다.",
+      "Don't 섹션을 카드로 감싼다. 구분은 선 한 줄로 한다. 상자 안의 상자는 없다.",
+      "Don't rgba(0,0,0,...) 그림자나 검정 그림자를 새로 만든다.",
+      "Don't 카드 그리드를 3열 이상으로 쪼갠다. 1열 → md에서 2열, 여기서 끝난다.",
+      "Don't 사람이 쓴 서술 문장을 모노스페이스로 조판한다.",
+      "Don't 새 반지름·지속 시간·이징을 발명한다. 사다리와 두 값 안에서 고른다.",
+      "Don't 본문 링크의 밑줄을 지운다.",
+      "Don't 그레인 오버레이의 불투명도를 눈에 띄게 올린다. 알아채는 순간 실패다."
+    ]
+  }
+}
