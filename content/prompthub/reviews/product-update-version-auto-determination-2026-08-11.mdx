@@ -1,0 +1,56 @@
+---
+title: "상품 수정 버전 자동 판정 PR3 리뷰: 규칙을 서버로 옮기고 배포까지 검증하기"
+date: "2026-08-11"
+summary: "클라이언트가 보내던 MAJOR/PATCH 선택을 서버의 변경 필드 비교로 옮기고, no-op과 동시 수정 무결성을 함께 다룬 PR3를 코드·CI·배포 근거로 재검토했다."
+tags: ["code-review", "product-service", "versioning", "concurrency", "idempotency", "spring-boot"]
+draft: false
+---
+
+## 범위
+
+PR [#721](https://github.com/prgrms-be-adv-devcourse/beadv6_6_3JMT_BE/pull/721)의 실제 변경과 CI, develop 배포 결과를 기준으로 상품 수정 흐름을 다시 읽었다. PR은 이슈 [#720](https://github.com/prgrms-be-adv-devcourse/beadv6_6_3JMT_BE/issues/720)을 구현했고 `3041ac9` 머지 커밋으로 develop에 반영됐다.
+
+실제 diff는 20개 파일, +1,099/-162줄이었다. CodeFlow 영수증의 LOC·함수 수치는 이 diff와 맞지 않아 이 리뷰의 근거에서 제외했다.
+
+## 이번 작업에서 달라진 점
+
+이전에는 클라이언트가 `versionType`을 선택해 서버에 전달했다. PR3에서는 서버가 기존 판매 버전과 수정 요청을 비교해 다음 흐름을 결정한다.
+
+1. 수정 기준 버전을 조회하고 요청을 검증한다.
+2. DRAFT/REJECTED는 같은 row를 수정한다.
+3. ON_SALE은 변경 필드를 비교해 PATCH 또는 MAJOR를 판정한다.
+4. 실제 변경이 없으면 파일 승격·저장·이벤트를 만들지 않고 종료한다.
+5. PATCH는 기존 버전을 대체하고, MAJOR는 새 버전을 만들고 검수 이벤트를 발행한다.
+
+이 순서를 `ProductSellerService`가 조율하고, `Product` 엔티티와 요청/응답 DTO가 규칙을 표현하도록 나눴다. API 명세와 예외 응답도 함께 갱신했다.
+
+## 리뷰에서 확인한 개선
+
+### 클라이언트 선택값을 서버 정책으로 이동
+
+버전 종류를 호출자가 임의로 고르는 대신 서버가 실제 필드 차이를 기준으로 결정한다. 같은 규칙을 여러 클라이언트가 다시 구현하지 않아도 되고, 잘못된 `versionType` 조합을 줄일 수 있다.
+
+### no-op을 명시적으로 종료
+
+저장할 변화가 없을 때 새 버전과 파일 복사, 이벤트 발행을 생략한다. 반복 저장이 불필요한 버전 row와 부수 작업을 만들지 않는다는 점이 코드와 테스트에 드러난다.
+
+### 동시 수정의 최종 방어선을 DB에 둠
+
+`family_id + version` 유일 인덱스를 추가하고 충돌 통합 테스트를 넣었다. 애플리케이션 락이나 분산 락을 새로 도입하지 않고도 동일 버전 중복을 DB에서 막는 선택이다. 이 결정은 기존 [row-chain 버전 이력 설계](/decisions/prompthub/product-service/product-version-history-row-chain)와 이어지지만, 그 문서의 내용을 반복하지 않고 PR3의 동시성 경계만 기록한다.
+
+## 검증 결과
+
+- PR CI: `product_service_ci / Build & Test`, `ci-gate`, `changes`, CodeFlow receipt가 모두 성공했다.
+- 배포: [Develop Release run](https://github.com/prgrms-be-adv-devcourse/beadv6_6_3JMT_BE/actions/runs/31446299471)의 테스트·Docker build·immutable manifest·Deploy Applications 단계가 성공했다.
+- 자동 테스트: 서비스 빌드와 단위·통합·컨트롤러·마이그레이션 테스트가 PR 변경에 포함됐다.
+- E2E: 배포 후 E2E 완료 사실은 전달받았지만, PR·이슈·로드맵에서 재현 가능한 시나리오와 실행 로그는 확인하지 못했다. 따라서 이 글에는 구체적인 E2E 성공 수치나 케이스를 추정해 적지 않았다.
+
+## 남은 판단
+
+이번 PR의 책임이 늘어난 것은 사실이지만, 추가된 책임은 버전 판정·no-op·동시성 무결성이라는 하나의 수정 유스케이스에 묶여 있다. 후속 PR에서 `ProductSellerService`가 더 커진다면, 먼저 판정 규칙과 버전 승격을 별도 협력 객체로 분리할지 검토할 근거가 생긴다. 단순히 LOC를 줄이기 위한 추출은 하지 않는다.
+
+## 관련 문서
+
+- [반려된 MAJOR 버전의 동일 버전 수정 처리](/troubleshooting/prompthub/product/rejected-major-same-version-edit)
+- [판매자 상품 API 리소스 중심 URL 결정](/decisions/prompthub/product-service/seller-product-api-resource-centric-url)
+
