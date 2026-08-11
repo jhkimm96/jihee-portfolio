@@ -1,0 +1,252 @@
+---
+title: "product-service 품질 스냅샷 (2026-08-11)"
+date: "2026-08-11"
+scope: "product-service"
+score: 35.0
+formulaVersion: 2
+metrics:
+  locTotal: 5357
+  files: 120
+  duplicationBlocks: 11
+  duplicationPct: 1.48
+  oversizedClasses: 5
+  longMethods: 2
+findings:
+  - { category: "controller-thin", high: 0, medium: 0, low: 0 }
+  - { category: "entity-encapsulation", high: 0, medium: 0, low: 0 }
+  - { category: "http-semantics", high: 0, medium: 0, low: 1 }
+  - { category: "logging-quality", high: 0, medium: 0, low: 0 }
+  - { category: "exception-discipline", high: 1, medium: 2, low: 0 }
+  - { category: "layer-separation", high: 0, medium: 1, low: 0 }
+  - { category: "dead-code", high: 0, medium: 4, low: 1 }
+  - { category: "duplication-semantic", high: 0, medium: 3, low: 4 }
+  - { category: "diagnosability", high: 0, medium: 1, low: 0 }
+  - { category: "integration-robustness", high: 2, medium: 4, low: 0 }
+  - { category: "service-boundary", high: 0, medium: 0, low: 0 }
+  - { category: "value-object-design", high: 0, medium: 2, low: 0 }
+  - { category: "polymorphism-opportunity", high: 0, medium: 1, low: 0 }
+  - { category: "cohesion-coupling", high: 0, medium: 2, low: 0 }
+summary: "35.0점 (08-05 baseline 41.5 대비 −6.5, 같은 v2 산식으로 직접 비교 가능). 08-05가 지적한 20건 중 19건이 파일:라인 단위로 그대로 확인됐다 — 해소된 건 extractKey 중복 하나뿐(그마저 PR2/PR3가 아니라 그 전 PR1의 업로드 계약 정리 덕). 하락분은 대부분 PR2·PR3(상품 수정 MAJOR/PATCH 자동 판정)에서 새로 유입된 위반이다: 애플리케이션 계층의 도메인 예외 미준수(High), 이벤트 컨슈머의 예외-타입 의존 제어 흐름·updateProduct() 응집도 저하·TempFilePromoter 출력 파라미터·S3/ES 타임아웃 미설정."
+tags: ["code-quality", "refactoring", "spring", "msa", "elasticsearch", "kafka"]
+draft: false
+---
+
+## 범위
+
+product-service `src/main/java` — 120개 파일, 5,357 LOC(주석·공백 제외, 테스트 제외).
+브랜치 `feat/#720-auto-version-type-determination`, 커밋 `cfb06a59` 기준(PR2 #719·PR3 #721
+머지·배포 완료 이후). 정량 메트릭은 scan-metrics v2, 정성 판정은 고정 루브릭 14개
+카테고리로 측정했다. **08-05 스냅샷(41.5점, 이 리팩토링 사이클의 baseline)의 findings 20건
+전부를 파일:라인 단위로 재확인**해 존속·해소·형태변경을 구분했다.
+
+## 요약
+
+**35.0점** (High 3 · Medium 20 · Low 6 · 비대 클래스 5 · 긴 메서드 2 · 중복률 1.48%로 기준
+3% 이내). 계산은 `100 − 5×3 − 2×20 − 0.5×6 − 5 − 2 − 0 = 35.0`.
+
+**08-05(41.5점, 같은 산식 v2)와 직접 비교 가능**하며 −6.5점이다.
+
+| 구분 | 내역 |
+| --- | --- |
+| 08-05 지적 20건 중 재확인 결과 | 19건 그대로, **1건만 해소**(extractKey 중복 — `ObjectStorageKey` 값객체로 단일화) |
+| PR1(이 세션 이전, #719 전) 부수 효과 | controller-thin(`FileUploadController.resolveContentType`)·value-object(`purpose` 문자열)도 같은 리팩토링(커밋 `5fb2e00d`)으로 해소 |
+| PR2·PR3(이번 세션) 신규 유입 | High 1 · Medium 5 |
+| 비대 클래스 | 6 → 5로 개선(+1점) |
+| 긴 메서드 | 0 → 2로 악화(−2점, v2 신규 항목이 이번에 처음 잡음) |
+
+08-05가 지적한 항목 중 지금 코드에서 **그대로 확인된 것**: dead-code 4건(originalAmount·
+features·badge 항상 null, `ProductFamily.members()`/`mostRecentSuperseded()` 죽은 메서드)·
+duplication-semantic 3건(EventMessage 파싱+Jackson 버전 혼재, KafkaConfig 3중 복제,
+wishlists/orders 완전 동일 엔드포인트 등)·diagnosability 1건(ES 장애가 409로 위장)·
+integration-robustness 5건(ES bulk 부분 실패 미검사, Kafka 발행 실패 무로깅 — 둘 다 High,
+alias 부트스트랩 취약, size(10000) 페이지네이션 부재, ForkJoinPool 공용 사용)·
+value-object-design 1건(DTO 포지셔널 생성자, 19→27필드로 더 커짐)·
+polymorphism-opportunity 1건(타입 분기 3→4곳으로 늘어남)·cohesion-coupling 1건
+(`ProductQueryService`, 311→359 LOC로 더 커짐)·layer-separation 1건(`ProductEventProducer`
+포트 부재).
+
+새로 유입된 것은 전부 이번 세션의 PR2·PR3(판매 후 REJECTED 재편집, 상품 수정 MAJOR/PATCH
+자동 판정) 구현분이다. `ProductSellerService.updateDraftContent()` 경로가 application
+계층에서 `ProductException` 대신 `IllegalStateException`을 직접 던지고(High), 그 예외
+타입에 기대어 "중복 이벤트 스킵"을 판별하는 Kafka 컨슈머 코드는 나중에 같은 타입의 다른
+예외가 추가되면 조용히 오탐할 수 있다(Medium). `updateProduct()`는 상태 3-way 분기에 버전
+판정 2-way 분기가 중첩돼 응집도가 낮고(Medium), 신규 `TempFilePromoter.promoteKey()`는
+참조 전달 출력 파라미터 2개를 쓴다(Medium, value-object 관점). `S3Config`/
+`ElasticsearchClientConfig`엔 명시적 호출 타임아웃이 없다(Medium).
+
+## 카테고리별 발견
+
+### exception-discipline (High 1 · Medium 2) — 신규
+
+- **High** · `ProductSellerService.java:226` — application 계층에서
+  `throw new IllegalStateException(...)`을 직접 던진다. `controller-exception.md` §2-1은
+  application/infrastructure/global 계층에 `XxxException(ErrorCode)`만 쓰도록 강제한다.
+  → `ProductException(ProductErrorCode.PRODUCT_INVALID_STATUS, ...)`로 교체 권장.
+- **Medium** · `ProductQueryService.java:66` — ES 조회를 `catch (RuntimeException)`으로 감싸
+  RDB 폴백으로 넘긴다. 범위가 너무 넓어서 NPE 같은 프로그래밍 오류까지 "ES 조회 실패, RDB로
+  폴백" 경고 한 줄로 묻힌다. **08-05에서도 지적, 미해소.**
+- **Medium** · `ProductInspectionResultHandler.java:40`, `ProductInspectionResultConsumer.java:65`
+  — "이미 처리된 이벤트라 스킵"의 판별 근거가 `Product.approve()/reject()`가 던지는 **범용**
+  `IllegalStateException` catch다. 지금은 PENDING_REVIEW 가드 하나만 이 타입을 던져 우연히
+  맞지만, 같은 호출 경로에 다른 이유의 `IllegalStateException`이 하나만 더 추가돼도 그 실패가
+  "중복 이벤트"로 조용히 삼켜진다.
+
+  <details>
+  <summary>왜 위험한가 — 구체적 시나리오</summary>
+
+  Kafka는 같은 메시지를 두 번 보낼 수 있다(중복 배달). 그래서 승인 이벤트가 두 번 오면 두
+  번째는 `approve()`가 "이미 ON_SALE"이라며 `IllegalStateException`을 던지고, 핸들러는 이걸
+  "중복이니 무시"로 해석한다 — 지금은 맞는 동작이다. 그런데 나중에 `approve()`에 "판매자
+  계정이 정지됐으면 승인 금지" 같은 새 규칙이 이 저장소의 기존 패턴대로 같은
+  `IllegalStateException`으로 추가되면, 그 진짜 실패도 "어차피 중복이겠지"로 무시된다. 로그도
+  알림도 없이 승인이 조용히 누락된다.
+
+  </details>
+
+  (08-05는 이 근본 원인(도메인 순수 예외 부재, `domain/exception` 패키지 없음)을 "의도 미확인"
+  설계 질문으로만 남겨뒀다. 이번 세션에 다시 물었으나 여전히 의도 미확정이라 점수에는 도메인
+  계층 자체(`Product.java` 6곳)를 별도로 세지 않았다 — 위 컨슈머 항목만 별개의 구체적 위험으로
+  센다.)
+
+### integration-robustness (High 2 · Medium 4)
+
+- **High** · `ElasticsearchProductSearchIndexer.java:70-87`(`bulkReconcile`) —
+  `client.bulk(...)` 응답의 `errors()`/item별 `error()`를 확인하지 않는다. bulk는 HTTP 200을
+  주면서 개별 문서만 실패할 수 있는 API라, 문서 절반이 색인에 실패해도 "재조정 완료" 로그가
+  그대로 찍힌다. **08-05에서도 지적, 미해소.**
+- **High** · `ProductEventProducer.java:86, 90` — `kafkaTemplate.send(...)`의 반환
+  `CompletableFuture`를 확인하지 않는다(fire-and-forget). **07-29부터 세 스냅샷 연속 미해소.**
+- **Medium** · `ProductIndexBootstrap.java:26` — `existsAlias(ALIAS)`만 검사한다. `products`라는
+  이름의 일반 인덱스가 alias 자리를 차지하면 기동 시 크래시 루프가 된다(**실제로 겪은 장애**).
+  **08-05에서도 지적, 미해소.**
+- **Medium** · `ElasticsearchProductSearchIndexer.java:53` — `findAllIndexedFamilyRootIds`가
+  `size(10000)` 고정, 페이지네이션 없음. 1만 건 초과 시 그 뒤 문서는 고아 문서 탐지에서
+  누락된다. **08-05에서도 지적, 미해소.**
+- **Medium** · `QueryEmbeddingCache.java:71` — 공용 `ForkJoinPool`로 OpenAI 호출, 동시 중복
+  요청을 막는 single-flight 장치가 없다. **08-05에서도 지적, 미해소.**
+- **Medium** · `S3Config.java:14-19, 21-26` — `S3Client`/`S3Presigner` 빌더에 명시적
+  `apiCallTimeout`/`apiCallAttemptTimeout`이 없다. `ElasticsearchClientConfig.java:67-76`도
+  connect/socket timeout 명시가 없다. (신규)
+
+### dead-code (Medium 4 · Low 1)
+
+- **Medium** · `ProductListItemResponse.java:13`(`originalAmount`), `ProductDetailResponse.java:24`
+  (`features`), `Product.getBadge()`(`Product.java:110`, ES 색인 전용이라 조회 응답으로 돌아올
+  길이 없음) — 셋 다 값이 항상 `null`/`List.of()`. **07-20부터 네 스냅샷 연속 미해소.**
+- **Medium** · `ProductFamily.java:45`(`members()`), `:65`(`mostRecentSuperseded()`) — 전자는
+  프로덕션·테스트 어디서도 호출 안 됨, 후자는 `ProductFamilyTest.java:102` 테스트에서만 호출.
+  **08-05에서도 지적, 미해소.**
+- **Low** · `ProductExceptionHandler.java:96-99, 110` — `handleNoResourceFound`/
+  `handleException`의 `HttpServletRequest request` 파라미터 미사용. **네 스냅샷 연속 미해소.**
+
+### duplication-semantic (Medium 3 · Low 4)
+
+- **Medium** · `EventMessage<JsonNode>` 파싱이 `OrderEventConsumer.java:58-65`,
+  `ProductInspectionResultConsumer.java:71-78`, `ProductSearchEventConsumer.java:75-81` 3곳에
+  거의 동일하게 중복되고, 앞 둘은 `tools.jackson.*`(3.x)·마지막은 `com.fasterxml.jackson.*`
+  (2.x)로 Jackson 메이저 버전이 혼재한다. **네 스냅샷 연속 미해소.**
+- **Medium** · `KafkaConfig.java`의 `ConsumerFactory`·`ContainerFactory`·`DefaultErrorHandler`가
+  order/product/ai 이벤트별로 3세트씩 거의 동일한 코드로 반복(약 60줄). **08-05에서도 지적,
+  미해소.**
+- **Medium** · `ProductQueryGrpcService.java`의 order/cart snapshot 빌더 조립이 같은 파일 안에서
+  리터럴 중복(`getOrderSnapshots`↔`toOrderSnapshotResult`,
+  `getCartSnapshots`↔`toCartSnapshotResult`). order-service 소비자 전환 완료까지 유지하는
+  의도된 과도기 상태(문서에 명시)지만, 산식상 점수에서 빼지는 않는다. **08-05에서도 지적,
+  미해소.**
+- **Low** · `ProductJpaRepository.java`의 `findPublicProducts`↔`findProjectionsByIds` JPQL
+  프로젝션 중복(JPQL엔 조각 공유 수단이 마땅치 않아 구조적 제약에 가까움). **네 스냅샷 연속
+  미해소.**
+- **Low** · `new ProductContent(...)` 12인자 조립이 `ProductSellerService.java`의
+  `createProduct()`(59-62)와 `promoteToPath()`(180-183, PR3 신설 private 메서드)에 반복.
+  **형태는 바뀌었지만(구 `updateProduct()` 인라인 → 신 `promoteToPath()`) 중복 자체는 이어짐.**
+- **Low** · `ProductController.java:72-75, 77-80` — `POST /products/wishlists`와
+  `POST /products/orders`가 `getProductsByIds(...)` 호출로 완전히 동일. **08-05에서도 지적,
+  미해소.**
+- **Low** · `ProductContentHash.java:60-68`(`sha256`) vs `EmbeddingSource.java:56-64`(`hash`) —
+  SHA-256 해싱 로직이 `product.domain`·`search.application`에 거의 동일하게 존재(주석 문구까지
+  같음). (신규)
+
+### value-object-design (Medium 2)
+
+- **Medium** · `ProductDetailResponse`(19→**27필드**로 증가)·`ProductListItemResponse`(15필드)를
+  포지셔널 생성자로 조립, 미사용 필드 자리에 이름 없는 `null`/`List.of()`가 섞인다
+  (`ProductQueryService.java:150-168` 등). **네 스냅샷 연속 미해소, 규모는 커짐.**
+- **Medium** · `TempFilePromoter.java:70-102`(`promoteKeys`, `promoteKey`) — 6개 파라미터 중
+  `promotedTempOriginals`·`newPermanentKeys` 두 `List<String>`이 호출부가 만들어 전달하면
+  메서드 안에서 계속 채워지는 "출력 파라미터"다. `PromotionRecord(tempKey, permanentKey)` 값객체
+  리스트를 반환하는 형태로 정리 가능. (신규 — PR1/PR3)
+
+### polymorphism-opportunity (Medium 1)
+
+- **Medium** · "productType에 따라 핵심 산출물 필드를 무엇으로 볼지" 판단하는 분기가
+  `ProductContent.validateTypeFields`(검증), `Product.determineVersionType`(비교, PR3 신규),
+  `ProductGrpcService.resolveDeliverable`(선택), `PurchasedProductQueryService.buildResponse`
+  (선택) **4곳**에 흩어져 있다(08-05 시점 3곳). `ProductType`에 메서드를 두면 하나로 수렴한다.
+  **네 스냅샷 연속 미해소, PR3로 한 곳 더 늘어남.**
+
+### cohesion-coupling (Medium 2)
+
+- **Medium** · `ProductQueryService`(359 LOC·22메서드, 08-05 시점 311 LOC·19메서드에서
+  증가)가 검색 오케스트레이션·DTO 매핑 4벌·URL 해석·버전 이력 조립을 한 클래스에 담는다.
+  덧붙여 `getProduct()`(132-136)는 조회 도중 `incrementViewCount()`+`save()`를 호출하는 CQS
+  위반이고, `getProductsByIds()`(204-225)는 상품마다 판매량·평점을 각각 조회해 N건에 쿼리
+  2N번이 나간다(이 둘은 08-05와 동일하게 산식엔 안 잡고 서술만). **네 스냅샷 연속 미해소,
+  규모는 커짐.**
+- **Medium** · `ProductSellerService.updateProduct()`(100-172, PR3 전면 재작성) — 유형 검증 →
+  candidate 생성 → DRAFT/REJECTED/ON_SALE 3-way 분기 → (ON_SALE 안에서) family 조회 → 버전
+  판정 → changeReason 검증 → PENDING_REVIEW 충돌 검사 → MAJOR/PATCH 갈림 → 이벤트 발행까지
+  70줄 하나에 들어 있다. 상태 규칙·버전 판정 규칙·이벤트 발행 규칙, 서로 다른 이유로 이
+  메서드가 바뀔 수 있다. (신규 — PR3)
+
+### layer-separation (Medium 1)
+
+- **Medium** · `ProductSellerService.java:43`(`private final ProductEventProducer
+  productEventProducer`) — 이벤트 발행 어댑터를 포트 인터페이스 없이 구체 클래스로 직접
+  주입받는다. 리포지토리 3종은 전부 domain 포트 + infra 어댑터 구조인데 이벤트 발행만 빠져
+  있다. **네 스냅샷 연속 미해소.**
+
+### diagnosability (Medium 1)
+
+- **Medium** · `ProductExceptionHandler.java:33-44` — `IllegalStateException` 핸들러 하나가
+  `ProductErrorCode.PRODUCT_INVALID_STATUS`(409)에 매핑하는데, `ElasticsearchProductSearchIndexer`
+  가 색인·alias 조회·bulk 실패 4곳(34, 43, 60, 86행)에서도 같은 타입을 던진다. ES 인프라 장애가
+  "상품 상태 충돌" 409로 클라이언트에 위장될 수 있는 구조. **08-05에서도 지적, 미해소.**
+
+### http-semantics (Low 1) — 신규
+
+- **Low** · `FileUploadController.java:25-31`(`POST /uploads/presigned-urls`) — 새 리소스를
+  생성하는데 `@ResponseStatus` 지정이 없어 기본 200을 반환한다. 같은 서비스의
+  `ProductController.createProduct`는 `@ResponseStatus(HttpStatus.CREATED)`를 명시한다.
+
+### controller-thin · entity-encapsulation · layer-separation(일부) · service-boundary · value-object-design(일부) · diagnosability(일부) · duplication-semantic(일부) — 해소 확인
+
+- `FileUploadController.resolveContentType` 컨트롤러 위임 위반 → **해소**. 로직이
+  `FileUploadPolicy.getUploadDetails()`로 이동, `purpose`도 `UploadPurpose` enum으로 타입화.
+- `extractKey` 중복(`FileUploadController`/`ProductSellerService`) → **해소**. 두 진입점 모두
+  `ObjectStorageKey` 값객체를 통해서만 key를 다룬다(`FileUploadService`, `TempFilePromoter`).
+- `SellerProductDetailResponse`류 DTO의 S3 직접 호출 → **해소**. presigned URL 생성이
+  `ProductSellerService.createDownloadUrl(s)`로 이동.
+- S3 `copy` 실패 시 `S3_PRESIGN_FAILED` 메시지 재사용 → **해소**. 전용 `S3_COPY_FAILED`(S002)
+  코드로 분리.
+- 위 넷 모두 이번 세션 PR2·PR3가 아니라 그 직전 PR1(파일 업로드 계약 정리, 커밋 `5fb2e00d`)의
+  효과다.
+
+## 개선된 항목 (08-05 대비)
+
+- **controller-thin Medium 1건 해소** — `FileUploadController.resolveContentType`.
+- **duplication-semantic Medium 1건 해소** — `extractKey` 중복.
+- **layer-separation Medium 1건 해소** — `SellerProductDetailResponse`류의 S3 직접 호출.
+- **value-object-design Medium 1건 해소** — `purpose` 문자열 리터럴 → `UploadPurpose` enum.
+- **diagnosability Low 1건 해소** — S3 copy 실패 전용 에러 코드 분리.
+- **비대 클래스 1건 감소** — 6 → 5.
+
+## 한계
+
+- 정적 스냅샷이다. 빌드·테스트 실행, 런타임 동작, 인덱스·쿼리 성능은 보지 않았다.
+- 서비스 단위 측정이라 상대 서비스 코드는 호출자 존재 확인 용도로만 참조했다.
+- 테스트 코드는 평가하지 않는다(억지 테스트 금지 원칙).
+- 08-05가 "의도 미확인"으로 남긴 도메인 순수 예외 부재(`Product.java` 6곳)는 이번 세션에도
+  같은 질문을 다시 했으나 여전히 미확정이라 그 자체는 점수에 넣지 않았다 — 다만 그로 인해
+  파생되는 구체적 위험(Kafka 컨슈머의 예외-타입 의존 제어 흐름)은 별도 Medium으로 셌다.
+- 08-05가 "산식에 안 잡히는 문제"로 서술만 하고 넘어간 `ProductQueryService`의 CQS 위반·N+1은
+  이번에도 같은 방식(서술만, 카운트 안 함)으로 유지했다 — 08-05와의 추세 비교 일관성을 위해서다.
