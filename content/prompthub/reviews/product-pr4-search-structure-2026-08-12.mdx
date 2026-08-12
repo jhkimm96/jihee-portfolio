@@ -1,0 +1,46 @@
+---
+title: "PR4 리뷰: 실패를 숨기지 않는 재시도와 읽기 쉬운 검색 경계"
+date: "2026-08-12"
+summary: "PR4의 Kafka 재시도·관측성·ES bulk 실패 검증과 search 패키지 구조 개편을 실제 diff와 테스트 결과로 다시 확인했다."
+tags: ["code-review", "product-service", "kafka", "elasticsearch", "package-structure", "readability"]
+draft: false
+---
+
+## 범위
+
+PR4 구현과 후속 #723 구조 정리를 함께 리뷰했다. 범위는 다음 네 가지였다.
+
+- 검사 요청 재시도 스케줄러의 후보 조회, 선점, 성공·실패 관측
+- Kafka 발행 완료 확인과 실패 로그
+- Elasticsearch bulk 응답의 전체 실패·항목별 실패 검증
+- search application/infra 패키지 분리와 `ProductSearchQueryPort`, `ProductSearchIndexPort` 같은 이름 정리
+
+## 확인한 개선
+
+### 실패를 성공처럼 끝내지 않음
+
+스케줄러는 후보를 조회하는 역할만 하고, 실제 선점은 조건부 UPDATE 서비스가 담당한다. 따라서 여러 인스턴스가 동시에 실행되어도 같은 작업을 중복 처리할 가능성을 줄인다.
+
+ES bulk 처리도 응답 객체가 반환되었다는 이유만으로 성공 처리하지 않는다. 전체 응답의 `errors`와 각 항목의 오류를 확인해 부분 실패를 로그와 결과에 남긴다.
+
+### 읽기 흐름이 이름에 드러남
+
+search 애플리케이션은 `query`, `indexing`, `embedding` 기능으로 나눴다. 외부 계약은 `*Port`, 이벤트 흐름을 조정하는 클래스는 `*Processor`로 이름을 통일했다. 처음 보는 개발자가 “무엇을 조회하고 무엇을 색인하는지”를 파일명만으로 추적할 수 있다.
+
+### 검증 결과
+
+- `:product-service:test`: 성공
+- `git diff --check`: 공백 오류 없음
+- 기존 기능의 동작 계약은 변경하지 않고 패키지와 이름만 정리
+
+<details>
+<summary><b>왜 이 리뷰를 Quality 글로 합치지 않았나?</b></summary>
+
+Quality는 서비스 전체의 고정 산식과 추세를 기록하는 문서다. 이 글은 PR4에서 무엇을 확인하고 어떤 판단을 했는지를 기록하는 작업 단위 리뷰이므로 별도로 유지한다.
+
+</details>
+
+## 남은 관찰점
+
+ES 재시도 횟수와 실패 알림 기준은 운영 데이터가 쌓인 뒤 조정할 수 있다. 이번 PR에서는 실패를 숨기지 않고 다음 조치를 선택할 수 있게 만드는 데 집중했다.
+

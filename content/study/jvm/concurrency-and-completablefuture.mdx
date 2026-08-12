@@ -1,0 +1,36 @@
+---
+title: "Java 동시성 기초: 선점·비동기 완료·중복 처리"
+date: "2026-08-12"
+status: "evergreen"
+summary: "스케줄러와 Kafka 발행 코드를 읽을 때 필요한 thread-safety와 CompletableFuture의 의미를 정리한다."
+tags: ["java", "concurrency", "completablefuture", "kafka", "thread-safety"]
+group: "java-foundations"
+draft: false
+---
+
+## 핵심
+
+스레드가 여러 개라는 사실보다 중요한 것은 공유 상태를 누가 언제 바꾸는가다. 재시도 스케줄러에서는 조회만으로 선점했다고 생각하면 두 인스턴스가 같은 작업을 처리할 수 있다. 조건부 UPDATE나 unique index처럼 원자적인 경계가 필요하다.
+
+```mermaid
+sequenceDiagram
+  participant S as Scheduler A/B
+  participant DB as 조건부 UPDATE
+  participant K as Kafka
+  S->>DB: 후보 선점 시도
+  DB-->>S: 한 인스턴스만 성공
+  S->>K: 비동기 발행
+  K-->>S: 완료/실패 callback
+```
+
+Kafka의 `send`가 반환되었다고 발행 성공이 끝난 것은 아니다. `CompletableFuture`의 완료·실패 콜백까지 관찰해야 실제 결과를 기록할 수 있다.
+
+<details>
+<summary><b>면접에서 설명할 순서</b></summary>
+
+1. 공유 데이터는 무엇인가?
+2. 동시에 실행되면 어떤 중복·유실이 생기는가?
+3. 원자성은 DB, lock, queue 중 어디에서 보장하는가?
+4. 실패를 호출자와 로그에 어떻게 전달하는가?
+
+</details>

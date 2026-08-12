@@ -1,0 +1,37 @@
+---
+title: "Java 예외를 읽는 법: 원인·전파·좁은 catch·자원 정리"
+date: "2026-08-12"
+status: "evergreen"
+summary: "예외를 삼키지 않고 올바른 계층에서 변환·기록·응답하는 흐름을 이해한다."
+tags: ["java", "exceptions", "runtimeexception", "try-with-resources"]
+group: "java-foundations"
+draft: false
+---
+
+## 핵심
+
+예외는 “문제가 발생했다”는 신호다. 하위 계층은 기술 원인을 담고, 상위 계층은 사용자에게 의미 있는 오류로 변환할 수 있다. `catch (RuntimeException)`처럼 너무 넓게 잡으면 진짜 버그까지 정상적인 폴백으로 오해할 수 있다.
+
+```mermaid
+flowchart LR
+  A[인프라 오류] --> B[구체 예외]
+  B --> C[애플리케이션 경계에서 변환]
+  C --> D[로그와 HTTP 응답]
+```
+
+```java
+try {
+    return searchPort.search(condition);
+} catch (SearchUnavailableException exception) {
+    return repository.findPublicProducts(condition);
+}
+```
+
+Java의 try-with-resources는 파일·스트림 같은 자원을 자동으로 닫는다.
+
+<details>
+<summary><b>checked와 unchecked</b></summary>
+
+checked 예외는 컴파일러가 처리 여부를 확인한다. unchecked 예외는 프로그래머의 잘못된 상태나 사용을 나타내는 경우가 많다. 어떤 종류를 쓸지는 “호출자가 복구할 수 있는가”와 “경계에서 어떤 오류로 보여줄 것인가”로 판단한다.
+
+</details>

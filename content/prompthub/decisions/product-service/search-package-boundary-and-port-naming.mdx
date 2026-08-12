@@ -1,0 +1,56 @@
+---
+title: "search 모듈은 기능별 패키지와 명시적인 Port 이름으로 나눈다"
+date: "2026-08-12"
+status: "accepted"
+summary: "search 내부는 query·indexing·embedding 기능으로 나누고, 외부 계약은 Port, 이벤트 흐름 조정자는 Processor로 이름을 정한다."
+tags: ["architecture", "package-structure", "search", "ports-and-adapters", "readability"]
+draft: false
+---
+
+## 배경
+
+search 코드는 조회, 색인, 임베딩, Elasticsearch 설정이 한 폴더에 섞이면 파일을 찾는 비용이 커진다. 반대로 기능마다 usecase와 service를 계속 추가하면 작은 흐름도 여러 계층을 거쳐야 해서 읽기 어려워진다.
+
+## 고려한 선택지
+
+- 모든 클래스를 `application/service`에 둔다.
+- 기능별로 `query`, `indexing`, `embedding`을 나눈다.
+- 모든 기능에 `usecase`, `service`, `handler` 계층을 강제로 만든다.
+
+## 결정
+
+search application은 기능별 패키지로 나눈다.
+
+```text
+search/application/
+├─ query/
+├─ indexing/
+└─ embedding/
+
+search/infra/
+└─ elasticsearch/
+   ├─ config/
+   ├─ query/
+   └─ indexing/
+```
+
+외부 계약은 `ProductSearchQueryPort`, `ProductSearchIndexPort`처럼 `Port`를 붙인다. 이벤트 흐름을 순서대로 조정하는 클래스는 모호한 `Handler` 대신 `ProductSearchEventProcessor`로 부른다.
+
+## 결과
+
+패키지는 기능을 찾는 지도 역할을 하고, 이름은 의존 방향과 책임을 설명한다. search가 product-service 내부 기능이므로 모든 요청에 별도 usecase/service 계층을 만들지 않아도 된다.
+
+<details>
+<summary><b>언제 usecase/service를 추가하는가?</b></summary>
+
+여러 외부 진입점이 같은 업무 규칙을 공유하거나, 트랜잭션·권한·정책을 한곳에서 조정해야 할 때 추가한다. 단순 조회처럼 포트 호출과 결과 변환이 전부인 흐름에는 먼저 작은 클래스로 시작한다.
+
+</details>
+
+<details>
+<summary><b>왜 Handler라는 이름을 피했나?</b></summary>
+
+`Handler`는 이벤트를 받는지, 예외를 처리하는지, HTTP 요청을 처리하는지 알기 어렵다. `Processor`, `Consumer`, `ExceptionHandler`처럼 입력과 동작이 드러나는 이름을 사용한다.
+
+</details>
+

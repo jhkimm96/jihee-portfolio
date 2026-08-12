@@ -1,0 +1,23 @@
+---
+title: "equals·hashCode·불변성: 컬렉션과 값 객체의 기본"
+date: "2026-08-12"
+status: "evergreen"
+summary: "객체의 동일성과 변경 가능성이 왜 Map·Set·record 사용에 영향을 주는지 정리한다."
+tags: ["java", "equals", "hashcode", "immutability", "record"]
+group: "java-foundations"
+draft: false
+---
+
+## 핵심
+
+`equals`가 같다고 판단한 두 객체는 같은 `hashCode`를 가져야 한다. 이 규칙이 깨지면 `HashSet`이나 `HashMap`에서 값을 찾지 못할 수 있다.
+
+불변 객체는 생성 후 값이 바뀌지 않는다. 값이 바뀌어야 한다면 기존 객체를 몰래 수정하기보다 새 값을 만든다. `record`는 값 묶음의 생성자, 접근자, `equals`, `hashCode`, `toString`을 자동으로 제공해 이런 의도를 드러낸다.
+
+<details>
+<summary><b>실무에서 확인할 것</b></summary>
+
+Map의 key로 사용하는 객체의 필드를 저장 후 변경하지 않는다. JPA entity처럼 생명주기와 식별자가 있는 객체와, `ProductSearchHit`처럼 조회 결과를 담는 값 객체를 같은 기준으로 설계하지 않는다.
+
+</details>
+
