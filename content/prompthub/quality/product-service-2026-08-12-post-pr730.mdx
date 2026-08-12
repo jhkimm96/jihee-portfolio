@@ -27,7 +27,7 @@ findings:
   - { category: "value-object-design", high: 0, medium: 2, low: 0 }
   - { category: "polymorphism-opportunity", high: 0, medium: 1, low: 0 }
   - { category: "cohesion-coupling", high: 0, medium: 2, low: 0 }
-summary: "73.0점 (같은 날 이전 스냅샷 71.0 대비 +2.0, PR #730/#729 반영). integration-robustness Medium이 4→2로 줄었다 — ES alias가 rogue index에 점유당해도 무방비였던 문제와 색인 대상 조회의 size(10000) 하드캡을 이번 PR이 정확히 그 2건만 고쳤다. 나머지 12개 카테고리는 이번 PR 범위 밖이라 그대로(dead-code 4·duplication-semantic 4는 개수 불변이나 중복 사이트 수가 일부 3→2로 줄어 완화됨)."
+summary: "73.0점 (직전 스냅샷 08-11의 46.0 대비 +27.0). 이 중 +2.0이 PR #730/#729 몫이다 — 머지 직전 커밋 8c74b2a9를 같은 루브릭으로 재면 71.0이고, 나머지 +25.0은 앞선 PR #722·#723이 High 3건과 긴 메서드 1건을 해소한 몫이다. integration-robustness Medium이 4→2로 줄었다 — ES alias가 rogue index에 점유당해도 무방비였던 문제와 색인 대상 조회의 size(10000) 하드캡을 이번 PR이 정확히 그 2건만 고쳤다. 나머지 12개 카테고리는 이번 PR 범위 밖이라 그대로(dead-code 4·duplication-semantic 4는 개수 불변이나 중복 사이트 수가 일부 3→2로 줄어 완화됨)."
 tags: ["code-quality", "elasticsearch", "reliability", "clean-architecture", "spring"]
 draft: false
 ---
@@ -37,22 +37,25 @@ draft: false
 product-service `src/main/java` — 122개 파일, 5,549 LOC. `develop` 브랜치 커밋 `7a95d74f`
 (PR #730/#729, 로드맵 I-2 — ES 색인 신뢰성 3종: soft-delete 반영 증분 감지·같은 사이클 임베딩
 반영·bulk chunking/retry·PIT 페이지네이션·alias·index 무결성 검사, 검색용 Kafka 이벤트 정리)
-기준. 직전 스냅샷(같은 날, 커밋 `8c74b2a9` — PR #730 **머지 전**)과 정확히 이 PR이 만든
-차분만 비교했다.
+기준. PR #730 **머지 직전** 커밋(`8c74b2a9`)의 상태와 대조해, 정확히 이 PR이 만든 차분만
+분리했다.
 
 <details>
 <summary><b>🔍 "이 PR이 만든 차분만 비교"는 무슨 뜻인가</b></summary>
 
-두 스냅샷이 같은 날 찍혔다. 하나는 PR #730이 머지되기 직전 커밋(`8c74b2a9`) 기준, 이 스냅샷은
-머지된 직후(`7a95d74f`) 기준이다. 그래서 두 스냅샷의 점수 차이는 다른 작업이 섞이지 않고
-오직 PR #730 하나가 만든 변화만 반영한다 — 보통 스냅샷 사이 며칠~몇 주가 껴서 여러 PR이
-누적되는 것과 다르다.
+같은 날의 두 커밋을 각각 쟀다. 하나는 PR #730이 머지되기 직전(`8c74b2a9`), 이 스냅샷은
+머지된 직후(`7a95d74f`)다. 그래서 둘의 점수 차이는 다른 작업이 섞이지 않고 오직 PR #730
+하나가 만든 변화만 반영한다 — 보통 스냅샷 사이 며칠~몇 주가 껴서 여러 PR이 누적되는
+것과 다르다.
 
 </details>
 
 ## 요약
 
-**73.0점** (직전 71.0 대비 **+2.0**). `100 − 0 − 1×18 − 0.5×6 − 5 − 1 − 0 = 73.0`.
+**73.0점** (직전 스냅샷 08-11의 46.0 대비 **+27.0**). `100 − 0 − 1×18 − 0.5×6 − 5 − 1 − 0 = 73.0`.
+
+이 중 **+2.0이 이 PR의 몫**이다. 머지 직전 커밋(`8c74b2a9`)을 같은 루브릭으로 재면 71.0이고,
+나머지 **+25.0은 앞선 PR #722·#723**이 High 3건(−24)과 긴 메서드 1건(−1)을 해소한 몫이다.
 
 PR #730이 겨냥한 건 정확히 2건 — `existsAlias(ALIAS)`만 보던 검사를 alias 대상 검증 +
 rogue index(같은 이름의 실제 index가 alias 자리를 차지)가드 + 매핑/embedding dims 검증으로
@@ -68,7 +71,7 @@ rogue index(같은 이름의 실제 index가 alias 자리를 차지)가드 + 매
 ## 카테고리별 발견
 
 <details>
-<summary><b>변경 없는 12개 카테고리 (직전 08-12 스냅샷과 동일 — 펼쳐서 확인)</b></summary>
+<summary><b>변경 없는 12개 카테고리 (PR #730 머지 전과 동일 — 펼쳐서 확인)</b></summary>
 
 **exception-discipline (Medium 2)**
 - Medium · `ProductQueryService.java:66` — ES 조회 실패를 `catch (RuntimeException e)`로 광범위하게 감싸 RDB 폴백.
@@ -127,7 +130,7 @@ Elasticsearch에서 애플리케이션은 보통 alias(별칭, 예: `products`)�
 
 </details>
 
-## 개선된 항목 (직전 08-12 스냅샷 대비)
+## 개선된 항목 (PR #730 머지 전 대비)
 
 - **integration-robustness Medium 2건 해소** — ES alias rogue-index 무가드, 색인 조회 10k 상한. 둘 다 로드맵 I-2/PR5(#729/#730)의 직접 목표였다.
 - **duplication-semantic 2건 완화(해소는 아님)** — 검색용 Kafka 이벤트 컨슈머 삭제의 부수 효과로 `EventMessage<JsonNode>` 파싱 중복이 3곳→2곳, Kafka 컨슈머 설정 세트가 3개→2개로 줄었다. 남은 중복 자체는 여전히 존재해 카운트는 그대로 뒀다.
