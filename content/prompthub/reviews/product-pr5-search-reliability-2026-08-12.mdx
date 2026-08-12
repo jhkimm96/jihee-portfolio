@@ -116,10 +116,10 @@ Kafka 이벤트를 지우면서 order-service의 구독 코드까지 함께 정�
 1. **"테스트 452개 전부 통과"가 실제로는 틀렸다.** Gradle `compileTestJava`가 테스트 소스
    변경에도 `UP-TO-DATE`를 찍어 캐시된 결과를 재사용했고, 그사이 작성한 유닛 테스트 하나가
    실제로는 실행조차 안 되는 상태였는데 통과로 보고했다. `--rerun-tasks`로 강제 재실행해서야
-   드러났다(원인·재발방지는 별도 트러블슈팅으로 정리 예정).
+   드러났다. → 해결: [Gradle 캐시가 실패한 테스트를 통과로 보여줬다](/troubleshooting/prompthub/product/gradle-stale-test-cache-false-pass)
 2. **10,001건 테스트가 단독 실행에서만 통과했다.** 공유 Testcontainers ES에 문서를 심어두고
    정리를 안 해서 무관해 보이는 다른 통합 테스트(정렬 검증)가 깨졌다. 클래스 단위 실행과
-   전체 스위트 실행을 비교해 원인을 좁혔다(마찬가지로 별도 트러블슈팅 예정).
+   전체 스위트 실행을 비교해 원인을 좁혔다. → 해결: [공유 테스트 컨테이너에 문서를 심어두고 안 지워서 다른 테스트가 깨졌다](/troubleshooting/prompthub/search/shared-es-testcontainer-pollution)
 
 ## 남긴 것 · 하지 않은 것
 
