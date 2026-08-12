@@ -1,0 +1,167 @@
+---
+title: "product-service 품질 스냅샷 (2026-08-12)"
+date: "2026-08-12"
+scope: "product-service"
+score: 51.0
+formulaVersion: 2
+metrics:
+  locTotal: 5640
+  files: 127
+  duplicationBlocks: 13
+  duplicationPct: 1.53
+  oversizedClasses: 5
+  longMethods: 1
+findings:
+  - { category: "controller-thin", high: 0, medium: 0, low: 0 }
+  - { category: "entity-encapsulation", high: 0, medium: 0, low: 0 }
+  - { category: "http-semantics", high: 0, medium: 0, low: 1 }
+  - { category: "logging-quality", high: 0, medium: 0, low: 0 }
+  - { category: "exception-discipline", high: 0, medium: 2, low: 0 }
+  - { category: "layer-separation", high: 0, medium: 0, low: 0 }
+  - { category: "dead-code", high: 0, medium: 4, low: 1 }
+  - { category: "duplication-semantic", high: 0, medium: 4, low: 4 }
+  - { category: "diagnosability", high: 0, medium: 1, low: 0 }
+  - { category: "integration-robustness", high: 0, medium: 4, low: 0 }
+  - { category: "service-boundary", high: 0, medium: 0, low: 0 }
+  - { category: "value-object-design", high: 0, medium: 2, low: 0 }
+  - { category: "polymorphism-opportunity", high: 0, medium: 1, low: 0 }
+  - { category: "cohesion-coupling", high: 0, medium: 2, low: 0 }
+summary: "51.0점 (08-11 baseline 35.0 대비 +16.0). High 3건 전부 해소(Kafka 발행 실패 관측, ProductSellerService의 원시 IllegalStateException 교체, ES bulk 부분 실패 검사 — 마지막 건은 이 PR이 아니라 병행 작업으로 해소된 것을 재확인). ProductEventPublisher 포트 도입으로 layer-separation 위반도 해소. 나머지 20개 Medium·6개 Low는 대부분 이번 PR 범위 밖(ProductQueryService 비대, ES alias·페이지네이션·timeout, presign/이벤트파싱 중복 등)이라 그대로 남았고, 로드맵에 I-10(PR8)으로 별도 계획해뒀다."
+tags: ["code-quality", "refactoring", "spring", "msa", "kafka", "clean-architecture"]
+draft: false
+---
+
+## 범위
+
+product-service `src/main/java` — 127개 파일, 5,640 LOC. `develop` 브랜치 커밋 `8c74b2a9`
+기준(PR #722 Kafka 검수 요청 발행 관측·재발행 + ProductSellerService 리팩토링, PR #723
+패키지 기능별 재구성, 둘 다 머지 완료). 정량 메트릭은 scan-metrics v2, 정성 판정은 고정
+루브릭 14개 카테고리로 측정했다. **08-11 스냅샷(35.0점)의 findings 29건을 코드로 재대조**해
+해소·존속·변형을 구분했다.
+
+## 요약
+
+**51.0점** (High 0 · Medium 20 · Low 6 · 비대 클래스 5 · 긴 메서드 1 · 중복률 1.53%로 기준
+3% 이내). 계산은 `100 − 0 − 2×20 − 0.5×6 − 5 − 1 − 0 = 51.0`.
+
+**08-11(35.0점, 같은 산식 v2)과 직접 비교 가능**하며 **+16.0점**이다.
+
+| 구분 | 내역 |
+| --- | --- |
+| High 3건 → 0건 | Kafka 발행 실패 관측 추가(신규 포트+콜백), `ProductSellerService`의 원시 `IllegalStateException`→`ProductException` 교체, ES bulk 부분 실패 검사 도입(병행 작업으로 해소 확인) |
+| layer-separation 1건 해소 | `ProductEventPublisher` 포트 도입으로 `ProductEventProducer` 직접 의존 제거 |
+| cohesion-coupling 1건 완화 | `ProductSellerService.updateProduct()` 73줄 → 약 55줄, 버전 판정·전이를 `ProductVersionChangePolicy`/`ProductVersionTransitionService`로 분리(완전 해소는 아님) |
+| 신규 유입 없음 | 이번 PR이 새로 만든 duplication-semantic(presign 헬퍼 중복)·dead-code(설정 필드)·integration-robustness(인덱스 부재) 결함은 발견 즉시 같은 PR 안에서 수정 완료 |
+| 비대 클래스 | 5로 동일(08-11과 같음, `ProductSellerService`는 포함 안 됨) |
+
+08-11이 지적한 나머지 20개 Medium·6개 Low는 이번 PR 범위(#722/#723) 밖이라 그대로 남았다 —
+`ProductQueryService` 비대·CQS 위반, ES alias 취약점·`size(10000)` 페이지네이션 부재·
+`QueryEmbeddingCache` single-flight 부재·S3/ES 클라이언트 timeout 미설정, Kafka 이벤트
+파싱/설정 중복, 응답 DTO 포지셔널 생성자, `ProductType` 분기 4곳 분산 등. 로드맵에 이미
+I-2(PR5)·I-3(PR7)·I-5(PR7)·I-7(PR6)로 계획된 것도 있고, 계획에 없던 것은 이번에 **I-10(PR8)**
+으로 새로 정리했다.
+
+## 카테고리별 발견
+
+### exception-discipline (Medium 2)
+
+- Medium · `ProductQueryService.java:66` — ES 조회 실패를 `catch (RuntimeException e)`로
+  광범위하게 감싸 RDB 폴백. 프로그래밍 오류까지 "ES 실패, RDB 폴백"으로 묻힐 수 있다.
+- Medium · `ProductInspectionResultHandler.java:40`, `ProductInspectionResultConsumer.java` —
+  "이미 처리된 이벤트" 판별이 범용 `IllegalStateException` catch에 의존한다. 나중에 같은
+  타입의 다른 실패가 추가되면 조용히 중복으로 오판될 수 있다.
+
+### dead-code (Medium 4 · Low 1)
+
+- Medium · `ProductListItemResponse.originalAmount`·`ProductDetailResponse.features`·
+  `Product.badge` — 셋 다 항상 null/empty.
+- Medium · `ProductFamily.members()`·`mostRecentSuperseded()`·`hasEverBeenOnSale()` — main
+  코드 어디서도 안 쓰이거나 테스트에서만 호출된다.
+- Low · `ProductExceptionHandler`의 `HttpServletRequest request` 파라미터 미사용(2곳).
+
+### duplication-semantic (Medium 4 · Low 4)
+
+- Medium · `EventMessage<JsonNode>` 파싱이 `OrderEventConsumer`·`ProductInspectionResultConsumer`·
+  검색 이벤트 컨슈머 3곳에 거의 동일하게 중복(Jackson 버전도 혼재).
+- Medium · Kafka `ConsumerFactory`/`ContainerFactory`/`ErrorHandler` 설정이 소비자별로 3세트
+  반복.
+- Medium · gRPC snapshot 빌더 조립 로직 중복 — order-service 소비자 전환 완료까지 유지하기로
+  이미 결정된 의도된 과도기 상태(`product-api.md`에 명시).
+- Medium · presign null-safe 래퍼가 `ProductQueryService`·`PurchasedProductQueryService`·
+  `ProductGrpcService` 3곳에 중복. 이번 PR에서 `ObjectStorageGateway.presignIfPresent()`로
+  뽑아 `ProductSellerService`·`ProductInspectionRequestPublisher` 2곳은 정리했지만(baseline
+  대비 오히려 감소), 나머지 3곳은 이번 PR 파일 경계 밖이라 남았다.
+- Low · JPQL 프로젝션 중복(`findPublicProducts`↔`findProjectionsByIds`, 구조적 제약에
+  가까움), `ProductContent(...)` 12인자 조립 반복, 위시리스트/주문 조회 엔드포인트 완전 동일,
+  SHA-256 해싱 로직이 `ProductContentHash`·`EmbeddingSource` 두 곳에 거의 동일하게 존재.
+
+### diagnosability (Medium 1)
+
+- Medium · `ProductExceptionHandler`의 `IllegalStateException`→409 매핑이 ES 인프라 장애까지
+  같은 상태로 위장시킨다. `Product.java` 도메인 순수 예외 부재와 얽힌 문제라 과거 스냅샷에서도
+  "의도 미확인" 설계 질문으로 남아 있었다.
+
+### integration-robustness (Medium 4)
+
+- Medium · ES `existsAlias(ALIAS)`만 검사 — rogue index가 alias 이름을 차지하면 무방비
+  (실제로 겪은 장애).
+- Medium · 색인 대상 조회 `size(10000)` 고정, 페이지네이션 없음.
+- Medium · `QueryEmbeddingCache`가 공용 ForkJoinPool 사용, 동시 동일 요청에 대한 single-flight
+  없음.
+- Medium · S3/ES 클라이언트에 명시적 호출 타임아웃 없음.
+- (해소) Kafka 발행 실패 미관측, ES bulk 부분 실패 미검사 — 둘 다 이번에 해소 확인.
+
+### value-object-design (Medium 2)
+
+- Medium · `ProductDetailResponse`(27필드)·`ProductListItemResponse`(15필드) 포지셔널 record
+  생성자.
+- Medium · `TempFilePromoter`가 호출부가 채우는 출력 파라미터(`List<String>`) 2개를 받는다.
+
+### polymorphism-opportunity (Medium 1)
+
+- Medium · `ProductType`에 따라 핵심 산출물 필드를 판단하는 분기가 `ProductContent.
+  validateTypeFields`·`Product.determineVersionType`·`ProductGrpcService.resolveDeliverable`·
+  `PurchasedProductQueryService.buildResponse` 4곳에 흩어져 있다.
+
+### cohesion-coupling (Medium 2)
+
+- Medium · `ProductQueryService`(311 LOC·19메서드) — 검색·매핑·URL 해석·버전 이력 조립을 한
+  클래스에 담는다. `getProduct()`의 CQS 위반(조회 중 save 호출), `getProductsByIds()`의 N+1도
+  함께 있다.
+- Medium · `ProductSellerService.updateProduct()` — 이번 PR로 73줄에서 약 55줄로 줄고 버전
+  판정·전이가 협력 객체로 빠졌지만, 여전히 유형 검증·상태 3-way 분기·family 조회·정책/전이
+  호출·가격변경 발행을 한 메서드가 오케스트레이션한다.
+
+### http-semantics (Low 1)
+
+- Low · `FileUploadController`의 업로드 URL 생성 엔드포인트에 `@ResponseStatus(CREATED)`가
+  없어 기본 200을 반환한다.
+
+## 개선된 항목 (08-11 대비)
+
+- **integration-robustness High 1건 해소** — `ProductEventProducer`의 Kafka send future
+  완료를 관측한다(성공 debug/실패 error 로그, payload 제외).
+- **integration-robustness High 1건 해소(병행)** — ES bulk 응답의 `errors()`/item별
+  `error()` 검사가 도입됨.
+- **exception-discipline High 1건 해소** — `ProductSellerService.getMyProducts()`의
+  `family에 대표 row 없음` 케이스가 `IllegalStateException` 대신 `ProductException
+  (PRODUCT_INVALID_STATUS)`을 던진다.
+- **layer-separation Medium 1건 해소** — `ProductEventPublisher` 포트 도입, `ProductSellerService`가
+  구체 클래스 대신 포트에 의존.
+- **cohesion-coupling 1건 완화** — `ProductSellerService.updateProduct()` 73→약 55줄,
+  버전 판정(`ProductVersionChangePolicy`)·전이(`ProductVersionTransitionService`) 분리.
+- **duplication-semantic 부분 개선** — presign 헬퍼 중복 5곳 중 2곳(`ProductSellerService`,
+  신규 `ProductInspectionRequestPublisher`) 해소, `ObjectStorageGateway.presignIfPresent()`로
+  단일화.
+
+## 한계
+
+- 정적 스냅샷이다. 빌드·테스트 실행 결과는 별도로 `:product-service:test` 전체 통과를
+  확인했지만, 런타임 동작·인덱스·쿼리 성능은 이 스냅샷 대상이 아니다.
+- 서비스 단위 측정이라 상대 서비스 코드는 호출자 존재 확인 용도로만 참조했다.
+- 테스트 코드는 평가하지 않는다(억지 테스트 금지 원칙).
+- `Product.java` 도메인 순수 예외 부재는 이번에도 "의도 미확인"으로 남겨 그 자체를 점수에
+  넣지 않았다 — 파생되는 구체적 위험(검수 컨슈머의 예외-타입 의존 제어 흐름, ES 장애의
+  409 위장)만 각 카테고리에서 별도로 셌다.
+- `ProductQueryService`의 CQS 위반·N+1은 서술만 하고 카운트하지 않았다(08-05 스냅샷부터
+  이어진 방식, 추세 비교 일관성을 위해 유지).
