@@ -20,16 +20,38 @@ function Delta({ diff, downIsGood = true, title }: { diff: number; downIsGood?: 
   )
 }
 
-/** 스냅샷 히스토리 목록의 한 줄 요약. High 건수가 바뀌었으면 그것부터, 아니면 총 발견 건수 증감을 알린다. */
+/** 산식 v3 가중치. 히스토리의 점수 분해 표시에 쓴다 — 산식을 올리면 여기도 함께 고친다. */
+const SCORE_WEIGHTS = { high: 8, medium: 1, low: 0.5, oversized: 1, longMethod: 1 } as const
+
+function signed(n: number): string {
+  const v = Number.isInteger(n) ? String(n) : n.toFixed(1)
+  return n > 0 ? `+${v}` : v
+}
+
+/**
+ * 직전 스냅샷 대비 점수 변화를 항목별로 분해한다. High 변화만 보여주면 다른 항목이 함께
+ * 움직인 구간에서 "High 1건 = −14점"처럼 잘못 읽히므로, 점수를 움직인 항목을 전부 나열한다.
+ */
 function historyNote(entry: QualityEntry, prevEntry: QualityEntry | undefined): string {
   if (!prevEntry) return '최초 측정'
   const curr = severityTotals(entry)
   const prev = severityTotals(prevEntry)
-  const highDiff = curr.high - prev.high
-  if (highDiff !== 0) return `High ${Math.abs(highDiff)}건 ${highDiff > 0 ? '신규 유입' : '해소'}`
-  const totalDiff = curr.high + curr.medium + curr.low - (prev.high + prev.medium + prev.low)
-  if (totalDiff !== 0) return `위반 ${Math.abs(totalDiff)}건 ${totalDiff > 0 ? '증가' : '감소'}`
-  return '위반 건수 변화 없음'
+  const parts: string[] = []
+  const add = (label: string, diff: number, weight: number) => {
+    if (diff === 0) return
+    parts.push(`${label} ${signed(diff)}건 (${signed(-diff * weight)})`)
+  }
+  add('High', curr.high - prev.high, SCORE_WEIGHTS.high)
+  add('Medium', curr.medium - prev.medium, SCORE_WEIGHTS.medium)
+  add('Low', curr.low - prev.low, SCORE_WEIGHTS.low)
+  add('비대', entry.metrics.oversizedClasses - prevEntry.metrics.oversizedClasses, SCORE_WEIGHTS.oversized)
+  // longMethods는 v2에서 추가된 항목이라 이전 스냅샷에는 없을 수 있다.
+  add('긴메서드', (entry.metrics.longMethods ?? 0) - (prevEntry.metrics.longMethods ?? 0), SCORE_WEIGHTS.longMethod)
+  // 중복률은 3% 초과분만 감점된다. 초과 구간에 들어간 적이 없어도 합계가 어긋나지 않도록 함께 계산한다.
+  const dupPenalty = (pct: number) => Math.max(0, Math.ceil(pct - 3))
+  const dupDiff = dupPenalty(entry.metrics.duplicationPct) - dupPenalty(prevEntry.metrics.duplicationPct)
+  if (dupDiff !== 0) parts.push(`중복률 ${signed(dupDiff)}%p (${signed(-dupDiff)})`)
+  return parts.length > 0 ? parts.join(' · ') : '변화 없음'
 }
 
 export function QualityDashboard({
@@ -145,7 +167,7 @@ export function QualityDashboard({
               <li key={entry.slug}>
                 <Link
                   href={`/quality/${entry.slug}`}
-                  className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-secondary/50"
+                  className="flex flex-col gap-1 px-4 py-3 transition-colors hover:bg-secondary/50 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                 >
                   <div className="flex items-center gap-3">
                     <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/40" />
@@ -155,7 +177,9 @@ export function QualityDashboard({
                       <span className="font-mono text-xs text-muted-foreground">최초 측정</span>
                     )}
                   </div>
-                  <span className="text-xs text-muted-foreground">{note}</span>
+                  <span className="pl-[1.125rem] font-mono text-xs text-muted-foreground sm:pl-0 sm:text-right">
+                    {note}
+                  </span>
                 </Link>
               </li>
             )
