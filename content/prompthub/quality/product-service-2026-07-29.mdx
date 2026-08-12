@@ -2,8 +2,11 @@
 title: "product-service 품질 스냅샷 (2026-07-29)"
 date: "2026-07-29"
 scope: "product-service"
-score: 61.0
-formulaVersion: 2
+score: 57.5
+formulaVersion: 3
+commit: "f21aef19"
+scorePublished: 61.0
+correctionNote: "v3 재계산. 최초 게시 61.0은 자기 frontmatter 값으로 검산해도 63.0이 나오는 산술 오류였고 루브릭도 좁게 적용됐다. 커밋 f21aef19 소스 재확인 결과 08-05가 지적한 20건이 이 시점에 전부 존재했다(대상 파일 23개 중 14개는 바이트 단위 무변경). 같은 루브릭으로 맞춘 뒤 v3 산식으로 재계산했다."
 metrics:
   locTotal: 4726
   files: 110
@@ -16,17 +19,17 @@ findings:
   - { category: "entity-encapsulation", high: 0, medium: 0, low: 0 }
   - { category: "http-semantics", high: 0, medium: 0, low: 0 }
   - { category: "logging-quality", high: 0, medium: 0, low: 0 }
-  - { category: "exception-discipline", high: 0, medium: 0, low: 0 }
+  - { category: "exception-discipline", high: 0, medium: 1, low: 0 }
   - { category: "layer-separation", high: 0, medium: 2, low: 0 }
-  - { category: "dead-code", high: 0, medium: 3, low: 1 }
-  - { category: "duplication-semantic", high: 0, medium: 3, low: 2 }
-  - { category: "diagnosability", high: 0, medium: 0, low: 1 }
-  - { category: "integration-robustness", high: 1, medium: 0, low: 0 }
+  - { category: "dead-code", high: 0, medium: 4, low: 1 }
+  - { category: "duplication-semantic", high: 0, medium: 4, low: 3 }
+  - { category: "diagnosability", high: 0, medium: 1, low: 1 }
+  - { category: "integration-robustness", high: 2, medium: 3, low: 0 }
   - { category: "service-boundary", high: 0, medium: 0, low: 0 }
   - { category: "value-object-design", high: 0, medium: 2, low: 0 }
   - { category: "polymorphism-opportunity", high: 0, medium: 1, low: 0 }
   - { category: "cohesion-coupling", high: 0, medium: 1, low: 0 }
-summary: "v1(63.5점) 대비 실제 위반은 여럿 해소됐지만(gRPC 예외 삼킴·N+1·SellerClient 데드라인 미설정·죽은 엔드포인트 전부 제거), v2 신규 카테고리 3개의 첫 반영과 Kafka 발행 실패 무로깅(High)이 남아 61.0점."
+summary: "07-20(71.5점) 대비 실제 위반은 여럿 해소됐지만(gRPC 예외 삼킴·N+1·SellerClient 데드라인 미설정·죽은 엔드포인트 전부 제거), v2 신규 카테고리 3개의 첫 반영과 Kafka 발행 실패 무로깅(High)이 남아 57.5점."
 tags: ["code-quality", "refactoring", "spring", "msa", "elasticsearch"]
 draft: false
 ---
@@ -40,9 +43,17 @@ product-service `src/main/java` — 110개 파일, 4,726 LOC(주석·공백 제�
 
 ## 요약
 
-**61.0점** (High 1 · Medium 14 · Low 4 · 비대 클래스 4 · 중복률 1.85%로 기준 3% 이내).
+**57.5점** (High 2 · Medium 20 · Low 5 · 비대 클래스 4 · 중복률 1.85%로 기준 3% 이내).
 
-**v1(63.5점, 산식 v1) 대비 직접 비교는 안 된다** — v2는 산식에 `−longMethods` 항이 추가됐고
+> 최초 게시 당시에는 61.0점이었으나 두 가지 오류가 있었다. 첫째, 자기 frontmatter 값으로
+> 검산해도 63.0이 나오는 산술 오류였다. 둘째, 루브릭을 좁게 적용해 Medium을 과소 계상했다 —
+> 커밋 `f21aef19` 소스를 다시 읽은 결과 다음 회차(08-05)가 지적한 20건이 이 시점에 전부
+> 이미 존재했다(대상 파일 23개 중 14개는 08-05까지 바이트 단위로 무변경). 루브릭을 맞추고
+> 산식 v3로 재계산한 값이 57.5다.
+
+**07-20(71.5점)과는 같은 산식 v3·같은 루브릭으로 직접 비교 가능**하며 −14.0점이다. 낙폭은
+거의 전부 이 9일 사이에 얹은 Elasticsearch·벡터 검색 코드에서 나왔다(LOC 3340→4726).
+(아래는 최초 게시 당시의 서술이며, 산식 v2 기준이라 현재 점수와 맞지 않는다.) v2는 산식에 `−longMethods` 항이 추가됐고
 카테고리가 3개(값객체 설계·다형성 기회·응집도/결합도) 늘었다. 이번 스냅샷은 그 3개 카테고리에서
 Medium 4건이 처음 잡혔는데(8점 상당), 이는 코드가 나빠진 게 아니라 v2에서 새로 보기 시작한
 관점이 처음 반영된 것이다.

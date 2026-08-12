@@ -2,8 +2,11 @@
 title: "product-service 품질 스냅샷 (2026-08-11)"
 date: "2026-08-11"
 scope: "product-service"
-score: 35.0
-formulaVersion: 2
+score: 46.0
+formulaVersion: 3
+commit: "3041ac98"
+scorePublished: 35.0
+correctionNote: "v3 재계산. 발견 내용은 그대로이며 산식만 v2에서 v3로 바뀌었다."
 metrics:
   locTotal: 5357
   files: 120
@@ -26,7 +29,7 @@ findings:
   - { category: "value-object-design", high: 0, medium: 2, low: 0 }
   - { category: "polymorphism-opportunity", high: 0, medium: 1, low: 0 }
   - { category: "cohesion-coupling", high: 0, medium: 2, low: 0 }
-summary: "35.0점 (08-05 baseline 41.5 대비 −6.5, 같은 v2 산식으로 직접 비교 가능). 08-05가 지적한 20건 중 19건이 파일:라인 단위로 그대로 확인됐다 — 해소된 건 extractKey 중복 하나뿐(그마저 PR2/PR3가 아니라 그 전 PR1의 업로드 계약 정리 덕). 하락분은 대부분 PR2·PR3(상품 수정 MAJOR/PATCH 자동 판정)에서 새로 유입된 위반이다: 애플리케이션 계층의 도메인 예외 미준수(High), 이벤트 컨슈머의 예외-타입 의존 제어 흐름·updateProduct() 응집도 저하·TempFilePromoter 출력 파라미터·S3/ES 타임아웃 미설정."
+summary: "46.0점 (08-05 baseline 55.5 대비 −9.5, 같은 v3 산식으로 직접 비교 가능). 08-05가 지적한 20건 중 19건이 파일:라인 단위로 그대로 확인됐다 — 해소된 건 extractKey 중복 하나뿐(그마저 PR2/PR3가 아니라 그 전 PR1의 업로드 계약 정리 덕). 하락분은 대부분 PR2·PR3(상품 수정 MAJOR/PATCH 자동 판정)에서 새로 유입된 위반이다: 애플리케이션 계층의 도메인 예외 미준수(High), 이벤트 컨슈머의 예외-타입 의존 제어 흐름·updateProduct() 응집도 저하·TempFilePromoter 출력 파라미터·S3/ES 타임아웃 미설정."
 tags: ["code-quality", "refactoring", "spring", "msa", "elasticsearch", "kafka"]
 draft: false
 ---
@@ -36,15 +39,15 @@ draft: false
 product-service `src/main/java` — 120개 파일, 5,357 LOC(주석·공백 제외, 테스트 제외).
 브랜치 `feat/#720-auto-version-type-determination`, 커밋 `cfb06a59` 기준(PR2 #719·PR3 #721
 머지·배포 완료 이후). 정량 메트릭은 scan-metrics v2, 정성 판정은 고정 루브릭 14개
-카테고리로 측정했다. **08-05 스냅샷(41.5점, 이 리팩토링 사이클의 baseline)의 findings 20건
+카테고리로 측정했다. **08-05 스냅샷(55.5점, 이 리팩토링 사이클의 baseline)의 findings 20건
 전부를 파일:라인 단위로 재확인**해 존속·해소·형태변경을 구분했다.
 
 ## 요약
 
-**35.0점** (High 3 · Medium 20 · Low 6 · 비대 클래스 5 · 긴 메서드 2 · 중복률 1.48%로 기준
-3% 이내). 계산은 `100 − 5×3 − 2×20 − 0.5×6 − 5 − 2 − 0 = 35.0`.
+**46.0점** (High 3 · Medium 20 · Low 6 · 비대 클래스 5 · 긴 메서드 2 · 중복률 1.48%로 기준
+3% 이내). 계산은 `100 − 8×3 − 1×20 − 0.5×6 − 5 − 2 − 0 = 46.0` (산식 v3).
 
-**08-05(41.5점, 같은 산식 v2)와 직접 비교 가능**하며 −6.5점이다.
+**08-05(55.5점, 같은 산식 v3)와 직접 비교 가능**하며 −9.5점이다.
 
 | 구분 | 내역 |
 | --- | --- |

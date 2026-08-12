@@ -2,8 +2,11 @@
 title: "product-service 품질 스냅샷 (2026-07-20)"
 date: "2026-07-20"
 scope: "product-service"
-score: 63.5
-formulaVersion: 1
+score: 71.5
+formulaVersion: 3
+commit: "ffa8cbbf"
+scorePublished: 63.5
+correctionNote: "v3 재계산. 최초 게시 63.5는 v1(카테고리 11개) 기준이었다. 커밋 ffa8cbbf 소스를 다시 읽어 v2 신규 3개 카테고리를 판정(값객체 Medium 2건 확인, 다형성·응집결합은 해당 코드 부재로 0건)하고 v3 산식으로 재계산했다."
 metrics:
   locTotal: 3340
   files: 85
@@ -22,6 +25,9 @@ findings:
   - { category: "diagnosability", high: 1, medium: 1, low: 1 }
   - { category: "integration-robustness", high: 0, medium: 3, low: 0 }
   - { category: "service-boundary", high: 0, medium: 0, low: 0 }
+  - { category: "value-object-design", high: 0, medium: 2, low: 0 }
+  - { category: "polymorphism-opportunity", high: 0, medium: 0, low: 0 }
+  - { category: "cohesion-coupling", high: 0, medium: 0, low: 0 }
 summary: "레이어 구조·Kafka 컨벤션·상태 전이 가드는 탄탄하나, 레이어 위반 4건과 서비스 간 통신 견고성(데드라인 미설정·전송 실패 무로깅·N+1 원격 호출)이 주요 개선 대상."
 tags: ["code-quality", "refactoring", "spring", "msa"]
 draft: false
@@ -36,7 +42,11 @@ product-service `src/main/java` — 85개 파일, 3,340 LOC (주석·공백 제�
 
 ## 요약
 
-첫 스냅샷. **63.5점** (High 1 · Medium 13 · Low 5 · 비대 클래스 3 · 중복률 1.35%로 기준 3% 이내).
+첫 스냅샷. **71.5점** (High 1 · Medium 15 · Low 5 · 비대 클래스 3 · 중복률 1.35%로 기준 3% 이내).
+
+> 최초 게시 당시에는 63.5점(산식 v1, 카테고리 11개)이었다. 이후 커밋 `ffa8cbbf` 소스를
+> 다시 읽어 v2에서 추가된 3개 카테고리를 판정하고(값객체 Medium 2건 확인, 다형성·응집결합은
+> 해당 코드 부재로 0건), 산식 v3로 재계산한 값이다.
 
 기본기가 좋은 코드베이스다. 컨트롤러 6개 중 5개가 위임만 하는 얇은 구조이고, `Product`
 엔티티는 public setter 없이 상태 전이 가드(`approve`/`reject`/`supersede` 등)를 갖춘 리치

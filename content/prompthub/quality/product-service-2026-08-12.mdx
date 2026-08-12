@@ -2,8 +2,11 @@
 title: "product-service 품질 스냅샷 (2026-08-12)"
 date: "2026-08-12"
 scope: "product-service"
-score: 51.0
-formulaVersion: 2
+score: 71.0
+formulaVersion: 3
+commit: "8c74b2a9"
+scorePublished: 51.0
+correctionNote: "v3 재계산. 발견 내용은 그대로이며 산식만 v2에서 v3로 바뀌었다."
 metrics:
   locTotal: 5640
   files: 127
@@ -26,7 +29,7 @@ findings:
   - { category: "value-object-design", high: 0, medium: 2, low: 0 }
   - { category: "polymorphism-opportunity", high: 0, medium: 1, low: 0 }
   - { category: "cohesion-coupling", high: 0, medium: 2, low: 0 }
-summary: "51.0점 (08-11 baseline 35.0 대비 +16.0). High 3건 전부 해소(Kafka 발행 실패 관측, ProductSellerService의 원시 IllegalStateException 교체, ES bulk 부분 실패 검사 — 마지막 건은 이 PR이 아니라 병행 작업으로 해소된 것을 재확인). ProductEventPublisher 포트 도입으로 layer-separation 위반도 해소. 나머지 20개 Medium·6개 Low는 대부분 이번 PR 범위 밖(ProductQueryService 비대, ES alias·페이지네이션·timeout, presign/이벤트파싱 중복 등)이라 그대로 남았고, 로드맵에 I-10(PR8)으로 별도 계획해뒀다."
+summary: "71.0점 (08-11 baseline 46.0 대비 +25.0). High 3건 전부 해소(Kafka 발행 실패 관측, ProductSellerService의 원시 IllegalStateException 교체, ES bulk 부분 실패 검사 — 마지막 건은 이 PR이 아니라 병행 작업으로 해소된 것을 재확인). ProductEventPublisher 포트 도입으로 layer-separation 위반도 해소. 나머지 20개 Medium·6개 Low는 대부분 이번 PR 범위 밖(ProductQueryService 비대, ES alias·페이지네이션·timeout, presign/이벤트파싱 중복 등)이라 그대로 남았고, 로드맵에 I-10(PR8)으로 별도 계획해뒀다."
 tags: ["code-quality", "refactoring", "spring", "msa", "kafka", "clean-architecture"]
 draft: false
 ---
@@ -36,15 +39,15 @@ draft: false
 product-service `src/main/java` — 127개 파일, 5,640 LOC. `develop` 브랜치 커밋 `8c74b2a9`
 기준(PR #722 Kafka 검수 요청 발행 관측·재발행 + ProductSellerService 리팩토링, PR #723
 패키지 기능별 재구성, 둘 다 머지 완료). 정량 메트릭은 scan-metrics v2, 정성 판정은 고정
-루브릭 14개 카테고리로 측정했다. **08-11 스냅샷(35.0점)의 findings 29건을 코드로 재대조**해
+루브릭 14개 카테고리로 측정했다. **08-11 스냅샷(46.0점)의 findings 29건을 코드로 재대조**해
 해소·존속·변형을 구분했다.
 
 ## 요약
 
-**51.0점** (High 0 · Medium 20 · Low 6 · 비대 클래스 5 · 긴 메서드 1 · 중복률 1.53%로 기준
-3% 이내). 계산은 `100 − 0 − 2×20 − 0.5×6 − 5 − 1 − 0 = 51.0`.
+**71.0점** (High 0 · Medium 20 · Low 6 · 비대 클래스 5 · 긴 메서드 1 · 중복률 1.53%로 기준
+3% 이내). 계산은 `100 − 0 − 1×20 − 0.5×6 − 5 − 1 − 0 = 71.0` (산식 v3).
 
-**08-11(35.0점, 같은 산식 v2)과 직접 비교 가능**하며 **+16.0점**이다.
+**08-11(46.0점, 같은 산식 v3)과 직접 비교 가능**하며 **+25.0점**이다.
 
 | 구분 | 내역 |
 | --- | --- |

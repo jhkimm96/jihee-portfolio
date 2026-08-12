@@ -2,8 +2,11 @@
 title: "product-service 품질 스냅샷 (2026-08-05)"
 date: "2026-08-05"
 scope: "product-service"
-score: 41.5
-formulaVersion: 2
+score: 55.5
+formulaVersion: 3
+commit: "9faed054"
+scorePublished: 41.5
+correctionNote: "v3 재계산. 발견 내용은 그대로이며 산식만 v2에서 v3로 바뀌었다."
 metrics:
   locTotal: 5014
   files: 112
@@ -26,7 +29,7 @@ findings:
   - { category: "value-object-design", high: 0, medium: 2, low: 0 }
   - { category: "polymorphism-opportunity", high: 0, medium: 1, low: 0 }
   - { category: "cohesion-coupling", high: 0, medium: 1, low: 0 }
-summary: "리팩토링 사이클을 시작하기 전 바닥을 기록한 baseline. 41.5점으로 이전(61.0) 대비 19.5점 낮은데, 코드가 나빠져서 깎인 건 2점뿐이고 나머지는 이번에 더 넓게 훑어 새로 잡힌 High 1·Medium 7·Low 1이다. 07-29에 지적한 18건은 하나도 해소되지 않았다."
+summary: "리팩토링 사이클을 시작하기 전 바닥을 기록한 baseline. 55.5점으로 이전(57.5) 대비 2점 낮은데, 그 2점은 전부 비대 클래스 2개 증가분이고 나머지는 이번에 더 넓게 훑어 새로 잡힌 High 1·Medium 7·Low 1이다. 07-29에 지적한 18건은 하나도 해소되지 않았다."
 tags: ["code-quality", "refactoring", "spring", "msa", "elasticsearch", "kafka"]
 draft: false
 ---
@@ -44,23 +47,25 @@ product-service `src/main/java` — 112개 파일, 5,014 LOC(주석·공백 제�
 
 ## 요약
 
-**41.5점** (High 2 · Medium 20 · Low 5 · 비대 클래스 6 · 중복률 1.62%로 기준 3% 이내).
+**55.5점** (High 2 · Medium 20 · Low 5 · 비대 클래스 6 · 중복률 1.62%로 기준 3% 이내).
 
-계산은 `100 − 5×2 − 2×20 − 0.5×5 − 6 = 41.5`.
+계산은 `100 − 8×2 − 1×20 − 0.5×5 − 6 = 55.5` (산식 v3).
 
-이전 스냅샷(2026-07-29, 61.0점)보다 19.5점 낮다. **그런데 코드가 나빠져서 깎인 건 2점이다.**
+이전 스냅샷(2026-07-29, 57.5점)보다 2.0점 낮다. **발견 20건은 완전히 동일하고, 비대 클래스가
+`ProductSellerService`·`ProductJpaRepository` 2개 늘어난 것이 차이의 전부다.**
 분해하면 이렇다.
 
 | 구분 | 내역 | 점수 |
 | --- | --- | --- |
 | 코드 변경으로 악화 | 비대 클래스 4 → 6 | −2 |
 | 이전 지적 미해소 | High 1 · Medium 13 · Low 4가 **그대로** | (유지) |
-| 이번에 새로 발견 | High 1 · Medium 7 · Low 1 | −17.5 |
-| 계산 정정 | 이전 회차의 산술 오류 보정 | +2 |
+| 이번에 새로 **발견** | High 1 · Medium 7 · Low 1 — 코드는 그대로였고 이전 회차가 놓쳤던 것 | (07-29에 소급 반영됨) |
 
-이전 회차는 frontmatter의 Medium 합이 13인데 본문과 점수 계산에는 14를 썼다. 산식대로면
-61.0이 아니라 63.0이었어야 한다. 추세선에 이미 2점 오차가 껴 있었다는 뜻이라, **이번
-스냅샷(41.5)을 앞으로의 기준선으로 삼는다.**
+이전 회차는 frontmatter의 Medium 합이 13인데 본문과 점수 계산에는 14를 썼고, 루브릭도 좁게
+적용했다. 이 두 문제는 이후 07-29 스냅샷을 측정 커밋(`f21aef19`) 소스로 재측정하면서
+정정했다(61.0 → 57.5, 산식 v3). 정정 후에는 두 회차의 발견이 High 2 · Medium 20 · Low 5로
+동일하고, 차이는 비대 클래스 2개(−2점)뿐이다. **이번 스냅샷(55.5)을 앞으로의 기준선으로
+삼는다.**
 
 새로 비대 판정을 받은 둘은 `ProductSellerService`(242 LOC·17메서드)와
 `ProductJpaRepository`(307 LOC)다. 그 사이 작업(#689 검색 오탐 수정, #698 추천 서비스 분리,
@@ -260,7 +265,7 @@ Elasticsearch의 bulk API는 여러 문서를 한 요청에 담아 보낸다. �
 분리), #699(승인 시 구버전 전환 누락 수정), #632(본문 복제 탐지 해시). 구조 부채는 손대지
 않은 채 코드만 288 LOC 늘었고, 그 결과 비대 클래스가 둘 더 생겼다.
 
-이 스냅샷이 baseline인 이유가 여기 있다. 다음 회차부터는 이 41.5를 기준으로 항목별 해소분이
+이 스냅샷이 baseline인 이유가 여기 있다. 다음 회차부터는 이 55.5를 기준으로 항목별 해소분이
 쌓이는지 본다.
 
 ## 확인이 필요한 지점
