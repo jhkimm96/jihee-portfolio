@@ -1,0 +1,141 @@
+---
+title: "product-service 품질 스냅샷 (2026-08-12, PR #730 반영)"
+date: "2026-08-12"
+scope: "product-service"
+score: 73.0
+formulaVersion: 3
+commit: "7a95d74f"
+metrics:
+  locTotal: 5549
+  files: 122
+  duplicationBlocks: 13
+  duplicationPct: 1.55
+  oversizedClasses: 5
+  longMethods: 1
+findings:
+  - { category: "controller-thin", high: 0, medium: 0, low: 0 }
+  - { category: "entity-encapsulation", high: 0, medium: 0, low: 0 }
+  - { category: "http-semantics", high: 0, medium: 0, low: 1 }
+  - { category: "logging-quality", high: 0, medium: 0, low: 0 }
+  - { category: "exception-discipline", high: 0, medium: 2, low: 0 }
+  - { category: "layer-separation", high: 0, medium: 0, low: 0 }
+  - { category: "dead-code", high: 0, medium: 4, low: 1 }
+  - { category: "duplication-semantic", high: 0, medium: 4, low: 4 }
+  - { category: "diagnosability", high: 0, medium: 1, low: 0 }
+  - { category: "integration-robustness", high: 0, medium: 2, low: 0 }
+  - { category: "service-boundary", high: 0, medium: 0, low: 0 }
+  - { category: "value-object-design", high: 0, medium: 2, low: 0 }
+  - { category: "polymorphism-opportunity", high: 0, medium: 1, low: 0 }
+  - { category: "cohesion-coupling", high: 0, medium: 2, low: 0 }
+summary: "73.0점 (같은 날 이전 스냅샷 71.0 대비 +2.0, PR #730/#729 반영). integration-robustness Medium이 4→2로 줄었다 — ES alias가 rogue index에 점유당해도 무방비였던 문제와 색인 대상 조회의 size(10000) 하드캡을 이번 PR이 정확히 그 2건만 고쳤다. 나머지 12개 카테고리는 이번 PR 범위 밖이라 그대로(dead-code 4·duplication-semantic 4는 개수 불변이나 중복 사이트 수가 일부 3→2로 줄어 완화됨)."
+tags: ["code-quality", "elasticsearch", "reliability", "clean-architecture", "spring"]
+draft: false
+---
+
+## 범위
+
+product-service `src/main/java` — 122개 파일, 5,549 LOC. `develop` 브랜치 커밋 `7a95d74f`
+(PR #730/#729, 로드맵 I-2 — ES 색인 신뢰성 3종: soft-delete 반영 증분 감지·같은 사이클 임베딩
+반영·bulk chunking/retry·PIT 페이지네이션·alias·index 무결성 검사, 검색용 Kafka 이벤트 정리)
+기준. 직전 스냅샷(같은 날, 커밋 `8c74b2a9` — PR #730 **머지 전**)과 정확히 이 PR이 만든
+차분만 비교했다.
+
+<details>
+<summary><b>🔍 "이 PR이 만든 차분만 비교"는 무슨 뜻인가</b></summary>
+
+두 스냅샷이 같은 날 찍혔다. 하나는 PR #730이 머지되기 직전 커밋(`8c74b2a9`) 기준, 이 스냅샷은
+머지된 직후(`7a95d74f`) 기준이다. 그래서 두 스냅샷의 점수 차이는 다른 작업이 섞이지 않고
+오직 PR #730 하나가 만든 변화만 반영한다 — 보통 스냅샷 사이 며칠~몇 주가 껴서 여러 PR이
+누적되는 것과 다르다.
+
+</details>
+
+## 요약
+
+**73.0점** (직전 71.0 대비 **+2.0**). `100 − 0 − 1×18 − 0.5×6 − 5 − 1 − 0 = 73.0`.
+
+PR #730이 겨냥한 건 정확히 2건 — `existsAlias(ALIAS)`만 보던 검사를 alias 대상 검증 +
+rogue index(같은 이름의 실제 index가 alias 자리를 차지)가드 + 매핑/embedding dims 검증으로
+확장했고, 색인 대상 조회의 `size(10000)` 하드캡을 PIT(point-in-time) + `search_after`
+페이지네이션으로 제거했다. 이 2건이 그대로 integration-robustness Medium 4→2로 반영됐다.
+
+나머지는 이번 PR 범위 밖이라 개수 자체는 그대로다. 다만 부수 효과로 두 군데 중복이
+완화됐다 — 검색용 Kafka 이벤트 컨슈머(`ProductSearchEventConsumer`)가 삭제되면서
+`EventMessage<JsonNode>` 파싱 중복이 3곳→2곳으로, Kafka `ConsumerFactory`/`ContainerFactory`/
+`ErrorHandler` 3세트 반복도 2세트로 줄었다. 위반 "건수"는 그대로 세지만(같은 패턴이 남아있는
+건 사실이므로), 아래 "개선된 항목"에 완화 사실을 남긴다.
+
+## 카테고리별 발견
+
+<details>
+<summary><b>변경 없는 12개 카테고리 (직전 08-12 스냅샷과 동일 — 펼쳐서 확인)</b></summary>
+
+**exception-discipline (Medium 2)**
+- Medium · `ProductQueryService.java:66` — ES 조회 실패를 `catch (RuntimeException e)`로 광범위하게 감싸 RDB 폴백.
+- Medium · `ProductInspectionResultHandler.java:40` 외 — "이미 처리된 이벤트" 판별이 범용 `IllegalStateException` catch에 의존.
+
+**dead-code (Medium 4 · Low 1)**
+- Medium · `ProductListItemResponse.originalAmount`·`ProductDetailResponse.features`·`Product.badge` — 항상 null/empty.
+- Medium · `ProductFamily.members()`·`mostRecentSuperseded()`·`hasEverBeenOnSale()` — 미사용/테스트 전용.
+- Low · `ProductExceptionHandler`의 `HttpServletRequest request` 파라미터 미사용(2곳).
+- (참고) 이번 PR이 지운 4개 Kafka 이벤트 타입 잔재는 깨끗이 제거됨을 확인 — 새 dead-code 없음.
+
+**duplication-semantic (Medium 4 · Low 4)**
+- Medium · `EventMessage<JsonNode>` 파싱 중복 — **3곳→2곳으로 완화**(`OrderEventConsumer`·`ProductInspectionResultConsumer`만 남음).
+- Medium · Kafka Consumer/Container/ErrorHandler 설정 반복 — **3세트→2세트로 완화**(`KafkaConfig.java` order·ai 두 세트만 남음).
+- Medium · gRPC snapshot 빌더 조립 로직 중복 — order-service 전환 완료까지 유지하기로 이미 결정된 의도된 과도기(불변).
+- Medium · presign null-safe 래퍼 중복(3곳 잔존, 불변).
+- Low · JPQL 프로젝션 중복·`ProductContent` 12인자 조립 반복·위시리스트/주문 조회 완전 동일·SHA-256 해싱 중복 2곳 (모두 불변).
+
+**diagnosability (Medium 1)**
+- Medium · `ProductExceptionHandler`의 `IllegalStateException`→409 매핑이 ES 인프라 장애까지 같은 상태로 위장.
+
+**value-object-design (Medium 2)**
+- Medium · `ProductDetailResponse`(27필드)·`ProductListItemResponse`(15필드) 포지셔널 record.
+- Medium · `TempFilePromoter`가 출력 파라미터(`List<String>`) 2개를 받음.
+
+**polymorphism-opportunity (Medium 1)**
+- Medium · `ProductType` 분기가 `ProductContent.validateTypeFields`·`Product.determineVersionType`·`ProductGrpcService.resolveDeliverable`·`PurchasedProductQueryService.buildResponse` 4곳에 흩어짐.
+
+**cohesion-coupling (Medium 2)**
+- Medium · `ProductQueryService`(311 LOC·19메서드) — 검색·매핑·URL 해석·버전 이력 조립을 한 클래스가 담당. CQS 위반·N+1 동반(불변).
+- Medium · `ProductSellerService.updateProduct()` — 여전히 유형 검증·상태 분기·family 조회·정책/전이 호출·가격변경 발행을 한 메서드가 오케스트레이션.
+
+**http-semantics (Low 1)**
+- Low · `FileUploadController` 업로드 URL 생성 엔드포인트에 `@ResponseStatus(CREATED)` 없음.
+
+**위반 0건**: controller-thin · entity-encapsulation · logging-quality · layer-separation · service-boundary.
+
+</details>
+
+**integration-robustness (Medium 2, 직전 4에서 감소)**
+
+- Medium · `QueryEmbeddingCache`(`product-service/.../QueryEmbeddingCache.java:71`)가 공용 ForkJoinPool로 `CompletableFuture.supplyAsync`를 호출하고, 동시에 같은 미캐시 키워드가 들어와도 in-flight 요청을 합치는 single-flight가 없다. 이번 PR은 이 파일을 건드리지 않았다.
+- Medium · S3(`S3Config.java:14-26`)·ES(`ElasticsearchClientConfig.java`) 클라이언트 모두 명시적 호출 타임아웃(`apiCallTimeout` 등) 미설정. 이번 PR은 `ElasticsearchClientConfig`에 `@EnableConfigurationProperties`만 한 줄 추가했고 타임아웃은 손대지 않았다.
+- (해소) `existsAlias(ALIAS)`만 검사하던 rogue-index 무방비 문제 — `ProductIndexBootstrap`이 alias 대상 검증(`validateAliasTarget`)·같은 이름의 실제 index 선점 차단(`failIfAliasNameTakenByRealIndex`)·매핑/embedding dims 검증(`validateMapping`)을 기동 시점에 강제하도록 재작성됨.
+- (해소) `size(10000)` 하드캡 — `findAllIndexedFamilyRootIds()`가 PIT + `search_after`로 전체 순회하도록 재작성됨(페이지 크기는 `ProductReindexProperties.orphanScanPageSize`로 설정 주입, 기본 1000).
+
+<details>
+<summary><b>🔍 rogue index가 alias 자리를 차지한다는 게 무슨 상황인가</b></summary>
+
+Elasticsearch에서 애플리케이션은 보통 alias(별칭, 예: `products`)를 통해 실제 index(예:
+`products-v1`)를 가리킨다. alias는 나중에 다른 index로 갈아끼울 수 있게 하는 간접 계층이다.
+그런데 alias가 아니라 `products`라는 **이름 그대로의 실제 index**가 먼저 만들어져 있으면,
+그 이름을 alias로 쓸 수 없게 막혀버린다 — 이 프로젝트가 실제로 겪은 장애다. 기존 코드는
+`existsAlias()`만 봐서 이 상황을 구분하지 못했고, 이번 PR이 "그 이름의 실제 index가 이미
+있는지"를 먼저 확인하는 가드를 추가했다.
+
+</details>
+
+## 개선된 항목 (직전 08-12 스냅샷 대비)
+
+- **integration-robustness Medium 2건 해소** — ES alias rogue-index 무가드, 색인 조회 10k 상한. 둘 다 로드맵 I-2/PR5(#729/#730)의 직접 목표였다.
+- **duplication-semantic 2건 완화(해소는 아님)** — 검색용 Kafka 이벤트 컨슈머 삭제의 부수 효과로 `EventMessage<JsonNode>` 파싱 중복이 3곳→2곳, Kafka 컨슈머 설정 세트가 3개→2개로 줄었다. 남은 중복 자체는 여전히 존재해 카운트는 그대로 뒀다.
+- **dead-code 신규 유입 없음** — PR #730이 지운 4개 Kafka 이벤트 타입과 관련 producer/consumer 코드에 잔재(미사용 import·필드·빈 참조)가 없음을 확인.
+
+## 한계
+
+- 정적 스냅샷. 런타임 동작은 이 스냅샷 대상이 아니다(배포 후 실제 검증은 별도로 진행 중).
+- 서비스 단위 측정 — 상대 서비스 코드는 호출자 존재 확인 용도로만 참조.
+- 테스트 코드는 평가하지 않는다.
+- 스캐너의 메서드 카운트 휴리스틱은 인터페이스의 추상 메서드(본문 없이 `;`로 끝나는 선언)를 세지 못한다. `ProductJpaRepository`가 실제로는 약 30개 메서드를 갖고 있지만 스캐너는 8개로 집계한다 — 다만 이 파일은 LOC(330 > 300) 기준만으로도 이미 비대 클래스로 잡히므로 이번 스냅샷의 `oversizedClasses` 집계 자체에는 영향이 없다. 인터페이스형 클래스의 메서드-기준 판정은 매 회차 동일하게 과소 측정되므로 추세 비교엔 지장 없지만, 기록해둔다.
