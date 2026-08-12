@@ -87,6 +87,11 @@ export const qualityFrontmatterSchema = s.object({
   scope: s.string(),
   score: s.number().min(0).max(100),
   formulaVersion: s.number().int().min(1),
+  // 측정 대상 커밋. 재측정·검증 시 소스를 특정하기 위해 기록한다.
+  commit: s.string().optional(),
+  // score는 08-05 기준 루브릭으로 통일한 값. 최초 게시 당시 점수가 달랐다면 scorePublished에 남긴다.
+  scorePublished: s.number().min(0).max(100).optional(),
+  correctionNote: s.string().optional(),
   metrics: s.object({
     locTotal: s.number().int().min(0),
     files: s.number().int().min(0),

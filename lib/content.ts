@@ -284,6 +284,9 @@ export type QualityEntry = {
   date: string
   score: number
   formulaVersion: number
+  commit?: string
+  scorePublished?: number
+  correctionNote?: string
   metrics: QualityMetrics
   findings: QualityFinding[]
   summary?: string

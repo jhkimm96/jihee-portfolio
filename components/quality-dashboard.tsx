@@ -100,7 +100,7 @@ export function QualityDashboard({
             ) : null}
           </div>
           <div className="mt-1 text-xs text-muted-foreground">
-            {latest.date} · 산식 v{latest.formulaVersion}
+            {latest.date} · 산식 v{latest.formulaVersion}{latest.commit ? ` · ${latest.commit}` : ''}
             {mixedFormula ? ' · 이 스코프에 산식 버전이 다른 스냅샷이 섞여 있어 추세 비교에 주의' : ''}
           </div>
         </div>
@@ -117,6 +117,9 @@ export function QualityDashboard({
 
       <section>
         <h2 className="mb-2 font-mono text-sm font-semibold">종합 점수 추세</h2>
+        <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
+          5개 회차를 각 측정 커밋 소스로 재확인해 루브릭 폭을 통일하고, 산식 v3로 다시 계산한 점수입니다. 최초 게시 점수와 정정 사유는 각 스냅샷에 남겼습니다.
+        </p>
         <ScoreTrendChart data={trend.map((e) => ({ date: e.date, score: e.score }))} />
       </section>
 
