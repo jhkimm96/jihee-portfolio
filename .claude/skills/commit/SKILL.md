@@ -25,6 +25,7 @@ git diff --stat
 | `content/{project}/decisions/**` | `decisions` |
 | `content/{project}/reviews/**` | `reviews` |
 | `content/study/**` | `study` |
+| `content/{project}/quality/**` | `quality` |
 | `content/{project}/**` (위 항목 외 프로젝트 자체 콘텐츠/코드) | `{project}` (예: `career-link`, `prompthub`) |
 | `content/profile/**`, `app/(resume\|about)/**` | `profile` |
 | `app/`, `components/`, `lib/` 등 사이트 공통 코드 (nav, layout, 스키마, 빌드 설정 등) | `site` |
