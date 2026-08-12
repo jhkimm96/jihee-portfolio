@@ -20,6 +20,18 @@ function Delta({ diff, downIsGood = true, title }: { diff: number; downIsGood?: 
   )
 }
 
+/** 스냅샷 히스토리 목록의 한 줄 요약. High 건수가 바뀌었으면 그것부터, 아니면 총 발견 건수 증감을 알린다. */
+function historyNote(entry: QualityEntry, prevEntry: QualityEntry | undefined): string {
+  if (!prevEntry) return '최초 측정'
+  const curr = severityTotals(entry)
+  const prev = severityTotals(prevEntry)
+  const highDiff = curr.high - prev.high
+  if (highDiff !== 0) return `High ${Math.abs(highDiff)}건 ${highDiff > 0 ? '신규 유입' : '해소'}`
+  const totalDiff = curr.high + curr.medium + curr.low - (prev.high + prev.medium + prev.low)
+  if (totalDiff !== 0) return `위반 ${Math.abs(totalDiff)}건 ${totalDiff > 0 ? '증가' : '감소'}`
+  return '위반 건수 변화 없음'
+}
+
 export function QualityDashboard({
   groups,
   trends,
@@ -114,6 +126,38 @@ export function QualityDashboard({
           매일 수집하는 모니터링 지표가 아니라, 코드 품질을 점검한 날짜별 스냅샷을 비교합니다.
         </p>
         <SeverityTrendChart data={trend.map((e) => ({ date: e.date, ...severityTotals(e) }))} />
+      </section>
+
+      <section>
+        <h2 className="mb-2 font-mono text-sm font-semibold">품질 스냅샷 히스토리</h2>
+        <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
+          이 스코프에서 지금까지 측정한 스냅샷 {trend.length}개입니다. 항목을 누르면 그 날짜의 전체 발견 내용으로 이동합니다.
+        </p>
+        <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
+          {[...trend].reverse().map((entry, i) => {
+            const prevEntry = trend[trend.length - 1 - i - 1]
+            const scoreDiff = prevEntry ? Math.round((entry.score - prevEntry.score) * 10) / 10 : null
+            const note = historyNote(entry, prevEntry)
+            return (
+              <li key={entry.slug}>
+                <Link
+                  href={`/quality/${entry.slug}`}
+                  className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-secondary/50"
+                >
+                  <div className="flex items-center gap-3">
+                    <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/40" />
+                    <span className="font-mono text-xs text-muted-foreground">{entry.date}</span>
+                    <span className="font-mono text-sm font-semibold">{entry.score}점</span>
+                    {scoreDiff !== null ? <Delta diff={scoreDiff} downIsGood={false} /> : (
+                      <span className="font-mono text-xs text-muted-foreground">최초 측정</span>
+                    )}
+                  </div>
+                  <span className="text-xs text-muted-foreground">{note}</span>
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
       </section>
 
       <section>
