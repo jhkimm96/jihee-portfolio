@@ -1,0 +1,150 @@
+---
+title: "product-service 코드 품질 스냅샷 (2026-08-14)"
+date: "2026-08-14"
+scope: "product-service"
+score: 81.0
+formulaVersion: 3
+commit: "f3be37b9"
+metrics:
+  locTotal: 6047
+  files: 131
+  duplicationBlocks: 12
+  duplicationPct: 1.39
+  oversizedClasses: 3
+  longMethods: 1
+findings:
+  - { category: "controller-thin", high: 0, medium: 0, low: 0 }
+  - { category: "entity-encapsulation", high: 0, medium: 0, low: 0 }
+  - { category: "http-semantics", high: 0, medium: 0, low: 1 }
+  - { category: "logging-quality", high: 0, medium: 0, low: 1 }
+  - { category: "exception-discipline", high: 0, medium: 0, low: 0 }
+  - { category: "layer-separation", high: 0, medium: 2, low: 0 }
+  - { category: "dead-code", high: 0, medium: 4, low: 0 }
+  - { category: "duplication-semantic", high: 0, medium: 3, low: 2 }
+  - { category: "diagnosability", high: 0, medium: 0, low: 0 }
+  - { category: "integration-robustness", high: 0, medium: 1, low: 0 }
+  - { category: "service-boundary", high: 0, medium: 0, low: 0 }
+  - { category: "value-object-design", high: 0, medium: 2, low: 0 }
+  - { category: "polymorphism-opportunity", high: 0, medium: 0, low: 0 }
+  - { category: "cohesion-coupling", high: 0, medium: 1, low: 0 }
+summary: "81.0점. 직전 스냅샷 73.0점 대비 예외 규율, 외부 클라이언트 타임아웃, 상품 유형 분기, 조회 서비스 응집도 등 Medium 부채가 줄었고 비대 클래스도 5개에서 3개로 감소했다. 현재 High는 0건이다."
+tags: ["code-quality", "recommendation", "search", "clean-architecture", "spring"]
+draft: false
+---
+
+## 범위
+
+`develop`의 `product-service/src/main/java` 전체 131개 Java 파일과 6,047 LOC를 커밋
+`f3be37b9` 기준으로 분석했다. 정량 스캔과 14개 고정 루브릭을 함께 적용했으며 테스트 코드는
+정량 지표에서 제외했다.
+
+이번 회차에서 구매 권한 검증의 빈 메서드는 합의된 범위 밖 작업으로, gRPC 응답 매핑 반복은
+현재 계약을 명시적으로 드러내기 위한 구조로 확인되어 결함과 개선 과제에서 제외했다.
+
+## 요약
+
+**81.0점**이다.
+
+```text
+100 - min(30, 8×0 High) - 1×13 Medium - 0.5×4 Low
+    - 3 oversizedClasses - 1 longMethod - 0 duplicationPenalty
+= 81.0
+```
+
+직전 스냅샷의 73.0점보다 8.0점 상승했다. 외부 연동 타임아웃 추가, 상품 상태 예외 정리,
+중복 검수 이벤트의 상태 기반 처리, `ProductType`으로 산출물 규칙 집중, 검색/공개 조회 책임 분리가
+실제 해소로 확인됐다. LOC는 498 증가했지만 비대 클래스는 5개에서 3개로 줄었고 중복률도
+1.55%에서 1.39%로 낮아졌다.
+
+## 카테고리별 발견
+
+### layer-separation — Medium 2
+
+- `Product.java:12,78,114`의 도메인 엔티티가 인프라 패키지의 `TagsConverter`를 직접 참조한다.
+- `ProductContent.java:5-6,35`의 도메인 값 객체가 상위 예외 패키지의 API 예외와 오류 코드를
+  직접 생성한다. 유효성 규칙과 오류 표현의 경계가 묶여 있다.
+
+### dead-code — Medium 4
+
+- `Product.java:111-112,266`의 `badge`와 엔티티의 `incrementViewCount()`는 현재 운영 흐름에서
+  사용되지 않는다. 조회수 증가는 저장소 수정 쿼리로 처리된다.
+- `ProductRepository.java:32`의 `sumViewCountByFamilyRootId()`와 대응 JPA/어댑터 구현은 운영
+  호출자가 없다.
+- `KafkaConfig.java:57-67`의 문자열 producer factory/template과
+  `ProductEventType.java:20`의 역변환 메서드는 운영 호출자가 없다.
+- `Review.java:40`의 `content`는 응답까지 전달되지만 리뷰 생성 입력 경로에서 값을 받지 않아
+  현재 생성되는 리뷰에서는 채워질 수 없다.
+
+### duplication-semantic — Medium 3 · Low 2
+
+- `OrderEventConsumer.java:60`과 `ProductInspectionResultConsumer.java:69`가 동일한
+  `EventMessage<JsonNode>` 역직렬화와 실패 처리를 반복한다.
+- `KafkaConfig.java`의 order/AI consumer factory, container factory, error handler 구성이 같은
+  구조로 반복된다.
+- `ProductSellerService.java:65,127,193`에서 `ProductContent` 조립 규칙이 생성·수정·버전 생성
+  경로에 반복되어 필드 추가 시 함께 바뀌어야 한다.
+- `ProductJpaRepository`의 상품 목록 projection과 family 집계 쿼리에 동일한 선택·필터 조각이
+  반복된다. 추출 비용을 고려하면 현재는 Low다.
+- `EmbeddingSource.java:50`과 `ProductContentHash.java:62`에 SHA-256 계산이 반복된다. 두 값의
+  정규화 규칙이 달라 계산만 공유할 수 있으나 현재 규모에서는 Low다.
+
+### integration-robustness — Medium 1
+
+- `QueryEmbeddingCache.java:71`이 공용 ForkJoinPool에서 원격 임베딩 호출을 수행한다. timeout은
+  대기를 끝내지만 작업 취소와 동일 키 single-flight가 없어 동시 miss가 중복 원격 호출로 이어질
+  수 있다.
+
+### value-object-design — Medium 2
+
+- `ProductDetailResponse.java:7`은 공개 상품, 판매자, 가격, 미디어, 버전 정보를 하나의 20개 이상
+  필드 record로 전달한다.
+- `SellerProductDetailResponse.java:7`도 편집 정보와 검수·버전·판매 상태를 하나의 큰 record에
+  모아 변경 이유가 여러 개다.
+
+### cohesion-coupling — Medium 1
+
+- `ProductSellerService.java:40`은 생성, 수정, 새 버전 생성, 삭제, 판매자 목록·상세 조회를 모두
+  담당한다. 검색/공개 조회는 분리됐지만 판매자 쓰기와 읽기 책임은 아직 한 클래스에 남아 있다.
+
+### http-semantics — Low 1
+
+- `FileUploadController`의 업로드 URL 생성 응답은 새 업로드 자원을 준비하지만 명시적인
+  `201 Created` 상태를 사용하지 않는다.
+
+### logging-quality — Low 1
+
+- `JinaProductRerankerGateway.java:69,73,76`은 실패 시 "BM25 검색으로 축소"한다고 기록한다.
+  추천 경로는 안전하게 빈 결과를 반환하므로 실제 장애 동작과 로그 설명이 다르다.
+
+### 위반 없음
+
+controller-thin, entity-encapsulation, exception-discipline, diagnosability, service-boundary,
+polymorphism-opportunity는 이번 회차에서 별도 결함을 확인하지 못했다.
+
+## 개선된 항목
+
+- `ProductQueryService`에서 검색 책임을 `ProductSearchService`로 분리해 이전 응집도 Medium 1건을
+  해소했다.
+- 상품 유형별 유효성 검사와 산출물 선택을 `ProductType`에 집중해 다형성 기회 Medium 1건을
+  해소했다.
+- 상품 상태 전이 예외와 중복 검수 이벤트 처리를 구체화해 exception-discipline Medium 2건과
+  diagnosability Medium 1건을 해소했다.
+- S3와 Elasticsearch 클라이언트에 명시적 타임아웃을 추가해 integration-robustness Medium 1건을
+  해소했다.
+- `ProductFamily`의 미사용 메서드와 presign null-safe 래퍼 반복을 제거했다.
+- Jina 관련성 하한을 0.05로 재보정하고 검색·유사 상품·회원 추천의 재랭킹 정책을 분리해,
+  무관 추천을 억지로 채우지 않는 흐름을 명시했다.
+
+## 한계
+
+- 정적 분석 스냅샷이며 운영 부하와 추천 품질을 직접 측정한 결과는 아니다.
+- 다른 서비스 내부 구현은 읽지 않았고 product-service가 사용하는 계약과 호출부만 확인했다.
+- 비대 클래스와 긴 메서드는 고정 스캐너의 논리 LOC 기준이므로 IDE의 물리 줄 수와 다를 수 있다.
+- 추천 임계값 0.05의 운영 적합성은 배포 후 Jina 통과 최저점과 제외 최고점 관찰이 추가로 필요하다.
+
+## 다음 개선 후보
+
+1. 운영 호출자가 없는 필드·메서드·Kafka producer bean을 실제 계약과 대조해 제거한다.
+2. 도메인 모델의 persistence converter 의존을 매핑 경계로 이동한다.
+3. `QueryEmbeddingCache`에 전용 executor와 동일 키 요청 병합이 필요한지 부하 측정으로 결정한다.
+4. 판매자 상품 서비스의 쓰기와 조회 책임을 변경 빈도에 맞춰 분리한다.
