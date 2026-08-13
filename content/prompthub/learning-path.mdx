@@ -1,7 +1,7 @@
 ---
 title: "PromptHub 전체 이해"
 summary: "현재 develop을 기준으로 서비스 지도에서 시작해 인증, 상품·검색, 주문·결제, 정산, 알림·AI, 운영·품질까지 이어서 이해하는 경로입니다."
-updatedAt: "2026-08-11"
+updatedAt: "2026-08-13"
 status: "ready"
 stages:
   - id: "overview"
@@ -102,8 +102,14 @@ stages:
       - type: "study"
         slug: "es/reciprocal-rank-fusion"
         importance: "deep-dive"
+      - type: "study"
+        slug: "es/hybrid-search-ranking-pipeline"
+        importance: "deep-dive"
       - type: "troubleshooting"
         slug: "prompthub/search/search-false-positive-content-field"
+        importance: "reference"
+      - type: "troubleshooting"
+        slug: "prompthub/search/hybrid-search-irrelevant-results-and-candidate-recall"
         importance: "reference"
   - id: "commerce"
     title: "주문·결제와 구매 권한"
@@ -153,6 +159,9 @@ stages:
         importance: "deep-dive"
       - type: "review"
         slug: "prompthub/backend-full-review-2026-07-09"
+        importance: "reference"
+      - type: "troubleshooting"
+        slug: "prompthub/deployment/spring-multiple-constructor-injection-failure"
         importance: "reference"
 ---
 
