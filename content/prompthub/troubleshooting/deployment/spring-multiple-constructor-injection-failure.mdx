@@ -1,0 +1,102 @@
+---
+title: "단위 테스트는 통과했는데 배포가 실패했다 — 생성자 두 개가 깨뜨린 Spring 자동 주입"
+date: "2026-08-13"
+summary: "Jina Reranker 연동 배포 후 product-service가 시작되지 않는 문제를 운영 로그로 추적했다. 생성자가 하나일 때만 성립하는 Spring의 암묵적 주입 규칙을 확인하고, 명시적 주입과 컨텍스트 테스트로 재발을 막았다."
+tags: ["spring", "dependency-injection", "deployment", "integration-test", "product-service"]
+draft: false
+---
+
+## 문제
+
+검색 결과의 관련성을 재평가하기 위해 Jina Reranker 연동을 추가했다. 단위 테스트와 전체 빌드는 통과했지만, 배포된 product-service는 시작 과정에서 반복적으로 종료됐다.
+
+핵심 오류는 다음과 같았다.
+
+```text
+BeanCreationException
+└─ NoSuchMethodException: JinaProductRerankerGateway.<init>()
+```
+
+기능 로직이 실행되기도 전에 Spring이 `JinaProductRerankerGateway` 객체를 만들지 못했다. 배포 파이프라인은 비정상 상태를 감지해 이전 버전으로 자동 롤백했다.
+
+## 원인
+
+해당 클래스에는 운영용 public 생성자와 테스트에서 `HttpClient`를 교체하기 위한 package-private 생성자가 있었다.
+
+```java
+public JinaProductRerankerGateway(
+    JinaRerankerProperties properties,
+    ObjectMapper objectMapper
+) {
+    this(properties, objectMapper, createHttpClient(properties));
+}
+
+JinaProductRerankerGateway(
+    JinaRerankerProperties properties,
+    ObjectMapper objectMapper,
+    HttpClient httpClient
+) {
+    // 주입받은 값 보관
+}
+```
+
+두 생성자를 분리한 의도는 외부 통신을 테스트하기 쉽게 만드는 것이었다. 문제는 생성자가 두 개가 된 순간 Spring이 어느 생성자를 사용해야 하는지 알 수 없게 됐다는 점이다.
+
+생성자가 하나일 때는 `@Autowired`가 없어도 Spring이 그 생성자를 자동으로 선택한다. 하지만 선택 가능한 생성자가 두 개라면 주입 대상을 명시해야 한다. 기존 단위 테스트는 생성자를 직접 `new`로 호출했기 때문에 Spring 컨테이너의 생성자 선택 과정을 거치지 않았다.
+
+<details>
+<summary><b>Spring의 암묵적 생성자 주입이란?</b></summary>
+
+Spring Bean에 생성자가 정확히 하나라면 `@Autowired`를 생략해도 그 생성자를 사용한다.
+
+개발자가 직접 객체를 만드는 단위 테스트는 이 규칙과 무관하다. 따라서 생성자가 늘어난 뒤에도 단위 테스트는 통과할 수 있지만, 실제 Spring 컨테이너가 Bean을 만드는 배포 환경에서는 실패할 수 있다.
+
+</details>
+
+## 해결
+
+운영에서 사용할 public 생성자에 `@Autowired`를 명시했다.
+
+```java
+@Autowired
+public JinaProductRerankerGateway(
+    JinaRerankerProperties properties,
+    ObjectMapper objectMapper
+) {
+    this(properties, objectMapper, createHttpClient(properties));
+}
+```
+
+수정은 한 줄이지만 같은 유형의 장애를 다시 놓치지 않는 것이 더 중요했다. 기존 단위 테스트만 보강하는 대신 실제 Spring 컨테이너를 실행하는 컨텍스트 테스트를 추가했다.
+
+```java
+@SpringBootTest(classes = {
+    JinaProductRerankerGateway.class,
+    ObjectMapperTestConfig.class
+})
+class JinaProductRerankerGatewayContextTest {
+
+    @Autowired
+    private JinaProductRerankerGateway gateway;
+
+    @Test
+    void Spring이_Jina_Reranker_Gateway를_생성한다() {
+        assertThat(gateway).isNotNull();
+    }
+}
+```
+
+이 테스트는 수정 전 코드에서 운영과 같은 `NoSuchMethodException`으로 실패했고, 생성자를 명시한 뒤 통과했다.
+
+## 결과
+
+- product-service가 정상적으로 시작됐다.
+- 중단됐던 검색 관련성 개선의 운영 검증을 재개했다.
+- 외부 API 통신 테스트와 Spring Bean 조립 테스트의 책임을 분리했다.
+- 컨텍스트 테스트와 product-service 전체 빌드가 통과했다.
+
+## 배운 점
+
+객체를 직접 만드는 단위 테스트는 내부 동작을 빠르게 검증하지만, 프레임워크가 객체를 어떻게 조립하는지는 검증하지 않는다.
+
+특히 생성자, 설정 프로퍼티, 조건부 Bean처럼 애플리케이션 시작에 영향을 주는 코드는 최소 하나의 컨텍스트 테스트가 필요하다. 모든 클래스를 무겁게 통합 테스트할 필요는 없지만, 배포를 막을 수 있는 조립 경계는 실제 Spring 컨테이너로 확인해야 한다.
