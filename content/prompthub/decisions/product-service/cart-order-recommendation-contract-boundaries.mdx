@@ -1,0 +1,42 @@
+@---
+title: "장바구니·구매목록·추천 조회 계약을 분리한다"
+slug: "cart-order-recommendation-contract-boundaries"
+date: "2026-08-14"
+status: "accepted"
+summary: "장바구니 표시, 구매목록 조회, 개인화 추천은 서로 다른 목적과 실패 특성을 가지므로 API와 서비스 호출을 분리한다."
+tags: ["recommendation", "cart", "order", "grpc", "api-contract", "product-service"]
+draft: false
+---
+
+## 배경
+
+화면에서 장바구니, 구매목록, 추천상품이 함께 보이지만 세 기능이 같은 데이터를 조회하는 것은 아니다.
+장바구니 화면은 order-service가 보유한 cart를 읽은 뒤 product-service에서 현재 상품 표시 정보를 보충한다.
+구매목록은 order-service의 주문·주문상품 이력을 기준으로 한다. 추천상품은 장바구니 ID와 구매상품 ID를 입력으로 받아 개인화 후보를 계산한다.
+
+이 흐름을 하나의 조회로 합치면 특정 상품 조회 지연이나 추천 실패가 장바구니·구매목록까지 함께 실패하는 결합이 생긴다.
+
+## 고려한 선택지
+
+| 선택지 | 장점 | 문제 |
+| --- | --- | --- |
+| 세 기능을 하나의 통합 API로 합치기 | 호출 수가 줄어듦 | 목적·소유 서비스·실패 처리가 달라 변경 영향이 커짐 |
+| order-service가 product-service의 내부 데이터를 직접 조회하기 | 구현이 단순해 보임 | 서비스 경계와 데이터 소유권을 깨뜨림 |
+| 목적별 API와 서비스 계약을 유지하기 | 장애 격리, 명확한 책임, 독립 변경 | 화면에서 여러 호출을 조합해야 함 |
+
+## 결정
+
+목적별 조회 계약을 유지한다.
+
+- 장바구니: `GET /api/v2/cart` → order-service → product-service `GetCartSnapshots`
+- 구매목록: `GET /api/v2/orders` → order-service의 주문·주문상품 조회
+- 추천: cart product ID와 purchased product ID를 별도로 전달해 추천 파이프라인에서 후보를 계산
+- 주문 생성: 상품 가격·판매자 스냅샷이 필요할 때 `GetOrderSnapshots`를 사용
+
+`GetCartSnapshots`는 구매목록을 조회하지 않으며, `GetOrderSnapshots`도 구매 이력 API가 아니다.
+이미 구매한 상품이 추천 결과에 다시 나타나지 않을 수 있는 것은 조회 실패가 아니라 추천 후보 제외·가중치·관련성 필터의 결과다.
+
+## 결과
+
+한 기능의 지연을 다른 기능의 성공 여부와 혼동하지 않게 됐다. 예를 들어 장바구니의 상품 표시용 gRPC가 deadline을 초과해도 주문 이력 조회와 추천 API의 성공 여부는 별도로 검증할 수 있다.
+또한 장애 대응 시 브라우저 Network의 `POST /cart`, `GET /cart`, `GET /orders`, 추천 요청을 각각 확인할 수 있어 원인 범위를 빠르게 좁힐 수 있다.
