@@ -1,0 +1,4 @@
+interface:
+  display_name: "Commit"
+  short_description: "변경을 분리하고 한국어 메시지로 안전하게 Git 커밋"
+  default_prompt: "Use $commit to review the current changes and create focused commits with Korean messages."
