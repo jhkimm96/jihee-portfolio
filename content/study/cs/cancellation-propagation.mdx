@@ -64,6 +64,45 @@ API 서버의 timeout만 1초로 설정되어 있다면 API 서버는 1초 후 �
 
 이 예시에서 중요한 것은 “응답을 받지 않는다”와 “작업을 멈춘다”가 서로 다른 사건이라는 점이다.
 
+## 응답 시간이 1초여도 서버는 계속 바쁠 수 있다
+
+놀이공원에서 기다리던 사람이 줄을 이탈해도 직원이 그 사실을 모르면 이미 시작한 준비 작업은 계속된다. 타임아웃도 비슷하다. 호출자는 기다리기를 그만두지만, 호출받은 서버의 작업까지 자동으로 멈추지는 않는다.
+
+초당 20건의 요청이 들어오고 작업 하나에 5초가 걸린다고 가정하자.
+
+```text
+요청 유입: 초당 20건
+작업 시간: 5초
+타임아웃: 1초
+
+20건/초 × 5초 = 최대 약 100건이 동시에 실행
+```
+
+```mermaid
+sequenceDiagram
+    participant C as 호출자
+    participant S as 서버
+    participant D as DB·하위 서비스
+
+    C->>S: 요청
+    S->>D: 작업 시작
+    Note over C,S: 1초 경과
+    C--xS: 기다림 포기
+    Note over S,D: 남은 작업은 계속 실행
+    D-->>S: 5초 뒤 결과
+    Note over S: 받을 호출자가 없어 결과 폐기
+```
+
+영상의 실험에서는 클라이언트 응답이 1초로 유지되는 동안 서버 내부에 작업 92개가 남았고, 버려진 작업 시간을 합치면 441초였다. 취소를 아래 계층까지 전달한 뒤에는 실행 중인 작업이 20개, 버려진 시간은 2초 수준으로 줄었다. 하지만 호출자가 본 응답 시간은 전과 똑같이 1초였다.
+
+| 함께 볼 지표 | 확인할 문제 |
+|---|---|
+| 실행 중인 작업 수 | 끝난 요청의 작업이 남아 있는가 |
+| Thread pool 대기열 | 실행 자리를 기다리는 작업이 쌓이는가 |
+| 사용 중인 DB connection | 취소된 요청이 connection을 계속 점유하는가 |
+| 취소된 작업 수 | 취소 신호가 실제 작업까지 도달하는가 |
+| 버려진 작업 시간 | 아무도 사용하지 않을 결과에 쓴 시간은 얼마인가 |
+
 ## 취소 신호를 아래로 전달한다
 
 취소는 실행 중인 코드를 강제로 제거하는 기능이라기보다, 작업을 중단해도 된다는 신호다. 상위 요청이 취소되면 그 요청에서 파생된 함수, 비동기 작업, 외부 호출에도 같은 신호를 전달해야 한다.
@@ -82,6 +121,36 @@ flowchart LR
 - JavaScript는 `AbortController`가 만든 `AbortSignal`을 비동기 API에 전달한다.
 
 이름은 다르지만 핵심은 같다. 상위 계층이 취소 사실을 알고 있는 데서 끝내지 않고 실제 작업을 수행하는 계층까지 전달하는 것이다.
+
+취소 전파가 필요한 이유는 결과가 필요 없는 작업에 thread, connection과 CPU를 계속 쓰지 않기 위해서다.
+
+```text
+사용자가 화면을 닫음
+→ 브라우저가 요청 취소
+→ API 서버가 취소 감지
+→ 하위 서비스 호출 취소
+→ DB 쿼리·외부 API 호출 취소
+→ Thread와 Connection 반환
+```
+
+요청에서 파생되는 모든 작업에 같은 취소 신호나 deadline을 전달하고, 각 작업은 신호를 지원하는 API를 사용하거나 안전한 지점에서 상태를 확인해야 한다.
+
+| 환경 | 전달 수단 | 하위 작업이 할 일 |
+|---|---|---|
+| Go | `context.Context` | 함수와 DB·HTTP 호출에 context 전달 |
+| Java | interrupt, `Future.cancel(true)` | interrupt 상태를 확인하고 안전하게 종료 |
+| JavaScript | `AbortSignal` | `fetch` 등 하위 호출에 같은 signal 전달 |
+| HTTP·gRPC | 연결 종료, deadline | 서버와 하위 client가 취소를 감지하도록 설정 |
+| DB | query timeout, statement timeout | 오래 실행되는 쿼리를 DB에서 중단 |
+
+<details>
+<summary><b>🔍 모든 작업을 취소해도 되는가?</b></summary>
+
+검색·미리보기·추천처럼 결과가 필요 없어지면 버릴 수 있는 작업은 가능한 빨리 중단한다. 반면 결제 승인이나 주문 저장처럼 상태를 변경하는 작업은 중간에 끊으면 데이터가 불완전해질 수 있다.
+
+이런 작업은 안전한 지점에서만 중단하거나 끝까지 처리한 뒤 실패 시 보상 작업을 수행해야 한다. 핵심은 호출자가 포기했다고 무조건 종료하는 것이 아니라, 취소해도 안전한 작업까지 신호를 전달하는 것이다.
+
+</details>
 
 ## 취소 신호를 받은 코드도 협조해야 한다
 
@@ -129,6 +198,7 @@ JavaScript의 `AbortSignal`도 호출 대상 API가 signal을 지원해야 효�
 ## 참고
 
 - [Instagram — 취소를 어떻게 전파하나](https://www.instagram.com/reel/DcyRh52Np-G/)
+- [Instagram — 타임아웃을 걸었는데 서버가 죽는 이유](https://www.instagram.com/reel/DcvzmLitmOA/)
 - [Go — Canceling in-progress operations](https://go.dev/doc/database/cancel-operations)
 - [Java Future](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/Future.html)
 - [Java Interrupts](https://docs.oracle.com/javase/tutorial/essential/concurrency/interrupt.html)

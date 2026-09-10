@@ -1,0 +1,168 @@
+---
+title: "DB가 느릴 때 병목은 어떻게 확인하나"
+date: "2026-09-10"
+status: "growing"
+reviewAfter: "2026-12-10"
+related:
+  - "cs/connection-pool-bottleneck"
+  - "database/connection-pool-hikaricp"
+summary: "커넥션 대기, 쿼리 실행 시간과 DB 자원 지표를 함께 측정해 병목 위치를 찾는 방법을 정리한다."
+tags: ["CS", "Database", "Monitoring", "Connection Pool", "Query", "Bottleneck"]
+group: "CS 기본기"
+draft: false
+---
+
+## 병원 진료가 느린 이유부터 구분해보자
+
+환자가 오래 기다렸다고 의사 수가 부족한 것은 아니다.
+
+```text
+접수창구가 적음    → 접수 앞에서 대기
+진료가 오래 걸림   → 진료실 안에서 대기
+검사 장비가 부족함 → 검사실 앞에서 대기
+```
+
+DB 요청도 마찬가지다.
+
+```mermaid
+flowchart LR
+    request["요청"] --> pool["커넥션 획득"]
+    pool --> query["쿼리 실행"]
+    query --> result["결과 반환"]
+```
+
+```text
+전체 DB 소요 시간
+= 커넥션 획득 대기
++ DB 내부의 쿼리 실행·대기
+```
+
+두 시간을 분리해야 커넥션 풀과 DB 중 어디가 문제인지 알 수 있다.
+
+## 커넥션 풀에서는 무엇을 볼까
+
+Spring Boot와 HikariCP를 사용한다면 Micrometer를 통해 다음 지표를 수집할 수 있다.
+
+| 지표 | 의미 |
+|---|---|
+| `hikaricp.connections.active` | 현재 사용 중인 커넥션 |
+| `hikaricp.connections.idle` | 사용하지 않는 커넥션 |
+| `hikaricp.connections.pending` | 커넥션을 기다리는 요청 |
+| `hikaricp.connections.max` | 풀의 최대 크기 |
+| `hikaricp.connections.acquire` | 커넥션 획득에 걸린 시간 |
+| `hikaricp.connections.timeout` | 기다리다 실패한 횟수 |
+
+```text
+max     = 10
+active  = 10
+idle    = 0
+pending = 35
+획득 대기 p95 = 500ms
+```
+
+이 상태가 부하 시간 동안 계속되면 풀 앞에서 요청이 밀리고 있다는 뜻이다.
+
+<details>
+<summary><b>🔍 p95는 무엇인가?</b></summary>
+
+측정값을 빠른 순서대로 정렬했을 때 95%가 그 값 이하라는 뜻이다. 커넥션 획득 시간의 p95가 500ms라면 요청 100개 중 약 95개는 500ms 안에 커넥션을 얻고, 나머지는 그보다 오래 기다렸다는 의미다.
+
+평균만 보면 일부 매우 느린 요청이 가려질 수 있어 p95나 p99를 함께 본다.
+
+</details>
+
+## 쿼리 시간은 어디서 확인할까
+
+쿼리를 DB에 보낸 뒤 결과를 받을 때까지의 시간을 측정한다.
+
+```text
+쿼리 실행 시간 = 결과 수신 시각 - 쿼리 전송 시각
+```
+
+| 환경 | 확인 방법 |
+|---|---|
+| 애플리케이션 | APM의 DB span |
+| PostgreSQL | `pg_stat_statements`, `EXPLAIN ANALYZE` |
+| MySQL | Slow Query Log, Performance Schema |
+| 개발 환경 | SQL 실행 시간 로그 |
+
+```text
+전체 DB 구간:     920ms
+커넥션 획득 대기: 500ms
+DB 내부 시간:     420ms
+```
+
+전체 시간만 보면 느리다는 사실만 알 수 있다. 시간을 분리하면 풀 앞과 DB 내부에서 각각 얼마나 기다렸는지 알 수 있다.
+
+## CPU가 낮아도 DB는 느릴 수 있다
+
+DB CPU는 DB 서버나 클라우드 관리 화면에서 확인한다. 하지만 CPU만 봐서는 충분하지 않다.
+
+| 관찰한 상태 | 의심할 문제 |
+|---|---|
+| CPU와 쿼리 시간 모두 높음 | 계산량이 많은 쿼리, 과도한 동시 실행 |
+| CPU는 낮지만 Disk latency가 높음 | 디스크 I/O 대기 |
+| CPU는 낮지만 Lock wait가 높음 | 다른 트랜잭션의 Lock 대기 |
+| Swap 발생, 디스크 읽기 증가 | 메모리 부족 가능성 |
+| 실행 connection이 계속 많음 | 과도한 동시 요청 |
+
+DB는 메모리를 cache로 적극 사용하므로 사용률이 높다는 이유만으로 부족하다고 판단하면 안 된다. Swap, cache hit ratio와 디스크 읽기 증가를 함께 확인한다.
+
+## 숫자를 함께 보면 병목이 보인다
+
+### 풀을 늘려볼 수 있는 상태
+
+```text
+Pool active/max  10/10
+Pending          40
+획득 대기 p95    600ms
+쿼리 p95          25ms
+DB CPU            35%
+Lock wait         거의 없음
+```
+
+DB 쿼리는 빠르고 자원에도 여유가 있지만 풀 앞에서 오래 기다린다. 풀을 조금 늘리고 같은 부하에서 다시 측정할 수 있다.
+
+### 쿼리를 확인할 상태
+
+```text
+Pool active/max  18/20
+Pending           1
+획득 대기 p95     10ms
+쿼리 p95         900ms
+DB CPU            92%
+```
+
+커넥션은 빠르게 얻지만 DB 안에서 오래 걸린다. 풀보다 느린 쿼리와 실행 계획을 먼저 확인한다.
+
+### Lock을 확인할 상태
+
+```text
+획득 대기 p95     15ms
+쿼리 p95       2,000ms
+DB CPU            25%
+Lock wait         높음
+```
+
+CPU가 낮아도 다른 트랜잭션을 기다리느라 쿼리가 느릴 수 있다.
+
+## 한 번에 하나만 바꾼다
+
+```mermaid
+flowchart LR
+    load["같은 부하 재현"] --> measure["Pool·쿼리·DB 지표 측정"]
+    measure --> guess["병목 위치 추정"]
+    guess --> change["한 가지 설정 또는 쿼리 변경"]
+    change --> compare["같은 조건으로 재측정"]
+```
+
+풀 크기와 쿼리, DB 사양을 한꺼번에 바꾸면 무엇이 효과가 있었는지 알 수 없다.
+
+> 같은 시간대의 지표를 함께 보고, 한 번에 하나만 변경한 뒤 다시 측정한다.
+
+## 참고
+
+- [Micrometer — HikariCP metrics](https://docs.micrometer.io/micrometer/reference/reference/jvm.html)
+- [PostgreSQL — pg_stat_statements](https://www.postgresql.org/docs/current/pgstatstatements.html)
+- [PostgreSQL — EXPLAIN](https://www.postgresql.org/docs/current/sql-explain.html)
+- [MySQL — The Slow Query Log](https://dev.mysql.com/doc/refman/8.4/en/slow-query-log.html)
