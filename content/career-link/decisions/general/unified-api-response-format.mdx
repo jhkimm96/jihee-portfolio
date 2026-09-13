@@ -1,0 +1,24 @@
+---
+title: "API 응답을 공통 포맷(header+body)으로 표준화한다"
+slug: "unified-api-response-format"
+date: "2026-09-13"
+status: "accepted"
+summary: "API마다 성공·실패를 각자 다르게 표현하면 프론트가 매번 다르게 파싱해야 한다. 모든 API 응답을 header+body 구조로 통일했다."
+tags: ["api-contract", "spring-boot", "axios", "error-handling"]
+draft: false
+---
+
+## 배경
+
+구직자·기업·관리자가 쓰는 채용 관리 시스템이라 도메인마다 API가 많았다. 각 API가 성공·실패를 서로 다른 방식으로 표현하면, 프론트는 API마다 다른 파싱 로직을 짜야 하고 신규 API가 늘어날수록 그 부담이 커진다.
+
+## 결정
+
+- 모든 API 응답을 `header`(result, message, code) + `body`(실제 데이터) + `pagination`(페이징 시 선택) 구조로 통일했다.
+- 프론트는 Axios 인터셉터로 모든 응답을 `res.data` 기준 일관되게 처리한다. 성공 여부는 `res.result`, 실패 시 `e.message`로 사용자 피드백을 준다.
+- 예외는 두 갈래로 나눴다: 직접 정의한 `CareerLinkException`(ErrorCode + 디버깅 메시지)과, 그 외 일반 예외는 `ErrorCode` enum(`DATA_NOT_FOUND` 404, `INVALID_REQUEST` 400, `UNAUTHORIZED` 401, `FORBIDDEN` 403, `DUPLICATE_RESOURCE` 409, `SYSTEM_ERROR` 500)으로 자동 매핑했다.
+- 공통 포맷이 맞지 않는 컨트롤러·메서드는 `SkipWrap` 어노테이션으로 원본 데이터를 그대로 반환할 수 있게 예외를 열어뒀다.
+
+## 결과
+
+모든 API가 같은 구조를 쓰니 프론트의 에러 핸들링·응답 처리 로직을 재사용할 수 있게 됐고, 신규 API를 추가할 때도 이 규칙만 지키면 돼 유지보수 부담이 줄었다. 프론트는 응답 구조를 매번 다르게 가공하는 대신 비즈니스 로직에 집중할 수 있었고, `SkipWrap`으로 공통 포맷이 안 맞는 예외 케이스도 유연하게 처리했다.
