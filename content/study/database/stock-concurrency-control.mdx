@@ -253,6 +253,48 @@ Optional<Product> findByIdForUpdate(Long id);
 
 DB는 일반적으로 한 트랜잭션을 실패시켜 교착 상태를 해소한다. 여러 자원을 잠가야 한다면 가능한 한 같은 순서로 잠그고, 락 대기 timeout과 실패 처리를 정해야 한다.
 
+### 계좌 이체 두 건이 서로를 기다리는 경우
+
+1번 계좌에서 2번 계좌로 보내는 이체와 반대 방향 이체가 동시에 실행된다고 가정하자.
+
+```mermaid
+sequenceDiagram
+    participant A as 이체 A: 1 → 2
+    participant B as 이체 B: 2 → 1
+
+    A->>A: 계좌 1 잠금
+    B->>B: 계좌 2 잠금
+    A-->>B: 계좌 2가 풀리기를 기다림
+    B-->>A: 계좌 1이 풀리기를 기다림
+```
+
+이체 A는 계좌 1을 잠근 상태로 계좌 2를 기다리고, 이체 B는 계좌 2를 잠근 상태로 계좌 1을 기다린다. DB는 데드락을 감지하면 한 트랜잭션을 롤백해 순환 대기를 끊는다. 서비스 전체보다 한 요청만 실패하므로 “다시 시도하면 되는 가끔 발생하는 오류”처럼 보일 수 있다.
+
+영상에서는 데드락이 발생하도록 타이밍을 맞춰 반대 방향 이체를 30회 실행했을 때 30회 모두 데드락이 발생했다. 이는 통제된 실험 결과이며 실제 요청에서 항상 100% 발생한다는 뜻은 아니다.
+
+### 잠금 순서를 통일한다
+
+어느 방향으로 이체하든 번호가 작은 계좌부터 잠근다.
+
+```text
+1 → 2 이체: 계좌 1 잠금 → 계좌 2 잠금
+2 → 1 이체: 계좌 1 잠금 → 계좌 2 잠금
+```
+
+```java
+long firstAccountId = Math.min(fromAccountId, toAccountId);
+long secondAccountId = Math.max(fromAccountId, toAccountId);
+
+Account firstAccount = accountRepository.findByIdForUpdate(firstAccountId);
+Account secondAccount = accountRepository.findByIdForUpdate(secondAccountId);
+```
+
+먼저 온 트랜잭션이 작은 번호의 계좌를 잠그면 다른 트랜잭션은 그 자리에서 기다린다. 서로 다른 자원을 하나씩 가진 채 상대를 기다리는 순환이 만들어지지 않는다.
+
+잠금 순서를 통일해도 다른 테이블·인덱스 범위·외래 키에서 추가 잠금이 생길 수 있다. 트랜잭션을 짧게 유지하고 데드락 예외 처리도 남겨야 한다.
+
+> 데드락은 단순히 동시에 접근해서가 아니라, 여러 자원을 점유한 트랜잭션들이 순환 형태로 서로를 기다릴 때 발생한다.
+
 <details>
 <summary><b>🔍 락 획득에 실패하면 무조건 재시도할까?</b></summary>
 
@@ -393,3 +435,5 @@ flowchart TD
 - [Jakarta EE의 Entity Locking 안내](https://jakarta.ee/learn/docs/jakartaee-tutorial/current/persist/persistence-locking/persistence-locking.html)
 - [Redis `INCR`](https://redis.io/docs/latest/commands/incr/)
 - [Redis Distributed Locks](https://redis.io/docs/latest/develop/clients/patterns/distributed-locks/)
+- [Instagram — 서로를 기다리다 둘 다 죽는다](https://www.instagram.com/reel/Dcq4R_YNY3V/)
+- [MySQL — How to Minimize and Handle Deadlocks](https://dev.mysql.com/doc/refman/8.0/en/innodb-deadlocks-handling.html)
