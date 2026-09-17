@@ -1,0 +1,144 @@
+---
+title: "==과 equals()는 무엇을 비교할까"
+date: "2026-09-17"
+status: "growing"
+summary: "기본형의 값 비교, 객체의 동일성 비교, 클래스가 정의하는 논리적 동등성을 구분한다."
+tags: ["java", "equals", "identity", "equality", "beginner"]
+group: "java-foundations"
+related: ["jvm/java-primitive-and-reference-types", "jvm/java-value-reference-and-object", "jvm/equals-hashcode-and-immutability"]
+draft: false
+---
+
+## 기본형에서 ==는 값을 비교한다
+
+```java
+int first = 10;
+int second = 10;
+
+System.out.println(first == second); // true
+```
+
+`int`는 객체가 아니므로 `equals()`가 없다.
+
+## 객체에서 ==는 같은 객체인지 비교한다
+
+```java
+String first = new String("사과");
+String second = new String("사과");
+
+System.out.println(first == second); // false
+```
+
+```text
+first  ─────▶ String 객체 ① "사과"
+second ────▶ String 객체 ② "사과"
+
+내용은 같지만 서로 다른 객체 → == 결과는 false
+```
+
+두 변수가 같은 객체를 가리키면 `true`다.
+
+```java
+String first = new String("사과");
+String second = first;
+
+System.out.println(first == second); // true
+```
+
+## equals()는 클래스가 정한 같음의 기준을 사용한다
+
+`equals()`는 메서드다. 모든 객체는 `Object`에서 이 메서드를 물려받는다. 기본 구현은 같은
+객체인지를 확인하지만, 각 클래스가 자신에게 맞는 비교 기준으로 다시 정의할 수 있다.
+
+`String`은 문자열 내용이 같으면 `true`를 반환하도록 이미 정의되어 있다.
+
+```java
+String first = new String("사과");
+String second = new String("사과");
+
+System.out.println(first == second);      // false
+System.out.println(first.equals(second)); // true
+```
+
+```text
+== 검사       → 같은 String 객체인가? → false
+equals() 검사 → 문자열 내용이 같은가? → true
+```
+
+## 직접 만든 클래스는 비교 기준을 정해야 한다
+
+```java
+final class ProductKey {
+    private final String code;
+
+    ProductKey(String code) {
+        this.code = code;
+    }
+}
+```
+
+`equals()`를 다시 정의하지 않으면 기본 비교가 사용된다.
+
+```java
+ProductKey first = new ProductKey("A101");
+ProductKey second = new ProductKey("A101");
+
+System.out.println(first == second);      // false
+System.out.println(first.equals(second)); // false
+```
+
+상품 코드가 같으면 같은 상품 키라는 규칙이 필요할 때 `equals()`를 다시 정의한다.
+
+```java
+@Override
+public boolean equals(Object other) {
+    if (this == other) {
+        return true;
+    }
+    if (!(other instanceof ProductKey productKey)) {
+        return false;
+    }
+    return code.equals(productKey.code);
+}
+```
+
+HashMap이나 HashSet에서 사용할 객체라면 `hashCode()`도 같은 기준으로 정의해야 한다.
+
+<details>
+<summary><b>🔍 equals()는 별도로 설치하거나 가져오는 기능인가?</b></summary>
+
+아니다. 모든 Java 클래스는 `Object`를 상속하므로 처음부터 `equals()`를 가지고 있다.
+
+```text
+Object
+  └─ ProductKey
+       └─ Object의 equals()를 물려받음
+```
+
+`String`, `Integer`, `UUID` 등은 값 비교 방법을 이미 정의했다. 직접 만든 클래스에서는 무엇이
+같아야 같은 값인지 정해야 할 때 다시 정의한다.
+
+</details>
+
+<details>
+<summary><b>🔍 문자열은 ==으로 비교하면 안 되는가?</b></summary>
+
+문자열의 내용을 비교하려면 `equals()`를 사용해야 한다. 문자열 리터럴은 Java가 같은 객체를
+재사용할 수 있어서 `==`도 우연히 `true`가 나올 수 있다.
+
+```java
+String first = "사과";
+String second = "사과";
+
+System.out.println(first == second); // true가 나올 수 있음
+```
+
+이 결과에 기대지 않고 `first.equals(second)`로 비교 의도를 나타낸다. 변수가 `null`일 수도
+있다면 `Objects.equals(first, second)`를 사용할 수 있다.
+
+</details>
+
+## 참고 자료
+
+- [Java SE 21 Object.equals](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html#equals(java.lang.Object))
+- [Java SE 27 Object.equals](https://docs.oracle.com/en/java/javase/27/docs/api/java.base/java/lang/Object.html#equals(java.lang.Object))

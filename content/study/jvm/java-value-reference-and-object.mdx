@@ -1,0 +1,91 @@
+---
+title: "변수에는 값과 객체가 어떻게 저장될까"
+date: "2026-09-17"
+status: "growing"
+summary: "기본형 변수의 값 복사와 참조형 변수의 참조 복사를 작은 예시와 그림으로 구분한다."
+tags: ["java", "value", "reference", "object", "beginner"]
+group: "java-foundations"
+related: ["jvm/java-primitive-and-reference-types", "jvm/java-equality-identity-and-equals"]
+draft: false
+---
+
+## 비슷해 보이는 두 변수
+
+```java
+int number = 10;
+String fruit = new String("사과");
+```
+
+```text
+기본형 변수                 참조형 변수
+number                     fruit                 String 객체
+┌────┐                     ┌────────┐            ┌──────────┐
+│ 10 │                     │ 참조 ─────────────▶ │  "사과"  │
+└────┘                     └────────┘            └──────────┘
+```
+
+## 기본형 변수를 복사하면 값이 복사된다
+
+```java
+int first = 10;
+int second = first;
+second = 20;
+
+System.out.println(first);  // 10
+System.out.println(second); // 20
+```
+
+```text
+복사 직후                 second를 바꾼 뒤
+first  [10]               first  [10]
+second [10]               second [20]
+```
+
+`second`에는 값 `10`이 복사된다. 두 변수는 따로 있으므로 `second`를 바꿔도 `first`는 바뀌지
+않는다.
+
+## 참조형 변수를 복사하면 같은 객체를 가리킨다
+
+```java
+Product first = new Product("노트");
+Product second = first;
+```
+
+```text
+first  ──┐
+         ├────▶ Product 객체 하나 { name: "노트" }
+second ──┘
+```
+
+객체를 가리키는 참조가 복사되어 두 변수가 같은 객체를 가리킨다. 반대로 `new`를 두 번 사용하면
+내용이 같아도 별개의 객체가 만들어진다.
+
+```java
+Product first = new Product("노트");
+Product second = new Product("노트");
+```
+
+```text
+first  ─────▶ Product 객체 ① { name: "노트" }
+second ────▶ Product 객체 ② { name: "노트" }
+```
+
+이 차이를 알아야 객체의 `==`가 왜 내용 대신 같은 객체인지를 확인하는지 이해할 수 있다.
+
+<details>
+<summary><b>🔍 참조는 실제 메모리 주소와 같은 것인가?</b></summary>
+
+입문 단계에서는 참조형 변수가 객체의 위치를 가리킨다고 이해하면 충분하다. 다만 Java 공식
+명세는 참조를 개발자가 직접 다루는 메모리 주소로 정의하지 않는다.
+
+```text
+"변수에 객체의 실제 주소가 들어 있다"  △ 지나치게 구체적
+"변수에 객체를 가리키는 참조가 들어 있다" ○ 적절한 설명
+```
+
+</details>
+
+## 참고 자료
+
+- [Java SE 21 언어 명세: Reference Types and Values](https://docs.oracle.com/javase/specs/jls/se21/html/jls-4.html#jls-4.3)
+- [Java SE 27 언어 명세: Reference Types and Values](https://docs.oracle.com/javase/specs/jls/se27/html/jls-4.html#jls-4.3)
