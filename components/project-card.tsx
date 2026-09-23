@@ -25,7 +25,7 @@ export function ProjectCard({ project }: { project: ProjectEntry }) {
   return (
     <Link
       href={`/projects/${project.slug}`}
-      className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-e2 transition-[transform,box-shadow,border-color] duration-300 ease-[var(--ease-out-soft)] hover:-translate-y-1 hover:border-brand/40 hover:shadow-e3"
+      className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-e2 transition-[transform,box-shadow,border-color] duration-300 ease-[var(--ease-out-soft)] hover:-translate-y-1 hover:border-brand/50 hover:shadow-e3"
     >
       {project.thumbnail ? (
         <div className="relative aspect-[1200/500] w-full overflow-hidden border-b border-border bg-muted">
@@ -33,7 +33,7 @@ export function ProjectCard({ project }: { project: ProjectEntry }) {
           <img
             src={project.thumbnail}
             alt={`${project.title} 프로젝트 대표 이미지`}
-            className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+            className="size-full object-cover saturate-[0.8] transition-transform duration-500 group-hover:scale-[1.035] group-hover:saturate-100"
           />
         </div>
       ) : null}
@@ -52,7 +52,7 @@ export function ProjectCard({ project }: { project: ProjectEntry }) {
         </div>
 
         <div className="rounded-md border border-brand/20 bg-brand/5 px-3 py-2.5">
-          <p className="mb-1 font-mono text-[0.68rem] font-medium text-brand">Key outcome</p>
+          <p className="mb-1 font-mono text-[0.68rem] font-medium uppercase tracking-[0.14em] text-brand">Key outcome</p>
           <p className="text-sm font-medium leading-relaxed text-foreground">{project.highlight}</p>
         </div>
 

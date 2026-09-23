@@ -1,4 +1,6 @@
 const categoryLabels: Record<string, string> = {
+  cs: 'CS',
+  jvm: 'JVM',
   api: 'API',
   security: 'Security',
   deployment: 'Deployment',

@@ -136,6 +136,13 @@ export type ResumePick = {
   slug: string
   headline?: string
   summary: string
+  context?: string
+  problem?: string
+  cause?: string
+  responsibility?: string
+  decision?: string
+  result?: string
+  evidence?: string
 }
 
 export type ResumeSkillGroup = {

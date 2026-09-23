@@ -1,48 +1,91 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
-import { PageHeader, EmptyState } from '@/components/page-header'
-import { getResumeVariants } from '@/lib/content-data'
+import { PageHeader } from '@/components/page-header'
+import { getAbout, getResume, getResumeVariantBySlug, getPickTarget } from '@/lib/content-data'
 
 export const metadata: Metadata = {
   title: 'Resume',
-  description: '지원 역할에 맞춰 요약과 대표 사례를 다르게 구성한 이력서입니다.'
+  description: '백엔드를 중심으로 프론트엔드, 데이터, 인프라, 아키텍처까지 연결해 설명하는 이력서입니다.'
 }
 
 export default function ResumePage() {
-  const variants = getResumeVariants()
+  const about = getAbout()
+  const resume = getResume()
+  const primaryVariant = getResumeVariantBySlug('backend')
+  const fullstackVariant = getResumeVariantBySlug('fullstack')
+  const architectureVariant = getResumeVariantBySlug('architecture')
+  const representativePicks = [
+    ...(primaryVariant?.picks.slice(0, 3) ?? []),
+    ...(fullstackVariant?.picks.filter((pick) => pick.slug === 'career-link').slice(0, 1) ?? []),
+    ...(architectureVariant?.picks.filter((pick) => pick.slug === 'prompthub/product-service/ai-recommendation-independent-service').slice(0, 1) ?? [])
+  ]
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
       <PageHeader
-        title="지원 역할별 이력서"
-        description="같은 사람, 다른 강조점. 역할에 맞춘 요약과 직접 고른 대표 사례로 구성했습니다. 각 버전은 그대로 PDF로 내보낼 수 있습니다."
-        count={variants.length}
+        title="이력서"
+        description="백엔드를 중심으로 문제의 범위를 넓혀가며, 프론트엔드와 데이터, 인프라, 아키텍처까지 연결해 일해온 경험을 정리했습니다."
       />
 
-      {variants.length === 0 ? (
-        <div className="mt-8">
-          <EmptyState message="아직 등록된 이력서 버전이 없습니다." />
+      <section className="mt-8 grid gap-8 lg:grid-cols-[0.75fr_1.25fr]">
+        <div className="rounded-lg border border-brand/30 bg-brand/5 p-6">
+          <p className="font-mono text-xs uppercase tracking-[0.16em] text-brand">Profile</p>
+          <h2 className="mt-4 text-3xl font-bold tracking-[-0.045em]">{about.name}</h2>
+          <p className="mt-2 text-sm text-muted-foreground">{about.role} · {about.location}</p>
+          <p className="mt-6 text-sm leading-relaxed text-foreground/80">{resume.summary}</p>
+          <Link href="/resume/backend" className="mt-6 inline-flex items-center gap-1.5 font-mono text-xs text-brand underline-offset-4 hover:underline">
+            대표 이력서 자세히 보기 <ArrowRight className="size-3.5" />
+          </Link>
         </div>
-      ) : (
-        <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {variants.map((variant) => (
-            <Link
-              key={variant.slug}
-              href={`/resume/${variant.slug}`}
-              className="group flex flex-col rounded-xl border border-border bg-card p-5 shadow-e2 transition-[transform,box-shadow,border-color] duration-300 ease-[var(--ease-out-soft)] hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-e3"
-            >
-              <p className="font-mono text-xs text-muted-foreground">{`--role ${variant.slug}`}</p>
-              <h2 className="mt-1 text-lg font-semibold tracking-tight">{variant.label}</h2>
-              <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground text-pretty">{variant.summary}</p>
-              <span className="mt-4 inline-flex items-center gap-1 font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground">
-                {variant.picks.length} cases · 보기
-                <ArrowRight className="size-3.5" />
-              </span>
-            </Link>
-          ))}
+
+        <div className="rounded-lg border border-border bg-card p-6">
+          <p className="font-mono text-xs uppercase tracking-[0.16em] text-brand">Capabilities</p>
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            {resume.skills.map((skill) => (
+              <div key={skill.group}>
+                <h3 className="font-mono text-xs text-muted-foreground">{skill.group}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed">{skill.items.join(' · ')}</p>
+              </div>
+            ))}
+          </div>
         </div>
-      )}
+      </section>
+
+      {representativePicks.length > 0 ? (
+        <section className="mt-8 border-t border-border pt-8">
+          <div className="flex items-baseline justify-between gap-4">
+            <div>
+              <p className="font-mono text-xs uppercase tracking-[0.16em] text-brand">Selected evidence</p>
+              <h2 className="mt-2 text-xl font-semibold tracking-tight">이력서에서 바로 확인할 수 있는 대표 사례</h2>
+            </div>
+            <span className="font-mono text-xs text-muted-foreground">{representativePicks.length} records</span>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            {representativePicks.map((pick) => (
+              (() => {
+                const target = getPickTarget(pick.type, pick.slug)
+                if (!target) return null
+                return (
+                  <Link key={`${pick.type}-${pick.slug}`} href={target.href} className="group rounded-lg border border-border bg-card p-4 transition-colors hover:border-brand/50 hover:bg-brand/5">
+                    <p className="font-mono text-xs text-brand">{pick.type}</p>
+                    <p className="mt-2 text-sm font-semibold group-hover:text-brand">{pick.headline}</p>
+                    <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{pick.summary}</p>
+                    {pick.problem || pick.decision || pick.evidence ? (
+                      <div className="mt-3 space-y-1.5 border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
+                        {pick.problem ? <p><span className="font-mono text-brand">문제</span> {pick.problem}</p> : null}
+                        {pick.decision ? <p><span className="font-mono text-brand">선택</span> {pick.decision}</p> : null}
+                        {pick.evidence ? <p><span className="font-mono text-brand">검증</span> {pick.evidence}</p> : null}
+                      </div>
+                    ) : null}
+                    <p className="mt-3 font-mono text-[0.7rem] text-muted-foreground">상세 기록 보기 →</p>
+                  </Link>
+                )
+              })()
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   )
 }

@@ -133,6 +133,17 @@ export default async function ResumeRolePage({ params }: { params: Promise<{ rol
                         <span className="font-mono text-xs text-muted-foreground">{pick.type}</span>
                       </div>
                       <p className="mt-1 text-sm leading-relaxed text-muted-foreground text-pretty">{pick.summary}</p>
+                      {pick.context || pick.problem || pick.cause || pick.responsibility || pick.decision || pick.result || pick.evidence ? (
+                        <div className="mt-4 grid gap-3 rounded-md bg-secondary/50 p-4 text-xs leading-relaxed sm:grid-cols-2">
+                          {pick.context ? <p><span className="font-mono text-brand">배경</span><br />{pick.context}</p> : null}
+                          {pick.problem ? <p><span className="font-mono text-brand">문제</span><br />{pick.problem}</p> : null}
+                          {pick.cause ? <p><span className="font-mono text-brand">원인</span><br />{pick.cause}</p> : null}
+                          {pick.responsibility ? <p><span className="font-mono text-brand">담당</span><br />{pick.responsibility}</p> : null}
+                          {pick.decision ? <p><span className="font-mono text-brand">선택</span><br />{pick.decision}</p> : null}
+                          {pick.result ? <p><span className="font-mono text-brand">결과</span><br />{pick.result}</p> : null}
+                          {pick.evidence ? <p><span className="font-mono text-brand">검증</span><br />{pick.evidence}</p> : null}
+                        </div>
+                      ) : null}
                       <p className="mt-1.5 truncate font-mono text-[0.7rem] text-muted-foreground/80">
                         {SITE_URL.replace('https://', '')}
                         {target.href}

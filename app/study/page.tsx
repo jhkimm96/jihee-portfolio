@@ -5,6 +5,7 @@ import { PageHeader, EmptyState } from '@/components/page-header'
 import { PostCard } from '@/components/post-card'
 import { getLearningPaths, getPublishedStudy, getStudyCategorySummaries } from '@/lib/content-data'
 import { formatCategory, formatDate } from '@/lib/format'
+import { studyRoadmap } from '@/lib/study-roadmap'
 import { cn } from '@/lib/utils'
 
 export const metadata: Metadata = {
@@ -24,15 +25,10 @@ export default async function StudyPage({
   const categories = getStudyCategorySummaries()
   const allPosts = getPublishedStudy()
   const learningPaths = getLearningPaths()
-  const today = new Date().toISOString().slice(0, 10)
-  const dueForReview = allPosts
-    .filter((post) => post.status !== 'archived' && post.reviewAfter && post.reviewAfter <= today)
-    .sort((a, b) => (a.reviewAfter ?? '').localeCompare(b.reviewAfter ?? ''))
-    .slice(0, 5)
   const filtered = allPosts.filter((post) => {
     if (selectedCategory && post.category !== selectedCategory) return false
     if (!query) return true
-    return [post.title, post.summary, post.category, ...(post.tags ?? [])]
+    return [post.title, post.summary, post.content, post.category, ...(post.tags ?? [])]
       .filter(Boolean)
       .join(' ')
       .toLocaleLowerCase('ko')
@@ -40,21 +36,62 @@ export default async function StudyPage({
   })
   const browsing = Boolean(query || selectedCategory)
 
+  const categoryCounts = new Map(categories.map((category) => [category.category, category.count]))
+
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <PageHeader
         title="Study Notes"
-        description="기억이 흐릿해졌을 때 키워드나 주제로 빠르게 다시 찾는 개인 기술 지식창고입니다."
+        description="프로젝트에서 발견한 질문과 개발자로서 쌓아갈 개념을 순서와 맥락이 보이게 정리한 개인 기술창고입니다."
         count={allPosts.length}
       />
 
-      <section className="mt-6 rounded-xl border border-brand/25 bg-brand/5 p-5" aria-labelledby="learning-paths-title">
+      <section className="mt-8 rounded-xl border border-border bg-card p-5 shadow-e1 sm:p-6" aria-labelledby="study-roadmap-title">
+        <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-5">
+          <div>
+            <p className="font-mono text-xs uppercase tracking-[0.16em] text-brand">Personal learning map</p>
+            <h2 id="study-roadmap-title" className="mt-2 text-xl font-semibold tracking-tight">프로젝트를 넘어, 기술을 쌓는 순서</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">현재 노트를 무작정 최신순으로 읽지 않고, 기반 개념에서 설계와 운영으로 넘어가도록 추천 순서를 만들었습니다. 각 단계의 노트 수는 새 글을 추가하면 자동으로 갱신됩니다.</p>
+          </div>
+          <span className="font-mono text-xs text-muted-foreground">기반 → 설계 → 분산 → 운영</span>
+        </div>
+        <ol className="mt-5 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
+          {studyRoadmap.map((track) => {
+            const noteCount = track.categories.reduce((total, category) => total + (categoryCounts.get(category) ?? 0), 0)
+            const firstCategory = track.categories.find((category) => categoryCounts.has(category))
+            const href = firstCategory ? `/study?view=latest&category=${encodeURIComponent(firstCategory)}` : '/study?view=latest'
+
+            return (
+              <li key={track.step} className="flex min-h-48 flex-col bg-card p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-mono text-xs text-brand">0{track.step}</span>
+                  <span className="font-mono text-xs text-muted-foreground">{noteCount} notes</span>
+                </div>
+                <h3 className="mt-5 text-base font-semibold">{track.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{track.description}</p>
+                <div className="mt-auto flex flex-wrap gap-1.5 pt-4">
+                  {track.categories.map((category) => (
+                    <Link key={category} href={`/study?view=latest&category=${encodeURIComponent(category)}`} className={cn('rounded-full border px-2 py-0.5 font-mono text-[0.68rem] transition-colors hover:border-brand/50', categoryCounts.has(category) ? 'border-border text-muted-foreground' : 'border-dashed border-border text-muted-foreground/60')}>
+                      {formatCategory(category)}
+                    </Link>
+                  ))}
+                </div>
+                <Link href={href} className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-brand hover:text-foreground">이 단계 노트 보기 <ArrowRight className="size-3.5" /></Link>
+              </li>
+            )
+          })}
+        </ol>
+        <p className="mt-4 text-xs leading-relaxed text-muted-foreground">읽은 뒤에는 프로젝트 경로에서 같은 개념이 실제 코드와 설계에 어떻게 적용됐는지 확인합니다. React, 브라우저, 풀스택 주제는 관련 노트가 쌓이는 시점에 다음 트랙으로 확장할 수 있습니다.</p>
+      </section>
+
+      <section className="mt-6 rounded-xl border border-brand/25 bg-brand/5 p-5 sm:p-6" aria-labelledby="project-paths-title">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 id="learning-paths-title" className="text-lg font-semibold">프로젝트 학습 경로</h2>
-            <p className="mt-1 max-w-xl text-sm leading-relaxed text-muted-foreground">프로젝트가 늘어나도 경로 파일만 추가하면 단계와 연결 문서가 자동으로 표시됩니다. 현재 코드와 최신 근거를 기준으로 순서대로 읽습니다.</p>
+            <p className="font-mono text-xs uppercase tracking-[0.16em] text-brand">Project verification paths</p>
+            <h2 id="project-paths-title" className="mt-2 text-lg font-semibold">프로젝트별로 다시 연결하기</h2>
+            <p className="mt-1 max-w-xl text-sm leading-relaxed text-muted-foreground">개인 학습 지도에서 익힌 개념을 PromptHub 같은 실제 프로젝트의 데이터 흐름, 선택, 장애 상황과 연결해 확인합니다. 프로젝트가 늘어나면 프로젝트별 경로를 추가합니다.</p>
           </div>
-          <Link href="/study/paths" className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">전체 경로 보기 <ArrowRight className="size-4" /></Link>
+          <Link href="/study/paths" className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">프로젝트 경로 모아보기 <ArrowRight className="size-4" /></Link>
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
           {learningPaths.map((path) => (
@@ -66,7 +103,7 @@ export default async function StudyPage({
       <section className="mt-6 rounded-xl border border-border bg-card p-4">
         <div className="mb-3 flex items-center gap-2">
           <Search className="size-4 text-brand" />
-          <h2 className="text-sm font-semibold">나중에 다시 찾기</h2>
+          <h2 className="text-sm font-semibold">기술창고에서 다시 찾기</h2>
         </div>
         <form action="/study" className="flex gap-2">
           <input type="hidden" name="view" value="latest" />
@@ -98,25 +135,6 @@ export default async function StudyPage({
           ))}
         </div>
       </section>
-
-      {dueForReview.length > 0 ? (
-        <section className="mt-6 rounded-xl border border-brand/20 bg-brand/5 p-4" aria-labelledby="review-notes-title">
-          <div className="flex items-baseline justify-between gap-3">
-            <div>
-              <h2 id="review-notes-title" className="text-sm font-semibold">다시 볼 노트</h2>
-            </div>
-            <span className="font-mono text-xs text-muted-foreground">{dueForReview.length}개</span>
-          </div>
-          <div className="mt-3 divide-y divide-border">
-            {dueForReview.map((post) => (
-              <Link key={post.slug} href={`/study/${post.slug}`} className="flex items-center justify-between gap-4 py-2.5 text-sm first:pt-0 last:pb-0">
-                <span className="font-medium hover:text-brand">{post.title}</span>
-                <span className="shrink-0 font-mono text-[0.7rem] text-muted-foreground">{post.reviewAfter}</span>
-              </Link>
-            ))}
-          </div>
-        </section>
-      ) : null}
 
       <div className="mt-6 inline-flex rounded-md border border-border bg-card p-1">
         {[{ value: 'category', label: '주제별' }, { value: 'latest', label: '최신순' }].map((item) => (

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, ExternalLink, Wrench, Scale, MessageSquare, Gauge } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Wrench, Scale, MessageSquare, Gauge, HelpCircle } from 'lucide-react'
 import { GithubIcon } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { Markdown } from '@/components/markdown'
@@ -86,8 +86,12 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     { label: '역할', value: project.role }
   ]
 
+  const interviewPrompts = project.slug === 'prompthub'
+    ? ['왜 PostgreSQL과 Elasticsearch를 원본·검색 사본으로 분리했나요?', 'RRF를 선택한 이유와 한계는 무엇인가요?', '검색·추천 장애가 상품 조회에 번지지 않게 어떻게 경계를 나눴나요?']
+    : ['권한별 메뉴와 공통코드를 어떤 기준으로 공통화했나요?', '팀 프로젝트에서 본인 구현 범위와 공동 작업 범위를 어떻게 구분하나요?', '다시 구현한다면 어떤 도메인 경계를 먼저 바꾸겠나요?']
+
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
       <Link
         href="/projects"
         className="inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
@@ -101,7 +105,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           <h1 className="text-3xl font-bold tracking-tight text-balance">{project.title}</h1>
           <StatusBadge status={project.status} />
         </div>
-        <p className="text-base leading-relaxed text-muted-foreground text-pretty">{project.description}</p>
+        <p className="max-w-3xl text-base leading-relaxed text-muted-foreground text-pretty sm:text-lg">{project.description}</p>
 
         <div className="rounded-xl border border-brand/20 bg-brand/5 px-4 py-3">
           <p className="mb-1 font-mono text-[0.7rem] font-semibold uppercase tracking-wider text-brand">이 프로젝트에서 가장 보여주고 싶은 것</p>
@@ -162,6 +166,20 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         ) : null}
       </header>
 
+      <section className="grid gap-3 border-b border-border py-8 lg:grid-cols-[1.25fr_1fr]" aria-labelledby="case-study-title">
+        <div className="rounded-lg border border-brand/30 bg-brand/5 p-5">
+          <p className="font-mono text-[0.7rem] uppercase tracking-[0.16em] text-brand">Case study lens</p>
+          <h2 id="case-study-title" className="mt-3 max-w-xl text-2xl font-semibold tracking-tight text-balance">이 프로젝트는 무엇을 증명하나요?</h2>
+          <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">결과보다 문제의 범위, 본인의 판단, 실패 조건과 검증 근거를 먼저 확인할 수 있도록 구성했습니다.</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-5">
+          <p className="flex items-center gap-2 font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground"><HelpCircle className="size-3.5 text-brand" /> Interview prompts</p>
+          <ul className="mt-3 space-y-2">
+            {interviewPrompts.map((prompt) => <li key={prompt} className="text-sm leading-relaxed text-muted-foreground">{prompt}</li>)}
+          </ul>
+        </div>
+      </section>
+
       <nav className="sticky top-14 z-20 -mx-1 mt-6 overflow-x-auto rounded-lg border border-border bg-background/95 p-1.5 backdrop-blur" aria-label="프로젝트 상세 섹션">
         <div className="flex min-w-max gap-1">
           {[
@@ -206,9 +224,22 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         </div>
       ) : null}
 
-      <article id="overview" className="mt-8 scroll-mt-32">
-        <Markdown content={project.content} />
-      </article>
+      <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_220px]">
+        <article id="overview" className="scroll-mt-32 min-w-0">
+          <Markdown content={project.content} />
+        </article>
+        <aside className="hidden lg:block">
+          <div className="sticky top-28 rounded-lg border border-border bg-card p-4">
+            <p className="font-mono text-[0.7rem] uppercase tracking-[0.14em] text-brand">Read this as</p>
+            <ol className="mt-3 space-y-3 font-mono text-xs text-muted-foreground">
+              <li>01 · 문제와 담당 범위</li>
+              <li>02 · 설계 선택</li>
+              <li>03 · 검증 기록</li>
+              <li>04 · 남은 한계</li>
+            </ol>
+          </div>
+        </aside>
+      </div>
 
       <section id="troubleshooting" className="mt-12 scroll-mt-32 border-t border-border pt-8">
         <div className="flex items-center justify-between gap-4">

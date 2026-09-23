@@ -5,8 +5,8 @@ import { PageHeader } from '@/components/page-header'
 import { getAllProjects, getLearningPaths } from '@/lib/content-data'
 
 export const metadata: Metadata = {
-  title: 'Learning Paths',
-  description: '프로젝트를 처음부터 끝까지 이해하기 위한 순서 있는 학습 경로입니다.'
+  title: 'Project Learning Paths',
+  description: '개인 학습 지식이 실제 프로젝트의 코드와 설계에서 어떻게 적용되는지 확인하는 경로입니다.'
 }
 
 const statusLabel = { draft: '작성 중', growing: '확장 중', ready: '학습 가능' } as const
@@ -18,7 +18,7 @@ export default function LearningPathsPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
-      <PageHeader title="Learning Paths" description="주제별 문서를 무작정 읽지 않고, 프로젝트의 데이터 흐름과 선행 지식에 맞춰 단계별로 학습합니다." count={paths.length} />
+      <PageHeader title="Project Learning Paths" description="개인 학습 지도에서 익힌 개념을 프로젝트의 데이터 흐름과 선행 지식에 맞춰 다시 연결합니다." count={paths.length} />
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         {projects.map((project) => {
           const path = byProject.get(project.slug)
