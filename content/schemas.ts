@@ -119,7 +119,14 @@ const resumePickSchema = s.object({
   type: s.enum(['project', 'decision', 'troubleshooting', 'study', 'review']),
   slug: s.string(),
   headline: s.string().optional(),
-  summary: s.string()
+  summary: s.string(),
+  context: s.string().optional(),
+  problem: s.string().optional(),
+  cause: s.string().optional(),
+  responsibility: s.string().optional(),
+  decision: s.string().optional(),
+  result: s.string().optional(),
+  evidence: s.string().optional()
 })
 
 export const resumeVariantFrontmatterSchema = s.object({
