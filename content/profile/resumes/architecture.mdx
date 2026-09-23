@@ -5,28 +5,56 @@ headline: 서비스 경계를 근거로 나누는 개발자
 summary: "MSA 환경에서 서비스 경계와 이벤트 흐름을 설계하는 데 집중했습니다. 추천을 독립 서비스로 분리하고, 서비스마다 다른 Outbox·Inbox 적용을 근거와 함께 정리했습니다. 안 쓰는 설계는 덜어내는 판단도 기록으로 남깁니다."
 skills:
   - group: "Architecture"
-    items: ["MSA", "DDD", "Event-Driven", "gRPC", "Outbox·Inbox"]
+    items: ["서비스 경계", "DDD", "Event-Driven", "REST·gRPC", "장애 격리"]
   - group: "Backend"
-    items: ["Java", "Spring Boot", "Spring Batch", "JPA"]
+    items: ["Java", "Spring Boot", "MyBatis", "REST API", "SQL"]
   - group: "Data·Messaging"
-    items: ["PostgreSQL", "Elasticsearch", "Redis", "Kafka"]
-  - group: "Infra"
-    items: ["AWS", "Docker", "Kubernetes", "GitHub Actions"]
+    items: ["PostgreSQL", "Elasticsearch", "Redis", "Kafka", "Outbox·Inbox"]
+  - group: "Infra·Delivery"
+    items: ["AWS EC2", "Docker", "Kubernetes", "Ubuntu", "Jenkins"]
 picks:
   - type: decision
     slug: prompthub/product-service/ai-recommendation-independent-service
     headline: 추천을 독립 서비스로 분리
     summary: "맞춤 추천을 product-service가 아니라 ai-service에 뒀다. 여러 활동 신호를 평균이 아닌 가중 순위 합산으로 합치고, 저장부터 추천 노출까지 네 단계와 각 단계의 결정 근거를 한 장으로 정리했다."
+    context: "상품 서비스에 사용자 활동 기반 추천까지 넣으려는 상황에서 상품 변경과 추천 로직의 변경 주기, 실패 범위가 달랐습니다."
+    problem: "사용자 활동을 반영한 추천을 상품 도메인 안에 넣으면 책임과 장애 범위가 함께 커졌습니다."
+    cause: "상품 데이터의 소유 책임과 활동 신호를 조합하는 계산 책임이 한 서비스에 섞이면서 변경 이유가 달라졌습니다."
+    responsibility: "추천 후보 조회와 활동별 점수 조합 흐름을 나누고, 서비스 간 데이터와 통신 계약을 문서화했습니다."
+    decision: "product-service는 후보 조회만 제공하고 ai-service가 활동별 가중치와 최종 순위를 책임지도록 분리했습니다."
+    result: "상품 도메인과 추천 계산의 변경·장애 경계를 분리하고, 평균 대신 가중 순위 합산으로 여러 활동 신호를 조합했습니다."
+    evidence: "AI recommendation Decision과 PromptHub 검색·추천 흐름 다이어그램"
   - type: decision
     slug: prompthub/product-service/behavior-log-minimum-design-for-measurement
     headline: 목적이 사라진 설계의 범위 재설정
     summary: "행동 로그의 원래 소비자(개인화 추천)가 전부 중단되자, 남은 목적(검색 품질 측정) 하나만 놓고 범위를 다시 잡았다. 필요 없어진 설계를 덜어내는 판단을 남겼다."
+    context: "개인화 추천을 위해 수집하던 행동 로그의 소비자가 바뀌면서, 기존 이벤트를 그대로 유지할지 다시 판단해야 했습니다."
+    problem: "추천에 쓰려고 만든 행동 로그의 소비자가 사라지면서, 수집 범위를 그대로 유지할 이유가 약해졌습니다."
+    cause: "데이터를 수집하는 목적과 실제 소비자가 달라졌는데도 기존 설계를 관성적으로 유지하면 저장·처리 비용과 복잡도만 남을 수 있었습니다."
+    responsibility: "검색 품질 측정에 필요한 이벤트와 재개 조건을 분리해 로그 범위를 다시 정의했습니다."
+    decision: "검색 품질 측정에 필요한 최소 이벤트만 남기고, 재개 조건이 생길 때 확장하도록 범위를 줄였습니다."
+    result: "아키텍처를 확장하는 판단뿐 아니라 더 이상 필요하지 않은 설계를 덜어내는 기준도 기록했습니다."
+    evidence: "행동 로그 최소 설계 Decision과 재검토 조건"
   - type: study
     slug: msa/msa-prompthub-service-map
     headline: MSA 서비스 지도
     summary: "MSA가 무엇이고 PromptHub가 왜 이렇게 서비스를 나눴는지, 서비스 간 관계를 지도로 그려 정리했다."
+    context: "서비스를 나누는 기술 자체보다 각 서비스가 어떤 데이터를 소유하고 어떤 실패를 격리해야 하는지 설명할 필요가 있었습니다."
+    problem: "서비스를 나누는 것 자체가 목표가 되면 호출 관계와 책임 경계가 복잡해질 수 있었습니다."
+    cause: "도메인 책임, 데이터 소유, 장애 전파 경계를 같은 기준으로 정리하지 않으면 서비스 분리가 이름만 바뀌는 구조가 될 수 있었습니다."
+    responsibility: "PromptHub의 서비스 관계와 데이터 흐름을 다시 그려 서비스별 책임과 통신 방식을 설명했습니다."
+    decision: "도메인 책임, 데이터 소유, 장애 전파 경계를 기준으로 서비스 관계를 다시 그렸습니다."
+    result: "각 서비스가 왜 존재하는지와 어디까지 책임지는지를 면접에서 설명할 수 있는 구조로 정리했습니다."
+    evidence: "MSA 서비스 지도 Study와 관련 서비스 경계 Decision"
   - type: project
     slug: prompthub
     headline: AI 프롬프트 마켓플레이스
     summary: "MSA로 도메인을 나누고 서비스 간 통신·이벤트 파이프라인을 설계한 최종 프로젝트."
+    context: "상품·검색·추천이 동시에 변하는 팀 프로젝트에서 기능 목록보다 서비스 책임과 통신 계약을 먼저 합의해야 했습니다."
+    problem: "상품, 검색, 추천이 함께 변하는 팀 프로젝트에서 기능 추가보다 경계와 통신 계약을 먼저 맞춰야 했습니다."
+    cause: "서비스마다 데이터의 원천과 파생 결과, 동기 호출과 이벤트 처리의 실패 조건이 달랐습니다."
+    responsibility: "서비스별 책임과 통신 계약, 필요한 이벤트 흐름을 정리하고 설계 근거를 기록했습니다."
+    decision: "서비스별 책임과 통신 계약을 문서화하고, 필요한 곳에만 동기 호출과 이벤트 흐름을 사용했습니다."
+    result: "MSA를 기술 유행이 아니라 데이터 소유와 장애 전파 범위를 나누는 설계 기준으로 설명할 수 있게 했습니다."
+    evidence: "PromptHub 프로젝트 상세와 아키텍처 다이어그램"
 ---

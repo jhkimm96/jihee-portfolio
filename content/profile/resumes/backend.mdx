@@ -3,21 +3,60 @@ label: 백엔드 개발자
 order: 1
 headline: 검색·추천을 설계하는 백엔드 개발자
 summary: "상품 도메인과 Elasticsearch 검색·벡터 검색 설계를 맡아, 키워드와 의미 기반 하이브리드 검색을 RRF로 결합하고 pgvector 기반 유사 상품 추천을 구현했습니다. 값 하나를 정할 때도 근거를 실측으로 확인하고 기록으로 남깁니다."
+skills:
+  - group: "Backend"
+    items: ["Java", "Spring Boot", "Spring(eGovFrame)", "MyBatis", "REST API", "SQL"]
+  - group: "Search·Data"
+    items: ["PostgreSQL", "MySQL", "Oracle", "TIBERO", "Elasticsearch", "pgvector"]
+  - group: "Integration·Reliability"
+    items: ["Kafka", "Outbox", "증분 동기화", "RDB 폴백", "검색 품질 측정"]
+  - group: "Infra·Delivery"
+    items: ["AWS EC2", "Docker", "Kubernetes", "Ubuntu", "Jenkins"]
+  - group: "AI Engineering"
+    items: ["OpenAI Embedding", "벡터 검색", "RRF", "실측 기반 검증"]
 picks:
   - type: decision
     slug: prompthub/product-service/es-vector-search-end-to-end-flow
     headline: 하이브리드·벡터 검색 전 과정 설계
     summary: "키워드 검색만으로는 표현이 다른 상품을 놓쳤다. 글자·의미 검색을 등수 기반(RRF)으로 합쳐 표현이 달라도 잡히는 하이브리드 검색을 설계·구현하고, 300ms 예산·인기순 한정 같은 트레이드오프를 문서로 남겼다."
+    context: "PromptHub 상품 검색에서 상품명·태그와 사용자의 표현이 다르면 키워드 검색만으로는 관련 상품을 놓칠 수 있는 상황이었습니다."
+    problem: "같은 의도를 다른 표현으로 검색하면 키워드 검색만으로는 관련 상품을 놓쳤습니다."
+    cause: "문자열이 실제 의미를 충분히 표현하지 못했고, PostgreSQL 원본과 검색 사본의 동기화 책임도 분리해서 다뤄야 했습니다."
+    responsibility: "product-service의 상품 검색 흐름과 Elasticsearch 증분 색인, ai-service의 임베딩·유사 검색 연결을 맡았습니다."
+    decision: "PostgreSQL을 원본으로 두고 변경분만 Elasticsearch에 반영한 뒤, 글자 검색과 의미 검색을 RRF로 합쳤습니다."
+    result: "정확한 키워드와 표현이 다른 의도를 한 검색 흐름에서 다룰 수 있게 했고, 검색 지연 예산과 인기순 정렬 범위를 함께 관리했습니다."
+    evidence: "검색 전체 흐름 Decision, 분석기 불일치 Troubleshooting, 품질 조정 Review"
   - type: troubleshooting
     slug: prompthub/search/nori-analyzer-silent-mismatch
     headline: 조용히 틀리던 한글 검색 디버깅
     summary: "검색 품질이 원인 없이 나빠졌다. 분석기가 '보고서'를 '보/고서'로 쪼갰는데 색인·질의에 같은 분석기가 걸려 왜곡이 대칭이라 눈에 안 띄었다. 측정을 두 번 틀린 끝에 대칭 왜곡까지 추적해 기본 분석기로 전환했다."
+    context: "검색 API는 정상 응답했지만 한글 검색 결과의 관련성이 낮아져, 단순한 서버 오류가 아닌 검색 품질 문제를 추적해야 했습니다."
+    problem: "검색어와 문서가 모두 같은 방식으로 잘못 분석되어, 검색은 동작하지만 결과 품질만 조용히 떨어졌습니다."
+    cause: "색인과 질의에 같은 잘못된 토큰화가 적용되어 요청과 데이터가 대칭으로 왜곡됐고, HTTP 오류만으로는 문제를 발견할 수 없었습니다."
+    responsibility: "분석기 설정과 실제 토큰 분해 결과를 비교하고, 검색 품질 측정 결과와 구현 설정을 연결해 원인을 좁혔습니다."
+    decision: "색인과 질의의 분석기 설정뿐 아니라 실제 토큰 분해 결과까지 비교해 원인을 좁혔습니다."
+    result: "검색이 성공하는지만 확인하지 않고 토큰과 결과 품질을 함께 확인하는 디버깅 기준을 만들었습니다."
+    evidence: "Nori analyzer mismatch Troubleshooting 원문과 재현 로그"
   - type: review
     slug: prompthub/recommendation-similarity-threshold-2026-07-31
     headline: 제안을 두 번 실측으로 뒤집은 기록
     summary: "'비슷한 상품' 품질을 점검하며 고칠 방법을 두 번 제안했고, 두 번 다 재보니 틀렸다. 추측이 아니라 측정으로 결론을 내는 과정을 남겼다."
+    context: "벡터 유사도 기반 추천은 임계값을 너무 높이면 후보가 사라지고, 너무 낮추면 관계없는 상품이 노출될 수 있었습니다."
+    problem: "추천 유사도 하한을 감으로 정하면 관련 상품을 놓치거나 무관한 상품을 함께 노출할 수 있었습니다."
+    cause: "추천 품질을 판단할 고정된 사례 집합과 측정 절차가 먼저 정리되지 않은 상태에서 개선안을 추측했기 때문입니다."
+    responsibility: "관련·무관 사례를 나누고 같은 조건으로 반복 비교해 임계값 판단 과정과 반례를 기록했습니다."
+    decision: "임계값을 먼저 정하지 않고 관련·무관 사례를 나눠 같은 조건으로 비교한 뒤 기준을 조정했습니다."
+    result: "처음 제안한 개선안도 검증 대상에 포함하고, 결과가 예상과 다르면 결론을 다시 바꾸는 품질 판단 방식을 남겼습니다."
+    evidence: "유사도 임계값 Review, 검색 품질 수치 Decision"
   - type: project
     slug: prompthub
     headline: AI 프롬프트 마켓플레이스
     summary: "5인 백엔드 팀에서 product-service와 ai-service를 맡아 상품 도메인, 증분 색인, 하이브리드 검색과 장바구니·구매 기반 개인화 추천을 설계·구현했다. 별도 모듈 조건을 서비스 책임과 장애 경계를 분리하는 설계로 구체화했다."
+    context: "상품 도메인과 검색·추천 기능이 함께 커지는 팀 프로젝트에서 기능을 추가할수록 서비스 책임과 장애 영향 범위를 먼저 정해야 했습니다."
+    problem: "상품 도메인, 검색, 개인화 추천이 한 서비스에 섞이면 변경과 장애의 영향 범위를 통제하기 어려웠습니다."
+    cause: "상품의 원천 데이터와 검색·추천을 위한 파생 데이터, 사용자 활동 기반 계산이 서로 다른 변경 주기와 실패 조건을 가졌습니다."
+    responsibility: "5인 백엔드 팀에서 product-service의 상품·검색 흐름과 ai-service의 개인화 추천 구현을 맡았습니다."
+    decision: "상품·유사 상품 후보는 product-service가, 사용자 활동을 조합한 최종 추천은 ai-service가 맡도록 경계를 나눴습니다."
+    result: "상품 도메인의 변경과 추천 계산을 분리해 각 서비스가 책임지는 데이터와 장애 범위를 설명할 수 있게 했습니다."
+    evidence: "PromptHub 프로젝트 상세, 서비스 경계 Decision, 검색·추천 품질 기록"
 ---
