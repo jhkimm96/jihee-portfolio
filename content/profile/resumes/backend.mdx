@@ -1,53 +1,64 @@
 ---
 label: 백엔드 개발자
 order: 1
-headline: 검색·추천을 설계하는 백엔드 개발자
-summary: "상품 도메인과 Elasticsearch 검색·벡터 검색 설계를 맡아, 키워드와 의미 기반 하이브리드 검색을 RRF로 결합하고 pgvector 기반 유사 상품 추천을 구현했습니다. 값 하나를 정할 때도 근거를 실측으로 확인하고 기록으로 남깁니다."
+headline: 성능과 장애를 실측으로 검증하는 백엔드 개발자
+summary: "상품 도메인과 Elasticsearch 검색을 맡아, N+1과 전체 재작성을 증분 동기화로 바꾸고 검색 장애 시 RDB 폴백과 파일 업로드의 heap 압박을 해결했습니다. 값 하나를 정할 때도 근거를 실측으로 확인하고 기록으로 남깁니다."
 skills:
   - group: "Backend"
     items: ["Java", "Spring Boot", "Spring(eGovFrame)", "MyBatis", "REST API", "SQL"]
   - group: "Search·Data"
     items: ["PostgreSQL", "MySQL", "Oracle", "TIBERO", "Elasticsearch", "pgvector"]
   - group: "Integration·Reliability"
-    items: ["Kafka", "Outbox", "증분 동기화", "RDB 폴백", "검색 품질 측정"]
+    items: ["Kafka", "gRPC", "증분 동기화", "RDB 폴백", "Testcontainers", "검색 품질 측정"]
   - group: "Infra·Delivery"
     items: ["AWS EC2", "Docker", "Kubernetes", "Ubuntu", "Jenkins"]
   - group: "AI Engineering"
     items: ["OpenAI Embedding", "벡터 검색", "RRF", "실측 기반 검증"]
 picks:
   - type: decision
-    slug: prompthub/product-service/es-vector-search-end-to-end-flow
-    headline: 하이브리드·벡터 검색 전 과정 설계
-    summary: "키워드 검색만으로는 표현이 다른 상품을 놓쳤다. 글자·의미 검색을 등수 기반(RRF)으로 합쳐 표현이 달라도 잡히는 하이브리드 검색을 설계·구현하고, 300ms 예산·인기순 한정 같은 트레이드오프를 문서로 남겼다."
-    context: "PromptHub 상품 검색에서 상품명·태그와 사용자의 표현이 다르면 키워드 검색만으로는 관련 상품을 놓칠 수 있는 상황이었습니다."
-    problem: "같은 의도를 다른 표현으로 검색하면 키워드 검색만으로는 관련 상품을 놓쳤습니다."
-    cause: "문자열이 실제 의미를 충분히 표현하지 못했고, PostgreSQL 원본과 검색 사본의 동기화 책임도 분리해서 다뤄야 했습니다."
-    responsibility: "product-service의 상품 검색 흐름과 Elasticsearch 증분 색인, ai-service의 임베딩·유사 검색 연결을 맡았습니다."
-    decision: "PostgreSQL을 원본으로 두고 변경분만 Elasticsearch에 반영한 뒤, 글자 검색과 의미 검색을 RRF로 합쳤습니다."
-    result: "정확한 키워드와 표현이 다른 의도를 한 검색 흐름에서 다룰 수 있게 했고, 검색 지연 예산과 인기순 정렬 범위를 함께 관리했습니다."
-    evidence: "검색 전체 흐름 Decision, 분석기 불일치 Troubleshooting, 품질 조정 Review"
-  - type: troubleshooting
-    slug: prompthub/search/nori-analyzer-silent-mismatch
-    headline: 조용히 틀리던 한글 검색 디버깅
-    summary: "검색 품질이 원인 없이 나빠졌다. 분석기가 '보고서'를 '보/고서'로 쪼갰는데 색인·질의에 같은 분석기가 걸려 왜곡이 대칭이라 눈에 안 띄었다. 측정을 두 번 틀린 끝에 대칭 왜곡까지 추적해 기본 분석기로 전환했다."
-    context: "검색 API는 정상 응답했지만 한글 검색 결과의 관련성이 낮아져, 단순한 서버 오류가 아닌 검색 품질 문제를 추적해야 했습니다."
-    problem: "검색어와 문서가 모두 같은 방식으로 잘못 분석되어, 검색은 동작하지만 결과 품질만 조용히 떨어졌습니다."
-    cause: "색인과 질의에 같은 잘못된 토큰화가 적용되어 요청과 데이터가 대칭으로 왜곡됐고, HTTP 오류만으로는 문제를 발견할 수 없었습니다."
-    responsibility: "분석기 설정과 실제 토큰 분해 결과를 비교하고, 검색 품질 측정 결과와 구현 설정을 연결해 원인을 좁혔습니다."
-    decision: "색인과 질의의 분석기 설정뿐 아니라 실제 토큰 분해 결과까지 비교해 원인을 좁혔습니다."
-    result: "검색이 성공하는지만 확인하지 않고 토큰과 결과 품질을 함께 확인하는 디버깅 기준을 만들었습니다."
-    evidence: "Nori analyzer mismatch Troubleshooting 원문과 재현 로그"
+    slug: prompthub/product-service/incremental-reconcile-over-outbox-event
+    headline: N+1과 전체 재작성을 증분 동기화로 제거
+    summary: "20초마다 판매중 상품 전체를 검색 엔진에 다시 쓰던 배치에서 N+1과 변경 감지 누락을 찾아, 변경분만 처리하도록 바꿨다. 변경 없는 사이클은 조회 2건·쓰기 0이 됐고, 배포 후 반영 지연을 실측으로 확인했다."
+    context: "상품 검수가 별도 서비스로 이관되면서 판매 전환 신호가 검색에 전달되지 않아, 임시 폴링 배치가 검색 색인을 20초마다 갱신하고 있었습니다."
+    problem: "배치가 상품 계열마다 쿼리 4개를 보내고 변경 여부와 무관하게 전체를 재작성해, 상품 1,000개 기준 20초당 4,001쿼리가 나가는 구조였습니다."
+    cause: "일괄 조회와 증분 조회 메서드가 이미 구현돼 있었지만 호출되지 않았고, 20초 주기도 근거가 기록되지 않은 채 물려받은 값이었습니다."
+    responsibility: "product-service의 검색 색인 재조정 배치를 코드로 분석하고 증분 방식으로 전환한 뒤 배포 후 동작을 검증했습니다."
+    decision: "주기는 유지하고 변경분만 반영하되, 기동 시·하루 1회 전체 대조와 조회 구간 겹침으로 누락을 막았습니다. 20초를 승인부터 검색 노출까지의 지연 예산으로 근거화했습니다."
+    result: "변경 없는 사이클의 쓰기를 0으로 만들고, 배포 후 제목 수정 반영 21초·승인 후 검색 노출 42초 이내를 실측했습니다. 계획했던 아웃박스 이벤트 도입도 불필요해졌습니다."
+    evidence: "증분 재조정 Decision과 배포 후 실측 기록"
+  - type: decision
+    slug: prompthub/product-service/presigned-put-upload-heap-fix
+    headline: 파일을 heap에 올리던 업로드를 presigned PUT으로 제거
+    summary: "서버가 업로드 파일 전체를 byte[]로 heap에 올려 S3로 넘기던 구조가 product-service만 유독 heap을 크게 쓰던 원인이었다. 프론트가 서명된 URL로 S3에 직접 올리게 바꿔 heap을 파일 크기·동시 업로드와 무관하게 만들었다."
+    context: "판매자가 ppt·excel 같은 대용량 산출물을 올리는 마켓플레이스에서, 업로드가 서버를 경유하는 multipart 방식이었습니다."
+    problem: "대용량 파일과 동시 업로드가 겹치면 heap이 배수로 부풀고, 큰 배열이 G1의 humongous object로 잡혀 GC를 압박했습니다."
+    cause: "MultipartFile을 getBytes()로 파일 전체를 JVM heap에 올린 뒤 S3로 전송하는 구조 자체가 원인이었고, heap·GC 튜닝으로는 증상만 완화됐습니다."
+    responsibility: "product-service의 업로드 경로를 presigned PUT 발급 방식으로 전환하고, 발급 시점의 확장자·content-type 검증을 설계했습니다."
+    decision: "백엔드는 서명된 업로드 URL만 발급하고 파일 bytes를 만지지 않게 했습니다. 업로드 후엔 프론트가 직접 S3로 PUT하므로 검증은 발급 시점에 걸었습니다."
+    result: "서버 경유 byte 업로드 경로를 완전히 제거해 heap 사용을 파일 크기와 분리했고, 자격증명 노출 없이 버킷을 private으로 유지했습니다."
+    evidence: "presigned PUT 전환 Decision과 S3 presigned URL Study"
+  - type: decision
+    slug: prompthub/product-service/product-list-search-elasticsearch-migration
+    headline: ES 우선 조회와 RDB 폴백으로 검색 장애 격리
+    summary: "만들어만 두고 아무도 읽지 않던 ES 사본을 실제 목록·검색 API의 조회 엔진으로 전환하면서, ES가 실패하면 같은 응답 계약으로 RDB에서 조회하도록 폴백을 설계했다. 전환 중 발견한 삭제 정합성 버그와 기동 순서 레이스도 함께 고쳤다."
+    context: "상품 변경을 ES에 색인하는 파이프라인은 있었지만, 사용자가 부르는 목록·검색 API는 여전히 RDB만 조회하고 있었습니다."
+    problem: "ES로 전환하면 검색 엔진 장애가 곧 상품 목록 장애가 되고, 판매 중단된 상품이 색인에 남거나 기동 직후 인덱스가 없어 재조정이 실패하는 문제가 있었습니다."
+    cause: "실시간 이벤트 경로에 '판매 중 상품이 없으면 삭제' 분기가 빠져 있었고, 재조정 스케줄러가 인덱스 생성보다 먼저 실행될 수 있었습니다."
+    responsibility: "product-service 목록·검색 API의 조회 엔진 전환, 폴백 분기, 삭제 정합성과 기동 레이스 수정, 단위·Testcontainers 통합 테스트를 맡았습니다."
+    decision: "ES 경로 전체를 감싸 실패 시 기존 RDB 코드로 넘기고, Pageable을 한 번만 만들어 두 경로에 그대로 넘겨 응답 계약을 동일하게 유지했습니다."
+    result: "ES를 강제로 내려도 200 응답과 RDB 폴백 로그를 확인했고, 로컬에서 레이스를 재현한 뒤 수정 후 크래시 없이 넘어가는 것을 검증했습니다. 구매 시 판매수가 유실되던 버그도 같은 작업에서 찾아 고쳤습니다."
+    evidence: "ES 조회 전환 Decision, 폴백 분기 코드, 통합 테스트"
   - type: review
-    slug: prompthub/recommendation-similarity-threshold-2026-07-31
-    headline: 제안을 두 번 실측으로 뒤집은 기록
-    summary: "'비슷한 상품' 품질을 점검하며 고칠 방법을 두 번 제안했고, 두 번 다 재보니 틀렸다. 추측이 아니라 측정으로 결론을 내는 과정을 남겼다."
-    context: "벡터 유사도 기반 추천은 임계값을 너무 높이면 후보가 사라지고, 너무 낮추면 관계없는 상품이 노출될 수 있었습니다."
-    problem: "추천 유사도 하한을 감으로 정하면 관련 상품을 놓치거나 무관한 상품을 함께 노출할 수 있었습니다."
-    cause: "추천 품질을 판단할 고정된 사례 집합과 측정 절차가 먼저 정리되지 않은 상태에서 개선안을 추측했기 때문입니다."
-    responsibility: "관련·무관 사례를 나누고 같은 조건으로 반복 비교해 임계값 판단 과정과 반례를 기록했습니다."
-    decision: "임계값을 먼저 정하지 않고 관련·무관 사례를 나눠 같은 조건으로 비교한 뒤 기준을 조정했습니다."
-    result: "처음 제안한 개선안도 검증 대상에 포함하고, 결과가 예상과 다르면 결론을 다시 바꾸는 품질 판단 방식을 남겼습니다."
-    evidence: "유사도 임계값 Review, 검색 품질 수치 Decision"
+    slug: prompthub/recommendation-pipeline-and-cart-timeout-2026-08-14
+    headline: 운영 로그로 일시 지연과 기능 장애를 구분
+    summary: "운영 로그에 장바구니 스냅샷 gRPC 호출의 DEADLINE_EXCEEDED가 찍혔다. Pod 상태와 이후 API 응답을 함께 확인해 기능 장애가 아닌 1초 deadline 부근의 일시 지연으로 분류하고, 계측·대시보드 과제를 남겼다."
+    context: "추천 결과가 기대와 다를 때 장바구니 저장, 구매목록 조회, 추천 계산 중 어느 단계 문제인지 구분하기 어려웠습니다."
+    problem: "운영 로그에 GetCartSnapshots 호출이 1028ms, 1364ms로 1000ms deadline을 넘긴 기록이 있었지만, 같은 API들은 이후 정상 응답했습니다."
+    cause: "호출자의 deadline은 1000ms였고, product-service Pod는 Ready 상태에 재시작·OOM 흔적이 없어 특정 시점의 스냅샷 조회 지연 또는 deadline 부족 쪽으로 좁혀졌습니다."
+    responsibility: "추천 파이프라인 입력 분리와 최신성 가중치를 적용하고, 운영 로그와 브라우저 Network를 목적별로 나눠 장애 여부를 진단했습니다."
+    decision: "deadline을 바로 늘리지 않고, 장바구니·구매목록·추천 API를 목적별로 분리해 확인하는 검증 절차를 먼저 정리했습니다."
+    result: "일시 지연을 기능 장애로 오판하지 않았고, 내부 조회 latency 계측과 API별 성공률·latency 대시보드를 후속 과제로 명시했습니다."
+    evidence: "추천 파이프라인·장바구니 timeout Review와 운영 로그"
   - type: project
     slug: prompthub
     headline: AI 프롬프트 마켓플레이스

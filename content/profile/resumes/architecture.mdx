@@ -2,14 +2,14 @@
 label: 아키텍처 개발자
 order: 2
 headline: 서비스 경계를 근거로 나누는 개발자
-summary: "MSA 환경에서 서비스 경계와 이벤트 흐름을 설계하는 데 집중했습니다. 추천을 독립 서비스로 분리하고, 서비스마다 다른 Outbox·Inbox 적용을 근거와 함께 정리했습니다. 안 쓰는 설계는 덜어내는 판단도 기록으로 남깁니다."
+summary: "MSA 환경에서 서비스 경계와 이벤트 흐름을 설계하는 데 집중했습니다. 추천을 독립 서비스로 분리하고, 팀 서비스들의 Outbox·Inbox 적용 여부를 코드로 전수 분석했습니다. 안 쓰는 설계는 덜어내는 판단도 기록으로 남깁니다."
 skills:
   - group: "Architecture"
     items: ["서비스 경계", "DDD", "Event-Driven", "REST·gRPC", "장애 격리"]
   - group: "Backend"
     items: ["Java", "Spring Boot", "MyBatis", "REST API", "SQL"]
   - group: "Data·Messaging"
-    items: ["PostgreSQL", "Elasticsearch", "Redis", "Kafka", "Outbox·Inbox"]
+    items: ["PostgreSQL", "Elasticsearch", "Redis", "Kafka", "증분 동기화"]
   - group: "Infra·Delivery"
     items: ["AWS EC2", "Docker", "Kubernetes", "Ubuntu", "Jenkins"]
 picks:
@@ -25,27 +25,38 @@ picks:
     result: "상품 도메인과 추천 계산의 변경·장애 경계를 분리하고, 평균 대신 가중 순위 합산으로 여러 활동 신호를 조합했습니다."
     evidence: "AI recommendation Decision과 PromptHub 검색·추천 흐름 다이어그램"
   - type: decision
-    slug: prompthub/product-service/behavior-log-minimum-design-for-measurement
-    headline: 목적이 사라진 설계의 범위 재설정
-    summary: "행동 로그의 원래 소비자(개인화 추천)가 전부 중단되자, 남은 목적(검색 품질 측정) 하나만 놓고 범위를 다시 잡았다. 필요 없어진 설계를 덜어내는 판단을 남겼다."
-    context: "개인화 추천을 위해 수집하던 행동 로그의 소비자가 바뀌면서, 기존 이벤트를 그대로 유지할지 다시 판단해야 했습니다."
-    problem: "추천에 쓰려고 만든 행동 로그의 소비자가 사라지면서, 수집 범위를 그대로 유지할 이유가 약해졌습니다."
-    cause: "데이터를 수집하는 목적과 실제 소비자가 달라졌는데도 기존 설계를 관성적으로 유지하면 저장·처리 비용과 복잡도만 남을 수 있었습니다."
-    responsibility: "검색 품질 측정에 필요한 이벤트와 재개 조건을 분리해 로그 범위를 다시 정의했습니다."
-    decision: "검색 품질 측정에 필요한 최소 이벤트만 남기고, 재개 조건이 생길 때 확장하도록 범위를 줄였습니다."
-    result: "아키텍처를 확장하는 판단뿐 아니라 더 이상 필요하지 않은 설계를 덜어내는 기준도 기록했습니다."
-    evidence: "행동 로그 최소 설계 Decision과 재검토 조건"
-  - type: study
-    slug: msa/msa-prompthub-service-map
-    headline: MSA 서비스 지도
-    summary: "MSA가 무엇이고 PromptHub가 왜 이렇게 서비스를 나눴는지, 서비스 간 관계를 지도로 그려 정리했다."
-    context: "서비스를 나누는 기술 자체보다 각 서비스가 어떤 데이터를 소유하고 어떤 실패를 격리해야 하는지 설명할 필요가 있었습니다."
-    problem: "서비스를 나누는 것 자체가 목표가 되면 호출 관계와 책임 경계가 복잡해질 수 있었습니다."
-    cause: "도메인 책임, 데이터 소유, 장애 전파 경계를 같은 기준으로 정리하지 않으면 서비스 분리가 이름만 바뀌는 구조가 될 수 있었습니다."
-    responsibility: "PromptHub의 서비스 관계와 데이터 흐름을 다시 그려 서비스별 책임과 통신 방식을 설명했습니다."
-    decision: "도메인 책임, 데이터 소유, 장애 전파 경계를 기준으로 서비스 관계를 다시 그렸습니다."
-    result: "각 서비스가 왜 존재하는지와 어디까지 책임지는지를 면접에서 설명할 수 있는 구조로 정리했습니다."
-    evidence: "MSA 서비스 지도 Study와 관련 서비스 경계 Decision"
+    slug: prompthub/product-service/seller-info-fe-composition
+    headline: 서비스 간 양방향 동기 결합 제거
+    summary: "product-service가 판매자 정보를 붙이려고 user-service를 부르고, user-service도 product-service를 불러 두 서비스가 양방향으로 묶여 있었다. 판매자 정보 조합을 프론트엔드로 옮겨 결합과 판매자 수만큼 반복되던 gRPC N+1 호출을 함께 없앴다."
+    context: "상품 목록·상세·카트 응답에 판매자 이름과 프로필을 합쳐 내려주기 위해 product-service가 user-service를 동기 호출하고 있었습니다."
+    problem: "user-service 장애가 상품 목록·상세·카트 API로 전파될 수 있었고, 목록 조회에서는 판매자 수만큼 gRPC를 순차 호출했습니다."
+    cause: "상품 도메인 서비스가 판매자 도메인 데이터를 조합하는 책임까지 가져, 도메인 경계와 서비스 경계가 어긋나 있었습니다."
+    responsibility: "백엔드 조합 유지와 N+1만 배치 API로 고치는 안, 프론트엔드 조합 안을 비교해 결정하고 product-service의 판매자 조회 경로를 정리했습니다."
+    decision: "N+1만 고치면 가용성 결합은 남으므로, 조합을 프론트엔드로 옮기고 부분 실패 렌더링 책임을 프론트엔드가 지도록 했습니다."
+    result: "판매자 조회 어댑터와 N+1 호출 경로가 삭제되어 두 서비스의 읽기 경로가 독립했고, 이후 품질 스냅샷에서 관련 리스크가 해소됐습니다."
+    evidence: "판매자 정보 FE 조합 Decision, 2026-07-29 품질 스냅샷"
+  - type: decision
+    slug: prompthub/product-service/internal-sync-communication-grpc-unification
+    headline: 이중으로 유지되던 내부 통신 계약을 gRPC로 통일
+    summary: "order-service가 product-service를 부르는 내부 조회가 REST와 gRPC 두 경로로 동시에 유지돼, 한쪽만 바뀌면 조용히 어긋날 위험이 있었다. 내부 동기 호출을 gRPC로 단일화하고 .proto 계약으로 컴파일 시점에 강제했다."
+    context: "주문 스냅샷, 카트 스냅샷, 콘텐츠 조회 같은 서비스 간 내부 조회가 REST(Feign)와 gRPC로 이중 구현돼 있었습니다."
+    problem: "같은 계약을 두 곳에서 유지해야 했고, 한 경로만 바뀌어도 테스트나 컴파일에서 드러나지 않았습니다."
+    cause: "통신 방식 전환이 중간에 멈춰 두 방식이 공존했고, 서비스 간 동기 호출의 기준이 합의되지 않았습니다."
+    responsibility: "REST 유지와 gRPC 단일화의 디버깅 편의·계약 강제·직렬화 비용을 비교하고, product-service의 내부 REST 엔드포인트 정리를 맡았습니다."
+    decision: "내부 서비스 간 동기 호출은 gRPC로 단일화하고, product-service의 내부 REST 엔드포인트는 호출자의 gRPC 전환이 끝나는 대로 제거하기로 했습니다."
+    result: ".proto 계약으로 응답 불일치 위험을 없앴고, 호출자가 없는 내부 REST 엔드포인트는 이후 품질 스냅샷에서 제거가 확인됐습니다."
+    evidence: "내부 통신 gRPC 단일화 Decision, 2026-07-29 품질 스냅샷"
+  - type: decision
+    slug: prompthub/product-service/incremental-reconcile-over-outbox-event
+    headline: 아웃박스 도입 대신 비용 자체를 없앤 판단
+    summary: "검색 색인 동기화를 위해 아웃박스 이벤트를 도입하기로 했다가, 기존 폴링 배치를 코드로 확인해 N+1과 전체 재작성을 찾았다. 증분 방식으로 바꿔 비용을 없애자 다른 서비스를 고쳐야 하는 아웃박스 도입이 불필요해졌다."
+    context: "상품 검수가 admin-service로 이관되면서 판매 전환 신호가 검색에 전달되지 않아, 서비스 간 이벤트를 새로 설계해야 하는 상황이었습니다."
+    problem: "아웃박스를 도입하려면 검수 서비스 수정, 테이블 신설, 전송 프로세스와 서비스 간 조율이 필요했습니다."
+    cause: "폴링을 기각한 이유는 비용과 실시간성이었는데, 실제 비용은 설계 문제(N+1, 변경 감지 없음)에서 나오고 있었습니다."
+    responsibility: "product-service 재조정 배치를 분석하고, 아웃박스와 증분 재조정의 이득·비용을 비교해 결정을 바꿨습니다."
+    decision: "20초 지연을 승인부터 노출까지의 지연 예산으로 근거화하고, 변경분만 반영하는 증분 재조정과 주기적 전체 대조를 택했습니다."
+    result: "다른 서비스를 수정하지 않고 문제를 해결했고, 변경 없는 사이클은 쓰기 0, 배포 후 반영 지연 21초를 실측했습니다."
+    evidence: "증분 재조정 Decision, 대체된 아웃박스 Decision, 배포 후 실측 기록"
   - type: project
     slug: prompthub
     headline: AI 프롬프트 마켓플레이스
