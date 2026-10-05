@@ -14,11 +14,15 @@ interface PostArticleProps {
   badges?: { label: string; kind?: 'project' | 'category' }[]
   related?: { href: string; title: string }[]
   banner?: React.ReactNode
+  studyCategories?: { category: string; count: number }[]
 }
 
-export function PostArticle({ backHref, backLabel, title, date, content, tags, badges, banner, related }: PostArticleProps) {
+export function PostArticle({ backHref, backLabel, title, date, content, tags, badges, banner, related, studyCategories }: PostArticleProps) {
+  const tableOfContents = studyCategories
+    ? Array.from(content.matchAll(/<h([23]) id="([^"]+)">([\s\S]*?)<\/h\1>/g)).map((match) => ({ id: match[2], title: match[3].replace(/<[^>]*>/g, '') }))
+    : []
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+    <div className="ink-signal-page ink-signal-post-article mx-auto max-w-5xl px-4 py-10 sm:px-6">
       <Link
         href={backHref}
         className="inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
@@ -27,7 +31,7 @@ export function PostArticle({ backHref, backLabel, title, date, content, tags, b
         {backLabel}
       </Link>
 
-      <header className="mt-6 space-y-4 border-b border-border pb-6">
+      <header className="ink-post-hero mt-6 space-y-4 border-b border-border pb-6">
         {badges && badges.length > 0 ? (
           <div className="flex flex-wrap items-center gap-1.5">
             {badges.map((badge) => (
@@ -57,9 +61,25 @@ export function PostArticle({ backHref, backLabel, title, date, content, tags, b
 
       {banner ? <div className="mt-6">{banner}</div> : null}
 
-      <article className="mt-8">
-        <Markdown content={content} />
-      </article>
+      {studyCategories ? <div className="mt-8 grid gap-8 lg:grid-cols-[170px_minmax(0,1fr)_170px]">
+        <aside className="hidden lg:block" aria-label="기술 노트 주제">
+          <div className="sticky top-28">
+            <p className="mb-4 text-xs font-semibold text-brand">주제 탐색</p>
+            <nav className="flex flex-col gap-1">
+              {studyCategories.map((entry) => <Link key={entry.category} href={`/study/${entry.category}`} className="flex justify-between gap-2 rounded px-2 py-1.5 text-xs text-muted-foreground hover:bg-brand/5 hover:text-brand"><span>{formatCategory(entry.category)}</span><span>{entry.count}</span></Link>)}
+            </nav>
+          </div>
+        </aside>
+        <article className="min-w-0"><Markdown content={content} /></article>
+        {tableOfContents.length > 0 ? <aside aria-label="이 글의 목차" className="order-first lg:order-none">
+          <div className="rounded-lg border border-border p-4 lg:sticky lg:top-28 lg:border-0 lg:p-0">
+            <p className="mb-3 text-xs font-semibold text-brand">이 글에서</p>
+            <nav className="flex flex-wrap gap-x-4 gap-y-2 lg:flex-col">
+              {tableOfContents.map((entry) => <a key={entry.id} href={`#${entry.id}`} className="text-xs leading-relaxed text-muted-foreground hover:text-brand">{entry.title}</a>)}
+            </nav>
+          </div>
+        </aside> : null}
+      </div> : <article className="mt-8"><Markdown content={content} /></article>}
 
       {related && related.length > 0 ? (
         <aside className="mt-10 border-t border-border pt-6" aria-labelledby="related-notes-title">

@@ -4,13 +4,10 @@ import { GithubIcon } from '@/components/icons'
 import { getAbout } from '@/lib/content-data'
 
 const footerNav = [
-  { href: '/projects', label: 'Projects' },
-  { href: '/engineering', label: 'Engineering' },
-  { href: '/study', label: 'Study Notes' },
-  { href: '/quality', label: 'Quality' },
-  { href: '/about', label: 'About' },
-  { href: '/resume', label: 'Resume' },
-  { href: '/search', label: 'Search' }
+  { href: '/projects', label: '프로젝트' },
+  { href: '/study', label: '기술 노트' },
+  { href: '/about', label: '소개' },
+  { href: '/resume', label: '이력서' }
 ]
 
 export function SiteFooter() {
@@ -23,7 +20,7 @@ export function SiteFooter() {
           <div className="space-y-1.5">
             <p className="text-sm font-semibold">{about.name}</p>
             <p className="max-w-[38ch] text-sm leading-relaxed text-muted-foreground text-pretty">
-              {about.role} · 프로젝트와 그 근거가 되는 기록을 함께 남깁니다.
+              프로젝트와 그 근거가 되는 기록을 함께 남깁니다.
             </p>
           </div>
 

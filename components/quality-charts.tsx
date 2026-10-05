@@ -54,8 +54,12 @@ export function ScoreTrendChart({ data }: { data: { date: string; score: number 
               cy={p.y}
               r="12"
               fill="transparent"
+              tabIndex={0}
+              aria-label={`${data[i].date} 점수 ${data[i].score}`}
               onMouseEnter={() => setTip({ x: p.x, y: p.y - 8, lines: [data[i].date, `점수 ${data[i].score}`] })}
               onMouseLeave={() => setTip(null)}
+              onFocus={() => setTip({ x: p.x, y: p.y - 8, lines: [data[i].date, `점수 ${data[i].score}`] })}
+              onBlur={() => setTip(null)}
             />
             <text x={p.x} y={H - 8} textAnchor="middle" fontSize="10" fill="var(--color-muted-foreground)">
               {formatDate(data[i].date)}
@@ -125,8 +129,12 @@ export function SeverityTrendChart({ data }: { data: { date: string; high: numbe
                     height={Math.max(yBottom - yTop - 2, 1)}
                     rx="2"
                     fill={sev.color}
+                    tabIndex={0}
+                    aria-label={`${d.date} ${sev.label} ${value}건`}
                     onMouseEnter={() => setTip({ x: cx, y: yTop - 4, lines: [d.date, `${sev.label} ${value}건`] })}
                     onMouseLeave={() => setTip(null)}
+                    onFocus={() => setTip({ x: cx, y: yTop - 4, lines: [d.date, `${sev.label} ${value}건`] })}
+                    onBlur={() => setTip(null)}
                   />
                 )
               })}

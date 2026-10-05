@@ -41,7 +41,7 @@ export default async function ResumeRolePage({ params }: { params: Promise<{ rol
   const skills = variant.skills ?? base.skills
 
   return (
-    <div className="print-container mx-auto max-w-3xl px-4 py-10 sm:px-6">
+    <div className="ink-signal-page ink-signal-resume print-container mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <div className="no-print mb-8 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
         <div className="inline-flex rounded-md border border-border bg-card p-1">
           {variants.map((item) => (

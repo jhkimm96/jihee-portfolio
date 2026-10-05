@@ -36,7 +36,7 @@ export default function EngineeringPage() {
   }))
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+    <div className="ink-signal-page ink-signal-engineering mx-auto max-w-5xl px-4 py-10 sm:px-6">
       <PageHeader title="Engineering" description="결과만 나열하지 않고, 어떤 문제를 풀고 어떤 판단을 했으며 코드가 어떻게 변했는지를 근거와 함께 모았습니다." />
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         {sections.map((section) => {

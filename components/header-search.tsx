@@ -11,7 +11,7 @@ export function HeaderSearch() {
         name="q"
         placeholder="검색"
         aria-label="사이트 검색"
-        className="h-8 w-full rounded-md border border-border bg-background pl-8 pr-2 font-mono text-xs outline-none transition-colors placeholder:text-muted-foreground focus:border-brand"
+        className="h-11 w-full rounded-md border border-border bg-background pl-8 pr-2 font-mono text-xs outline-none transition-colors placeholder:text-muted-foreground focus:border-brand"
       />
     </form>
   )

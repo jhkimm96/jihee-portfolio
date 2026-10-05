@@ -8,10 +8,13 @@ export type ProjectEntry = {
   team: string
   role: string
   highlight: string
+  caseProblem?: string
+  caseDecision?: string
+  caseResult?: string
   responsibility: string
   contributions: string[]
   stack: string[]
-  github: string
+  github?: string
   demo?: string
   status: ProjectStatus
   statusNote: string

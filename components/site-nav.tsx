@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, X, Terminal } from 'lucide-react'
+import { ArrowUpRight, Menu, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -11,12 +11,9 @@ import { HeaderSearch } from '@/components/header-search'
 import { getAbout } from '@/lib/content-data'
 
 const navItems = [
-  { href: '/projects', label: 'Projects', caption: '작업과 결과' },
-  { href: '/engineering', label: 'Engineering', caption: '판단과 개선' },
-  { href: '/study', label: 'Study Notes', caption: '개념과 회상' },
-  { href: '/quality', label: 'Quality', caption: '측정과 추세' },
-  { href: '/about', label: 'About', caption: '일하는 기준' },
-  { href: '/resume', label: 'Resume', caption: '지원용 요약' }
+  { href: '/projects', label: '프로젝트' },
+  { href: '/study', label: '기술 노트' },
+  { href: '/about', label: '소개' }
 ]
 
 function isActive(pathname: string, href: string): boolean {
@@ -32,45 +29,30 @@ export function SiteNav() {
   return (
     <header className="no-print sticky top-0 z-40 w-full border-b border-border bg-background/90 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-        <Link
-          href="/"
-          aria-label={`${about.name} 홈`}
-          className="group relative flex shrink-0 items-center gap-2.5 font-mono tracking-tight"
-        >
-          <span className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-sm">
-            <Terminal className="size-4" />
-          </span>
-          <span className="text-[0.78rem] font-semibold tracking-[0.08em] text-foreground">
-            JH / ENGINEERING
-          </span>
-          <span className="pointer-events-none absolute left-0 top-[calc(100%+0.7rem)] z-50 whitespace-nowrap rounded-md border border-border bg-foreground px-2.5 py-1.5 text-[0.65rem] font-medium tracking-[0.04em] text-background opacity-0 shadow-lg transition duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
-            {about.name} · Backend / Systems
-          </span>
+        <Link href="/" aria-label={`${about.name} 홈`} className="flex shrink-0 items-baseline gap-2 tracking-tight">
+          <span className="text-2xl font-black text-foreground">JH</span><span className="text-sm font-medium text-muted-foreground">/ WORK</span>
         </Link>
 
         <nav className="hidden items-center gap-0.5 md:flex" aria-label="주요 페이지">
           {navItems.map((item) => {
             const active = isActive(pathname, item.href)
             return (
-              <span key={item.href} className="group relative">
                 <Link
+                  key={item.href}
                   href={item.href}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'block rounded-md px-3 py-2 font-mono text-[0.78rem] font-medium transition-colors',
+                    'block border-b-2 px-3 py-2 text-sm font-semibold transition-colors',
                     active
-                      ? 'bg-secondary text-foreground'
-                      : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground'
+                      ? 'border-brand text-brand'
+                      : 'border-transparent text-foreground hover:text-brand'
                   )}
                 >
                   {item.label}
                 </Link>
-                <span className="pointer-events-none absolute left-1/2 top-[calc(100%+0.65rem)] z-50 -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-background px-2.5 py-1.5 text-[0.65rem] font-medium tracking-[0.04em] text-muted-foreground opacity-0 shadow-lg transition duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
-                  {item.caption}
-                </span>
-              </span>
             )
           })}
+          {about.github ? <Link href={about.github} target="_blank" rel="noopener noreferrer" className="ml-2 inline-flex items-center gap-1 px-3 py-2 text-sm font-semibold hover:text-brand">GitHub <ArrowUpRight className="size-4 text-brand" /></Link> : null}
         </nav>
 
         <div className="flex items-center gap-1">
@@ -105,12 +87,11 @@ export function SiteNav() {
                   )}
                 >
                   <span>{item.label}</span>
-                  <span className="text-[0.65rem] font-normal tracking-[0.04em] text-muted-foreground/80">
-                    {item.caption}
-                  </span>
+                  <ArrowUpRight className="size-4" />
                 </Link>
               )
             })}
+            {about.github ? <Link href={about.github} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-3 py-2.5 text-sm font-medium">GitHub <ArrowUpRight className="size-4" /></Link> : null}
           </div>
         </nav>
       ) : null}

@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import Image from 'next/image'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, ExternalLink, Wrench, Scale, MessageSquare, Gauge, HelpCircle } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Wrench, Scale, MessageSquare, Gauge, BookOpen } from 'lucide-react'
 import { GithubIcon } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { Markdown } from '@/components/markdown'
@@ -16,7 +17,10 @@ import {
   getDecisionsForProject,
   getReviewsForProject,
   getQualityForProject,
-  getQualityTrendFor
+  getQualityTrendFor,
+  getPickTarget,
+  getResumeVariants,
+  getLearningPathByProject
 } from '@/lib/content-data'
 
 function previewGroups<T>(groups: Record<string, T[]>, limit: number): Record<string, T[]> {
@@ -79,6 +83,13 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const quality = getQualityForProject(project.slug)
   const featuredQuality = quality[0]
   const qualityTrend = featuredQuality ? getQualityTrendFor(project.slug, featuredQuality.scope) : []
+  const learningPath = getLearningPathByProject(project.slug)
+  const cases = getResumeVariants()
+    .flatMap((variant) => variant.picks)
+    .filter((pick) => pick.slug === project.slug || pick.slug.startsWith(`${project.slug}/`))
+    .filter((pick) => pick.problem && pick.decision && pick.result)
+    .filter((pick, index, all) => all.findIndex((entry) => entry.slug === pick.slug) === index)
+    .slice(0, 4)
 
   const meta = [
     { label: '기간', value: project.period },
@@ -86,12 +97,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     { label: '역할', value: project.role }
   ]
 
-  const interviewPrompts = project.slug === 'prompthub'
-    ? ['왜 PostgreSQL과 Elasticsearch를 원본·검색 사본으로 분리했나요?', 'RRF를 선택한 이유와 한계는 무엇인가요?', '검색·추천 장애가 상품 조회에 번지지 않게 어떻게 경계를 나눴나요?']
-    : ['권한별 메뉴와 공통코드를 어떤 기준으로 공통화했나요?', '팀 프로젝트에서 본인 구현 범위와 공동 작업 범위를 어떻게 구분하나요?', '다시 구현한다면 어떤 도메인 경계를 먼저 바꾸겠나요?']
-
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+    <div className="ink-signal-page ink-signal-project-page mx-auto max-w-5xl px-4 py-10 sm:px-6">
       <Link
         href="/projects"
         className="inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
@@ -100,31 +107,31 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         Projects
       </Link>
 
-      <header className="mt-6 space-y-5 border-b border-border pb-8">
+      <header className="ink-project-hero mt-6 space-y-5 border-b border-border pb-8">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-3xl font-bold tracking-tight text-balance">{project.title}</h1>
           <StatusBadge status={project.status} />
         </div>
         <p className="max-w-3xl text-base leading-relaxed text-muted-foreground text-pretty sm:text-lg">{project.description}</p>
 
-        <div className="rounded-xl border border-brand/20 bg-brand/5 px-4 py-3">
+        <div className="ink-project-highlight rounded-xl border border-brand/20 bg-brand/5 px-4 py-3">
           <p className="mb-1 font-mono text-[0.7rem] font-semibold uppercase tracking-wider text-brand">이 프로젝트에서 가장 보여주고 싶은 것</p>
           <p className="text-base font-semibold leading-relaxed">{project.highlight}</p>
         </div>
 
-        <section aria-labelledby="project-contribution-title" className="rounded-xl border border-border bg-card p-5 shadow-e2">
+        <section aria-labelledby="project-contribution-title" className="ink-project-contribution rounded-xl border border-border bg-card p-5 shadow-e2">
           <h2 id="project-contribution-title" className="font-mono text-xs font-medium text-muted-foreground">담당 영역</h2>
           <p className="mt-1.5 text-lg font-semibold tracking-tight text-foreground text-pretty">
             {project.responsibility}
           </p>
-          <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+          <details className="mt-4"><summary className="cursor-pointer text-sm font-semibold text-brand">구현 범위 자세히 보기</summary><ul className="mt-3 grid gap-2 sm:grid-cols-2">
             {project.contributions.map((contribution) => (
               <li key={contribution} className="flex gap-2 text-sm leading-relaxed text-muted-foreground">
                 <span className="mt-2 size-1.5 shrink-0 rounded-full bg-brand" aria-hidden="true" />
                 <span>{contribution}</span>
               </li>
             ))}
-          </ul>
+          </ul></details>
         </section>
 
         <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-3">
@@ -143,12 +150,12 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <Button asChild size="sm" variant="outline">
+          {project.github ? <Button asChild size="sm" variant="outline">
             <Link href={project.github} target="_blank" rel="noopener noreferrer">
               <GithubIcon className="size-4" />
               GitHub
             </Link>
-          </Button>
+          </Button> : null}
           {project.demo ? (
             <Button asChild size="sm" variant="outline">
               <Link href={project.demo} target="_blank" rel="noopener noreferrer">
@@ -157,6 +164,12 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
               </Link>
             </Button>
           ) : null}
+          {learningPath ? <Button asChild size="sm" variant="outline">
+            <Link href={`/study/paths/${project.slug}`}>
+              <BookOpen className="size-4" />
+              프로젝트 학습 경로
+            </Link>
+          </Button> : null}
         </div>
 
         {project.statusNote ? (
@@ -166,24 +179,11 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         ) : null}
       </header>
 
-      <section className="grid gap-3 border-b border-border py-8 lg:grid-cols-[1.25fr_1fr]" aria-labelledby="case-study-title">
-        <div className="rounded-lg border border-brand/30 bg-brand/5 p-5">
-          <p className="font-mono text-[0.7rem] uppercase tracking-[0.16em] text-brand">Case study lens</p>
-          <h2 id="case-study-title" className="mt-3 max-w-xl text-2xl font-semibold tracking-tight text-balance">이 프로젝트는 무엇을 증명하나요?</h2>
-          <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">결과보다 문제의 범위, 본인의 판단, 실패 조건과 검증 근거를 먼저 확인할 수 있도록 구성했습니다.</p>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-5">
-          <p className="flex items-center gap-2 font-mono text-[0.7rem] uppercase tracking-[0.16em] text-muted-foreground"><HelpCircle className="size-3.5 text-brand" /> Interview prompts</p>
-          <ul className="mt-3 space-y-2">
-            {interviewPrompts.map((prompt) => <li key={prompt} className="text-sm leading-relaxed text-muted-foreground">{prompt}</li>)}
-          </ul>
-        </div>
-      </section>
-
-      <nav className="sticky top-14 z-20 -mx-1 mt-6 overflow-x-auto rounded-lg border border-border bg-background/95 p-1.5 backdrop-blur" aria-label="프로젝트 상세 섹션">
+      <nav className="ink-project-nav sticky top-14 z-20 -mx-1 mt-6 overflow-x-auto rounded-lg border border-border bg-background/95 p-1.5 backdrop-blur" aria-label="프로젝트 상세 섹션">
         <div className="flex min-w-max gap-1">
           {[
             ['overview', '구현 개요'],
+            ...(cases.length > 0 || project.caseProblem ? [['cases', `대표 사례 ${cases.length || 1}`]] : []),
             ['troubleshooting', `문제 해결 ${troubleshootingCount}`],
             ['decisions', `설계 판단 ${decisionsCount}`],
             ['reviews', `리뷰 ${allReviews.length}`],
@@ -193,6 +193,34 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           ))}
         </div>
       </nav>
+
+      {cases.length > 0 || project.caseProblem ? <section id="cases" className="scroll-mt-28 border-b border-border py-10" aria-labelledby="project-cases-title">
+        <p className="text-xs font-semibold text-brand">대표 사례</p>
+        <h2 id="project-cases-title" className="mt-2 text-2xl font-bold tracking-tight">문제에서 검증까지</h2>
+        <div className="mt-6 grid gap-4">
+          {project.caseProblem ? <article className="rounded-lg border border-border bg-card p-5 sm:p-6">
+            <h3 className="text-lg font-bold">{project.highlight}</h3>
+            <dl className="mt-5 grid gap-4 sm:grid-cols-3">
+              <div><dt className="text-xs font-semibold text-brand">문제</dt><dd className="mt-2 text-sm leading-relaxed">{project.caseProblem}</dd></div>
+              <div><dt className="text-xs font-semibold text-brand">선택과 이유</dt><dd className="mt-2 text-sm leading-relaxed">{project.caseDecision}</dd></div>
+              <div><dt className="text-xs font-semibold text-brand">확인한 결과</dt><dd className="mt-2 text-sm leading-relaxed">{project.caseResult}</dd></div>
+            </dl>
+            <p className="mt-5 text-xs text-muted-foreground">내부 시스템의 코드와 화면은 공개하지 않습니다.</p>
+          </article> : null}
+          {cases.map((caseItem) => {
+            const target = getPickTarget(caseItem.type, caseItem.slug)
+            return <article key={caseItem.slug} className="rounded-lg border border-border bg-card p-5 sm:p-6">
+              <h3 className="text-lg font-bold">{caseItem.headline ?? target?.title}</h3>
+              <dl className="mt-5 grid gap-4 sm:grid-cols-3">
+                <div><dt className="text-xs font-semibold text-brand">문제</dt><dd className="mt-2 text-sm leading-relaxed">{caseItem.problem}</dd></div>
+                <div><dt className="text-xs font-semibold text-brand">선택과 이유</dt><dd className="mt-2 text-sm leading-relaxed">{caseItem.decision}</dd></div>
+                <div><dt className="text-xs font-semibold text-brand">확인한 결과</dt><dd className="mt-2 text-sm leading-relaxed">{caseItem.result}</dd></div>
+              </dl>
+              {target && target.href !== `/projects/${project.slug}` ? <Link href={target.href} className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-brand hover:underline">근거 기록 보기 <ExternalLink className="size-3.5" /></Link> : null}
+            </article>
+          })}
+        </div>
+      </section> : null}
 
       {featuredQuality ? (
         <section className="mt-8 rounded-xl border border-brand/20 bg-brand/5 p-5" aria-labelledby="quality-summary-title">
@@ -220,7 +248,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       {project.thumbnail ? (
         <div className="relative mt-8 aspect-[1200/500] w-full overflow-hidden rounded-lg border border-border bg-muted">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={project.thumbnail} alt={`${project.title} 대표 이미지`} className="size-full object-cover" />
+          <Image src={project.thumbnail} alt={`${project.title}의 데이터 흐름을 설명하는 그림`} fill sizes="(min-width: 1024px) 960px, 100vw" className="object-contain" />
         </div>
       ) : null}
 

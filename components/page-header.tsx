@@ -10,7 +10,7 @@ export function PageHeader({
   count?: number
 }) {
   return (
-    <div className="space-y-3 border-b border-border pb-7">
+    <div className="ink-page-header space-y-3 border-b border-border pb-7">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
         <h1 className="text-3xl font-bold tracking-[-0.02em] text-balance sm:text-4xl">{title}</h1>
         {typeof count === 'number' ? (

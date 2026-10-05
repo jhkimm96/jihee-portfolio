@@ -15,7 +15,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const grouped = groupSearchResults(results)
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+    <div className="ink-signal-page ink-signal-search mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <PageHeader
         title="Search"
         description="프로젝트, 문제 해결, 설계 판단, 리뷰, 학습 노트, 코드 품질을 타입별로 나누어 보여줍니다."
@@ -29,11 +29,11 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           defaultValue={query}
           placeholder="예: Elasticsearch, JPA, Kubernetes"
           aria-label="검색어"
-          className="h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-brand"
+          className="h-11 min-w-0 flex-1 rounded-md border border-border bg-background px-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-brand"
         />
         <button
           type="submit"
-          className="h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80"
+          className="h-11 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80"
         >
           검색
         </button>

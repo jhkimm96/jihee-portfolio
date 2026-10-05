@@ -4,7 +4,7 @@ import { ArrowLeft } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { PostArticle } from '@/components/post-article'
 import { StudyCategory } from '@/components/study-category'
-import { getPublishedStudy, getStudyBySlugPath, getStudyCategories } from '@/lib/content-data'
+import { getPublishedStudy, getStudyBySlugPath, getStudyCategories, getStudyCategorySummaries } from '@/lib/content-data'
 import { formatCategory } from '@/lib/format'
 
 export function generateStaticParams() {
@@ -48,6 +48,7 @@ export default async function StudyDetailPage({ params }: { params: Promise<{ sl
         tags={post.tags}
         badges={[{ label: post.category, kind: 'category' }, { label: post.status }]}
         related={related}
+        studyCategories={getStudyCategorySummaries().map(({ category, count }) => ({ category, count }))}
       />
     )
   }
@@ -55,7 +56,7 @@ export default async function StudyDetailPage({ params }: { params: Promise<{ sl
   if (slug.length === 1 && getStudyCategories().includes(slug[0])) {
     const category = slug[0]
     return (
-      <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+      <div className="ink-signal-page ink-signal-study-category mx-auto max-w-3xl px-4 py-10 sm:px-6">
         <Link
           href="/study"
           className="inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"

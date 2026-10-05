@@ -19,7 +19,7 @@ export default async function TroubleshootingPage({ searchParams }: { searchPara
   const grouped = getTroubleshootingGrouped().filter((group) => !project || group.project === project)
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+    <div className="ink-signal-page ink-signal-troubleshooting mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <PageHeader
         title={project ? `${getProjectTitle(project)} Troubleshooting` : 'Troubleshooting'}
         description="실제 프로젝트에서 마주친 문제 → 원인 → 해결 → 결과를 기록합니다. 프로젝트·카테고리로 묶어 보거나 최신순으로 확인할 수 있습니다."

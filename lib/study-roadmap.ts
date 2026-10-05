@@ -38,3 +38,69 @@ export const studyRoadmap: StudyRoadmapTrack[] = [
     categories: ['aws', 'docker', 'kubernetes', 'cicd']
   }
 ]
+
+// 카테고리 안에서는 발행일보다 선행 개념을 우선한다. 새 글은 기존 순서 뒤에 자동으로 붙는다.
+export const studyReadingOrder: Record<string, string[]> = {
+  cs: [
+    'index-inverted-index-and-indexing', 'composite-index-and-filesort',
+    'connection-pool-bottleneck', 'database-bottleneck-diagnosis',
+    'transaction-rollback-boundaries', 'replication-lag-and-read-after-write',
+    'redis-ttl-and-eviction', 'cache-stampede-and-single-flight',
+    'async-throughput-and-queue-latency', 'cancellation-propagation',
+    'graceful-shutdown-and-traffic-draining', 'utc-and-local-day-boundaries',
+    'sharding-design-decisions'
+  ],
+  jvm: [
+    'java-code-reading-basics', 'java-primitive-and-reference-types',
+    'java-value-reference-and-object', 'java-equality-identity-and-equals',
+    'oop-polymorphism-and-interfaces', 'collections-and-generics',
+    'arraylist-vs-linkedlist', 'hashmap-collision-resize-and-lookup',
+    'equals-hashcode-and-immutability', 'exceptions-and-resource-safety',
+    'heap-memory-reclaim', 'gc-roots-reachability-and-memory-reclaim',
+    'concurrency-and-completablefuture', 'modern-java-records-optionals-streams',
+    'choosing-collections-for-search-ranking', 'junior-java-interview-expectations'
+  ],
+  spring: [
+    'reading-spring-java-with-di-and-ports', 'open-in-view-connection-hold',
+    'spring-batch-chunk-processing', 'row-chain-versioning'
+  ],
+  jpa: [
+    'orm-basics', 'persistence-context-and-fetch-strategy',
+    'transactional-and-propagation', 'n-plus-one-problem', 'specification-and-pageable'
+  ],
+  testing: ['java-backend-testing-basics', 'frontend-e2e-without-backend'],
+  database: [
+    'rdb-vs-nosql', 'btree-index-and-normalization', 'connection-pool-hikaricp',
+    'isolation-levels-and-locking', 'stock-concurrency-control',
+    'watermark-incremental-sync', 'pgvector-hnsw-partial-index'
+  ],
+  es: [
+    'search-system-and-es-basics', 'mapping-and-field-types', 'analyzer-and-nori',
+    'query-dsl-and-relevance', 'aggregation-log-analysis', 'search-suggest-autocomplete',
+    'vector-search-knn', 'vector-quantization-and-storage-cost',
+    'reciprocal-rank-fusion', 'hybrid-search-ranking-pipeline',
+    'search-recommendation-design-and-qa', 'search-event-log-pipeline',
+    'behavioral-recommendation-design', 'security-authentication-and-tls'
+  ],
+  msa: [
+    'project-based-backend-learning-guide', 'msa-prompthub-service-map',
+    'prompthub-complete-learning-roadmap', 'async-event-processing-foundations',
+    'kafka-offset-lag-reprocessing-idempotency', 'outbox-inbox-when-needed',
+    'outbox-inbox-per-service'
+  ],
+  aws: ['s3-presigned-url'],
+  docker: ['multi-stage-build'],
+  kubernetes: [
+    'cluster-control-plane-worker', 'pod-lifecycle', 'deployment-vs-statefulset',
+    'service-and-ingress', 'storage-secret-configmap'
+  ],
+  cicd: ['github-actions-parallel-build-registry']
+}
+
+export function orderStudyPosts<T extends { slug: string }>(posts: T[], category: string): T[] {
+  const recommended = studyReadingOrder[category] ?? []
+  const rank = new Map(recommended.map((slug, index) => [`${category}/${slug}`, index]))
+  return [...posts].sort((left, right) =>
+    (rank.get(left.slug) ?? Infinity) - (rank.get(right.slug) ?? Infinity)
+  )
+}

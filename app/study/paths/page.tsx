@@ -17,7 +17,7 @@ export default function LearningPathsPage() {
   const projects = getAllProjects()
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+    <div className="ink-signal-page ink-signal-learning-paths mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <PageHeader title="Project Learning Paths" description="개인 학습 지도에서 익힌 개념을 프로젝트의 데이터 흐름과 선행 지식에 맞춰 다시 연결합니다." count={paths.length} />
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         {projects.map((project) => {

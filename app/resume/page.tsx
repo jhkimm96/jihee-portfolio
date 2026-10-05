@@ -22,7 +22,7 @@ export default function ResumePage() {
   ]
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+    <div className="ink-signal-page ink-signal-resume mx-auto max-w-5xl px-4 py-10 sm:px-6">
       <PageHeader
         title="이력서"
         description="백엔드를 중심으로 문제의 범위를 넓혀가며, 프론트엔드와 데이터, 인프라, 아키텍처까지 연결해 일해온 경험을 정리했습니다."

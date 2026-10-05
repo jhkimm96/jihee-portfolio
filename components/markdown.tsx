@@ -28,6 +28,9 @@ async function renderMermaidDiagrams(container: HTMLElement) {
       const { svg } = await mermaid.render(id, source)
       const wrapper = document.createElement('div')
       wrapper.className = 'mermaid-diagram'
+      wrapper.tabIndex = 0
+      wrapper.setAttribute('role', 'button')
+      wrapper.setAttribute('aria-label', '다이어그램 확대 보기')
       wrapper.innerHTML = svg
       const svgEl = wrapper.querySelector('svg')
       if (svgEl) {
@@ -49,6 +52,9 @@ async function renderMermaidDiagrams(container: HTMLElement) {
 
 export function Markdown({ content }: { content: string }) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const previousFocusRef = useRef<HTMLElement | null>(null)
   const [lightbox, setLightbox] = useState<LightboxContent | null>(null)
 
   useEffect(() => {
@@ -60,6 +66,12 @@ export function Markdown({ content }: { content: string }) {
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
+
+    container.querySelectorAll<HTMLImageElement>('img').forEach((image) => {
+      image.tabIndex = 0
+      image.setAttribute('role', 'button')
+      image.setAttribute('aria-label', image.alt ? `${image.alt} 확대 보기` : '이미지 확대 보기')
+    })
 
     function handleClick(event: MouseEvent) {
       const target = event.target as HTMLElement
@@ -75,24 +87,52 @@ export function Markdown({ content }: { content: string }) {
     }
 
     container.addEventListener('click', handleClick)
-    return () => container.removeEventListener('click', handleClick)
-  }, [])
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Enter' && event.key !== ' ') return
+      const target = event.target as HTMLElement
+      if (target.tagName === 'IMG' || target.closest('.mermaid-diagram')) {
+        event.preventDefault()
+        if (target.tagName === 'IMG') {
+          const image = target as HTMLImageElement
+          setLightbox({ type: 'image', src: image.src, alt: image.alt })
+        } else {
+          const diagram = target.closest('.mermaid-diagram')
+          if (diagram) setLightbox({ type: 'svg', markup: diagram.innerHTML })
+        }
+      }
+    }
+    container.addEventListener('keydown', handleKeyDown)
+    return () => {
+      container.removeEventListener('click', handleClick)
+      container.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [content])
 
   useEffect(() => {
     if (!lightbox) return
+    previousFocusRef.current = document.activeElement as HTMLElement | null
+    closeButtonRef.current?.focus()
+
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') setLightbox(null)
+      if (event.key === 'Tab') {
+        event.preventDefault()
+        closeButtonRef.current?.focus()
+      }
     }
     document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      previousFocusRef.current?.focus()
+    }
   }, [lightbox])
 
   return (
     <>
       <div ref={containerRef} className="prose-content" dangerouslySetInnerHTML={{ __html: content }} />
       {lightbox ? (
-        <div className="lightbox-overlay" onClick={() => setLightbox(null)} role="dialog" aria-modal="true" aria-label="확대 보기">
-          <button type="button" className="lightbox-close" onClick={() => setLightbox(null)} aria-label="닫기">
+        <div ref={dialogRef} className="lightbox-overlay" onClick={() => setLightbox(null)} role="dialog" aria-modal="true" aria-label="확대 보기">
+          <button ref={closeButtonRef} type="button" className="lightbox-close" onClick={() => setLightbox(null)} aria-label="닫기">
             ✕
           </button>
           {lightbox.type === 'image' ? (

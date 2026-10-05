@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { ArrowUpRight, Calendar, Users } from 'lucide-react'
 import type { ProjectEntry } from '@/lib/content'
 import { StatusBadge, TechStack } from '@/components/content-badges'
@@ -25,14 +26,15 @@ export function ProjectCard({ project }: { project: ProjectEntry }) {
   return (
     <Link
       href={`/projects/${project.slug}`}
-      className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-e2 transition-[transform,box-shadow,border-color] duration-300 ease-[var(--ease-out-soft)] hover:-translate-y-1 hover:border-brand/50 hover:shadow-e3"
+      className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card transition-[transform,border-color] duration-300 ease-[var(--ease-out-soft)] hover:-translate-y-0.5 hover:border-brand/50"
     >
       {project.thumbnail ? (
         <div className="relative aspect-[1200/500] w-full overflow-hidden border-b border-border bg-muted">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={project.thumbnail}
             alt={`${project.title} 프로젝트 대표 이미지`}
+            fill
+            sizes="(min-width: 768px) 50vw, 100vw"
             className="size-full object-cover saturate-[0.8] transition-transform duration-500 group-hover:scale-[1.035] group-hover:saturate-100"
           />
         </div>

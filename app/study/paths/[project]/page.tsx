@@ -28,7 +28,7 @@ export default async function LearningPathDetailPage({ params }: { params: Promi
   if (!path) notFound()
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+    <div className="ink-signal-page ink-signal-learning-path mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <Link href="/study/paths" className="inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground hover:text-foreground"><ArrowLeft className="size-3.5" />Learning Paths</Link>
       <header className="mt-6 border-b border-border pb-6">
         <h1 className="text-3xl font-bold tracking-[-0.02em] text-balance">{path.title}</h1>
