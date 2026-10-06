@@ -61,6 +61,8 @@ export type StudyEntry = {
   reviewAfter?: string
   related: string[]
   summary?: string
+  question?: string
+  prerequisites: string[]
   tags?: string[]
   group?: string
   draft: boolean

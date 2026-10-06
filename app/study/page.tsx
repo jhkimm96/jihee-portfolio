@@ -5,7 +5,7 @@ import { PageHeader, EmptyState } from '@/components/page-header'
 import { PostCard } from '@/components/post-card'
 import { getLearningPaths, getPublishedStudy, getStudyCategorySummaries } from '@/lib/content-data'
 import { formatCategory, formatDate } from '@/lib/format'
-import { studyRoadmap } from '@/lib/study-roadmap'
+import { getTrackRoadmapPosts, studyRoadmap } from '@/lib/study-roadmap'
 import { cn } from '@/lib/utils'
 
 export const metadata: Metadata = {
@@ -74,13 +74,13 @@ export default async function StudyPage({
           <div>
             <p className="font-mono text-xs uppercase tracking-[0.16em] text-brand">Personal learning map</p>
             <h2 id="study-roadmap-title" className="mt-2 text-xl font-semibold tracking-tight">프로젝트를 넘어, 기술을 쌓는 순서</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">기반 개념에서 설계와 운영까지 추천 순서로 읽을 수 있습니다. 각 단계의 노트 수는 새 글을 추가하면 자동으로 갱신됩니다.</p>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">기반 개념에서 설계와 운영까지, 순서가 검토된 노트만 따라 읽을 수 있습니다.</p>
           </div>
           <span className="font-mono text-xs text-muted-foreground">기반 → 설계 → 분산 → 운영</span>
         </div>
         <ol className="mt-5 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
           {studyRoadmap.map((track) => {
-            const noteCount = track.categories.reduce((total, category) => total + (categoryCounts.get(category) ?? 0), 0)
+            const noteCount = getTrackRoadmapPosts(allPosts, track).length
             const href = `/study/roadmap#step-${track.step}`
 
             return (

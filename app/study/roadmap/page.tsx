@@ -29,7 +29,7 @@ export default function StudyRoadmapPage() {
 
       <StudyRoadmapView tracks={studyRoadmap} posts={posts} />
       <p className="mt-10 border-t border-border pt-6 text-sm text-muted-foreground">
-        새로 발행한 글은 해당 주제의 끝에 자동으로 나타납니다. 프로젝트 전체 흐름을 복습할 때는 <Link href="/study/paths" className="text-brand underline underline-offset-2">프로젝트 학습 경로</Link>를 이용하세요.
+        새 글은 순서를 검토한 뒤 로드맵에 추가합니다. 프로젝트 전체 흐름을 복습할 때는 <Link href="/study/paths" className="text-brand underline underline-offset-2">프로젝트 학습 경로</Link>를 이용하세요.
       </p>
     </main>
   )

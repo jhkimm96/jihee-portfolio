@@ -5,6 +5,18 @@ export type StudyRoadmapTrack = {
   categories: string[]
 }
 
+type RoadmapStudy = {
+  slug: string
+  prerequisites?: string[]
+}
+
+export type StudyRoadmapContext<T extends RoadmapStudy> = {
+  current: T
+  prerequisites: T[]
+  previous?: T
+  next?: T
+}
+
 /** 현재 노트의 양이 아니라, 개념이 쌓이는 순서를 보여주는 개인 학습 지도. */
 export const studyRoadmap: StudyRoadmapTrack[] = [
   {
@@ -39,14 +51,15 @@ export const studyRoadmap: StudyRoadmapTrack[] = [
   }
 ]
 
-// 카테고리 안에서는 발행일보다 선행 개념을 우선한다. 새 글은 기존 순서 뒤에 자동으로 붙는다.
+// 카테고리 안에서는 발행일보다 선행 개념을 우선한다. 공개 로드맵에는 아래에 명시한 글만 표시한다.
 export const studyReadingOrder: Record<string, string[]> = {
   cs: [
     'index-inverted-index-and-indexing', 'composite-index-and-filesort',
     'connection-pool-bottleneck', 'database-bottleneck-diagnosis',
     'transaction-rollback-boundaries', 'replication-lag-and-read-after-write',
     'redis-ttl-and-eviction', 'cache-stampede-and-single-flight',
-    'async-throughput-and-queue-latency', 'cancellation-propagation',
+    'cache-miss-duplicate-load-diagnosis', 'single-flight-shared-future',
+    'cancellation-propagation', 'async-throughput-and-queue-latency',
     'graceful-shutdown-and-traffic-draining', 'utc-and-local-day-boundaries',
     'sharding-design-decisions'
   ],
@@ -103,4 +116,56 @@ export function orderStudyPosts<T extends { slug: string }>(posts: T[], category
   return [...posts].sort((left, right) =>
     (rank.get(left.slug) ?? Infinity) - (rank.get(right.slug) ?? Infinity)
   )
+}
+
+export function getStudyRoadmapSlugs(): string[] {
+  return studyRoadmap.flatMap((track) =>
+    track.categories.flatMap((category) =>
+      (studyReadingOrder[category] ?? []).map((slug) => `${category}/${slug}`)
+    )
+  )
+}
+
+export function getExplicitRoadmapPosts<T extends { slug: string }>(posts: T[]): T[] {
+  const postBySlug = new Map(posts.map((post) => [post.slug, post]))
+
+  return getStudyRoadmapSlugs()
+    .map((slug) => postBySlug.get(slug))
+    .filter((post): post is T => Boolean(post))
+}
+
+export function getTrackRoadmapPosts<T extends { slug: string }>(
+  posts: T[],
+  track: StudyRoadmapTrack
+): T[] {
+  const postBySlug = new Map(posts.map((post) => [post.slug, post]))
+
+  return track.categories
+    .flatMap((category) => (studyReadingOrder[category] ?? []).map((slug) => `${category}/${slug}`))
+    .map((slug) => postBySlug.get(slug))
+    .filter((post): post is T => Boolean(post))
+}
+
+export function getStudyRoadmapContext<T extends RoadmapStudy>(
+  posts: T[],
+  slug: string
+): StudyRoadmapContext<T> | undefined {
+  const roadmapPosts = getExplicitRoadmapPosts(posts)
+  const currentIndex = roadmapPosts.findIndex((post) => post.slug === slug)
+
+  if (currentIndex === -1) return undefined
+
+  const current = roadmapPosts[currentIndex]
+  const postBySlug = new Map(roadmapPosts.map((post) => [post.slug, post]))
+  const prerequisites = (current.prerequisites ?? [])
+    .filter((prerequisiteSlug) => prerequisiteSlug !== current.slug)
+    .map((prerequisiteSlug) => postBySlug.get(prerequisiteSlug))
+    .filter((post): post is T => Boolean(post))
+
+  return {
+    current,
+    prerequisites,
+    previous: roadmapPosts[currentIndex - 1],
+    next: roadmapPosts[currentIndex + 1]
+  }
 }

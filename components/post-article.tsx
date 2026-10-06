@@ -13,11 +13,18 @@ interface PostArticleProps {
   tags?: string[]
   badges?: { label: string; kind?: 'project' | 'category' }[]
   related?: { href: string; title: string }[]
+  studyGuide?: {
+    question?: string
+    answer?: string
+    prerequisites: { href: string; title: string }[]
+    previous?: { href: string; title: string }
+    next?: { href: string; title: string }
+  }
   banner?: React.ReactNode
   studyCategories?: { category: string; count: number }[]
 }
 
-export function PostArticle({ backHref, backLabel, title, date, content, tags, badges, banner, related, studyCategories }: PostArticleProps) {
+export function PostArticle({ backHref, backLabel, title, date, content, tags, badges, banner, related, studyGuide, studyCategories }: PostArticleProps) {
   const tableOfContents = studyCategories
     ? Array.from(content.matchAll(/<h([23]) id="([^"]+)">([\s\S]*?)<\/h\1>/g)).map((match) => ({ id: match[2], title: match[3].replace(/<[^>]*>/g, '') }))
     : []
@@ -61,6 +68,25 @@ export function PostArticle({ backHref, backLabel, title, date, content, tags, b
 
       {banner ? <div className="mt-6">{banner}</div> : null}
 
+      {studyGuide && (studyGuide.question || studyGuide.answer || studyGuide.prerequisites.length > 0) ? (
+        <section className="mt-6 rounded-xl border border-brand/25 bg-brand/5 p-5" aria-label="이 글의 학습 안내">
+          {studyGuide.question ? <p className="text-sm font-semibold text-brand">이 글이 답하는 질문 · {studyGuide.question}</p> : null}
+          {studyGuide.answer ? <p className="mt-3 text-base font-medium leading-relaxed">{studyGuide.answer}</p> : null}
+          {studyGuide.prerequisites.length > 0 ? (
+            <div className="mt-4 border-t border-brand/15 pt-3">
+              <p className="text-xs font-semibold text-muted-foreground">먼저 읽으면 좋은 글</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {studyGuide.prerequisites.map((item) => (
+                  <Link key={item.href} href={item.href} className="rounded-md border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground hover:border-brand/50 hover:text-foreground">
+                    {item.title}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
       {studyCategories ? <div className="mt-8 grid gap-8 lg:grid-cols-[170px_minmax(0,1fr)_170px]">
         <aside className="hidden lg:block" aria-label="기술 노트 주제">
           <div className="sticky top-28">
@@ -92,6 +118,23 @@ export function PostArticle({ backHref, backLabel, title, date, content, tags, b
             ))}
           </div>
         </aside>
+      ) : null}
+
+      {studyGuide && (studyGuide.previous || studyGuide.next) ? (
+        <nav className="mt-8 grid gap-3 border-t border-border pt-6 sm:grid-cols-2" aria-label="학습 순서 탐색">
+          {studyGuide.previous ? (
+            <Link href={studyGuide.previous.href} className="rounded-lg border border-border p-3 text-sm text-muted-foreground transition-colors hover:border-brand/50 hover:text-foreground">
+              <span className="block text-xs text-brand">이전 Study</span>
+              <span className="mt-1 block font-medium">← {studyGuide.previous.title}</span>
+            </Link>
+          ) : <div />}
+          {studyGuide.next ? (
+            <Link href={studyGuide.next.href} className="rounded-lg border border-border p-3 text-right text-sm text-muted-foreground transition-colors hover:border-brand/50 hover:text-foreground">
+              <span className="block text-xs text-brand">다음 Study</span>
+              <span className="mt-1 block font-medium">{studyGuide.next.title} →</span>
+            </Link>
+          ) : null}
+        </nav>
       ) : null}
     </div>
   )

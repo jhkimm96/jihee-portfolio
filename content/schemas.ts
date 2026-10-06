@@ -40,6 +40,8 @@ export const studyFrontmatterSchema = s.object({
   reviewAfter: s.string().optional(),
   related: s.array(s.string()).default([]),
   summary: s.string().optional(),
+  question: s.string().optional(),
+  prerequisites: s.array(s.string()).default([]),
   tags: s.array(s.string()).optional(),
   group: s.string().optional(),
   draft: s.boolean().default(false)

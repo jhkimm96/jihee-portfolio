@@ -6,6 +6,7 @@ import { PostArticle } from '@/components/post-article'
 import { StudyCategory } from '@/components/study-category'
 import { getPublishedStudy, getStudyBySlugPath, getStudyCategories, getStudyCategorySummaries } from '@/lib/content-data'
 import { formatCategory } from '@/lib/format'
+import { getStudyRoadmapContext } from '@/lib/study-roadmap'
 
 export function generateStaticParams() {
   const posts = getPublishedStudy().map((entry) => ({ slug: entry.slug.split('/') }))
@@ -34,10 +35,27 @@ export default async function StudyDetailPage({ params }: { params: Promise<{ sl
   const post = getStudyBySlugPath(slug)
 
   if (post) {
+    const roadmapContext = getStudyRoadmapContext(getPublishedStudy(), post.slug)
     const related = post.related
       .map((relatedSlug) => getStudyBySlugPath(relatedSlug.split('/')))
       .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
       .map((entry) => ({ href: `/study/${entry.slug}`, title: entry.title }))
+    const studyGuide = roadmapContext
+      ? {
+          question: post.question,
+          answer: post.summary,
+          prerequisites: roadmapContext.prerequisites.map((entry) => ({
+            href: `/study/${entry.slug}`,
+            title: entry.title
+          })),
+          previous: roadmapContext.previous
+            ? { href: `/study/${roadmapContext.previous.slug}`, title: roadmapContext.previous.title }
+            : undefined,
+          next: roadmapContext.next
+            ? { href: `/study/${roadmapContext.next.slug}`, title: roadmapContext.next.title }
+            : undefined
+        }
+      : undefined
     return (
       <PostArticle
         backHref="/study"
@@ -48,6 +66,7 @@ export default async function StudyDetailPage({ params }: { params: Promise<{ sl
         tags={post.tags}
         badges={[{ label: post.category, kind: 'category' }, { label: post.status }]}
         related={related}
+        studyGuide={studyGuide}
         studyCategories={getStudyCategorySummaries().map(({ category, count }) => ({ category, count }))}
       />
     )
