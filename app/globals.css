@@ -1276,3 +1276,19 @@ body:has(.ink-signal-page) footer.no-print a {
     padding: 1rem;
   }
 }
+
+/* Certification study focus mode keeps the portfolio shell by default and hides it only on demand. */
+body.study-focus header.no-print,
+body.study-focus footer.no-print {
+  display: none;
+}
+
+body.study-focus {
+  background: var(--background);
+}
+
+@media (max-width: 640px) {
+  .certification-hub {
+    padding-bottom: calc(6rem + env(safe-area-inset-bottom));
+  }
+}

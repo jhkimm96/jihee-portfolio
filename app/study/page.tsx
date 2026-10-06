@@ -46,6 +46,15 @@ export default async function StudyPage({
         count={allPosts.length}
       />
 
+      <Link href="/study/certifications" className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-brand/25 bg-brand/5 p-5 transition-colors hover:border-brand/50">
+        <div>
+          <p className="font-mono text-xs uppercase tracking-[0.14em] text-brand">Certification study</p>
+          <h2 className="mt-2 text-lg font-semibold">정보처리기사 실기 학습 허브</h2>
+          <p className="mt-1 text-sm text-muted-foreground">10일 플랜, 기출 자동채점, 오답노트와 암기카드로 이어서 공부하기</p>
+        </div>
+        <ArrowRight className="size-5 text-brand" />
+      </Link>
+
       <div className="mt-8 grid gap-8 lg:grid-cols-[180px_minmax(0,1fr)]">
         <aside className="hidden lg:block" aria-label="기술 노트 주제">
           <div className="sticky top-28">
