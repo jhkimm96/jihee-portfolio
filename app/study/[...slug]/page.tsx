@@ -61,7 +61,8 @@ export default async function StudyDetailPage({ params }: { params: Promise<{ sl
         backHref="/study"
         backLabel="Study"
         title={post.title}
-        date={post.updatedAt ?? post.date}
+        date={post.date}
+        updatedAt={post.updatedAt}
         content={post.content}
         tags={post.tags}
         badges={[{ label: post.category, kind: 'category' }, { label: post.status }]}

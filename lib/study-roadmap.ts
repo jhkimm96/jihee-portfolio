@@ -84,7 +84,7 @@ export const studyReadingOrder: Record<string, string[]> = {
   testing: ['java-backend-testing-basics', 'frontend-e2e-without-backend'],
   database: [
     'rdb-vs-nosql', 'btree-index-and-normalization', 'connection-pool-hikaricp',
-    'isolation-levels-and-locking', 'stock-concurrency-control',
+    'isolation-levels-and-locking', 'stock-concurrency-control', 'deadlock-lock-ordering',
     'watermark-incremental-sync', 'pgvector-hnsw-partial-index'
   ],
   es: [

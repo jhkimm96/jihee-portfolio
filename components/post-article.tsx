@@ -9,6 +9,7 @@ interface PostArticleProps {
   backLabel: string
   title: string
   date: string
+  updatedAt?: string
   content: string
   tags?: string[]
   badges?: { label: string; kind?: 'project' | 'category' }[]
@@ -24,7 +25,7 @@ interface PostArticleProps {
   studyCategories?: { category: string; count: number }[]
 }
 
-export function PostArticle({ backHref, backLabel, title, date, content, tags, badges, banner, related, studyGuide, studyCategories }: PostArticleProps) {
+export function PostArticle({ backHref, backLabel, title, date, updatedAt, content, tags, badges, banner, related, studyGuide, studyCategories }: PostArticleProps) {
   const tableOfContents = studyCategories
     ? Array.from(content.matchAll(/<h([23]) id="([^"]+)">([\s\S]*?)<\/h\1>/g)).map((match) => ({ id: match[2], title: match[3].replace(/<[^>]*>/g, '') }))
     : []
@@ -59,9 +60,16 @@ export function PostArticle({ backHref, backLabel, title, date, content, tags, b
         <h1 className="text-2xl font-bold tracking-tight text-balance sm:text-3xl">{title}</h1>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <time className="font-mono text-xs text-muted-foreground" dateTime={date}>
-            {formatDate(date)}
-          </time>
+          <p className="font-mono text-xs text-muted-foreground">
+            <time dateTime={date}>{formatDate(date)}</time>
+            {updatedAt ? (
+              <>
+                {' 작성 · '}
+                <time dateTime={updatedAt}>{formatDate(updatedAt)}</time>
+                {' 수정'}
+              </>
+            ) : null}
+          </p>
           <TagList tags={tags} />
         </div>
       </header>
