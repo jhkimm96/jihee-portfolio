@@ -1,57 +1,95 @@
 ---
-title: "Spring Boot의 open-in-view, 왜 커넥션을 오래 쥐고 있나"
+title: "DB 작업은 끝났는데, 왜 연결이 부족할까?"
 date: "2026-10-02"
-summary: "Spring Boot가 기본으로 켜두는 open-in-view가 무엇을 편하게 해주는 대신 무엇을 희생하는지, 그리고 왜 느린 외부 호출과 같이 쓰면 위험한지 정리했다."
+updatedAt: "2026-10-08"
+question: "DB 조회 뒤 외부 API를 기다릴 때, 왜 다른 요청이 연결을 못 얻을까?"
+prerequisites:
+  - "jpa/persistence-context-and-fetch-strategy"
+  - "database/connection-pool-hikaricp"
+  - "jpa/transactional-and-propagation"
+related: ["cs/database-bottleneck-diagnosis"]
+summary: "외부 대기 동안 DB 연결을 실제로 점유하면 다른 요청은 그 연결을 쓸 수 없다. OSIV의 작업 공간 수명과 트랜잭션·물리 연결의 수명을 나눠 확인한다."
 tags: ["Spring Boot", "JPA", "Hibernate", "connection-pool"]
 draft: false
 ---
 
-## 상황: 왜 이게 보이기 시작했나
+## 01 · 연결 한 자리를 A가 빌렸다
 
-컨트롤러가 호출한 서비스 메서드 안에서, DB에서 값 하나를 조회한 뒤 몇 초~몇십 초 걸리는 외부 API를 호출하는 코드가 있다고 하자.
+DB 연결은 DB와 대화할 때 빌리는 통로다. 설명을 위해 연결이 하나뿐이라고 하자. A가 상품을 읽은 뒤 외부 API를 기다리는 동안 B도 상품을 읽으려 한다.
+
+```text
+반납한 경우
+A: [DB 조회·반납] [외부 API 기다림........]
+B:               [같은 연결 빌려 DB 조회]
+
+계속 점유한 경우
+A: [DB 조회]     [연결 가진 채 외부 API 대기] [반납]
+B:               [연결 자리 기다림........] [DB 조회]
+```
+
+결과: DB 계산이 느리지 않아도 연결을 못 빌려서 요청이 느려질 수 있다. 위 시간과 연결 개수는 독립 설명 예제다.
+
+## 02 · OSIV는 작업 공간을 오래 열어 둔다
+
+**OSIV(open-in-view)**는 요청 처리 동안 JPA의 작업 공간인 EntityManager를 유지하는 방식이다. 서비스 트랜잭션이 끝난 뒤에도 화면에서 연관 데이터를 로딩할 수 있게 한다. [Spring OSIV API](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/orm/jpa/support/OpenEntityManagerInViewFilter.html)
+
+```text
+요청:          [조회 처리][외부 API 대기][응답]
+EntityManager: [────열려 있을 수 있음────]
+트랜잭션:      메서드 경계와 전파 설정으로 확인
+DB 연결:       실제 획득·반납 시각으로 확인
+```
+
+결과: 작업 공간이 열렸다는 사실만으로 DB 통로도 계속 점유한다고 단정할 수 없다. Hibernate의 연결 획득·반납 모드와 트랜잭션 경계가 영향을 준다. [Hibernate connection handling](https://docs.hibernate.org/orm/current/userguide/html_single/#transactions-connection-handling)
+
+## 03 · 스위치를 바꾸기 전에 점유부터 확인한다
+
+1. 외부 호출 구간에 트랜잭션이 열려 있는지 본다.
+2. 연결 획득부터 반납까지가 그 대기 구간을 포함하는지 본다.
+3. 연결 점유 시간과 풀 대기 요청 수를 함께 본다.
+
+느린 외부 호출을 DB 트랜잭션 밖으로 분리할지, 화면에 필요한 값을 서비스에서 미리 준비하고 OSIV를 끌지 선택한다. OSIV를 꺼도 외부 호출까지 감싼 긴 트랜잭션은 남을 수 있다.
+
+더 자세한 진단: [DB가 느릴 때 병목은 어떻게 확인하나](/study/cs/database-bottleneck-diagnosis).
+
+<details>
+<summary>설정과 코드 예제는 어떻게 읽나?</summary>
+
+`spring.jpa.open-in-view`는 Spring Boot의 JPA 웹 설정이다. OSIV는 트랜잭션 자체를 요청 전체로 늘리는 설정이 아니다. 트랜잭션은 실제 annotation, 프록시 호출과 전파 설정을 확인한다.
+
+다음은 흐름을 보여주는 발췌형 의사 코드다. 생략된 의존성·타입·save 정의가 있어 그대로 실행하는 전체 구현이 아니다.
 
 ```java
 @Service
 public class PrepService {
     public Result create(Request req) {
-        var tags = tagRepository.findAll();      // ① DB 조회
-        var result = externalApiClient.call(req); // ② 느린 외부 호출
-        return save(result);                      // ③ DB 저장
+        var tags = tagRepository.findAll();
+        var result = externalApiClient.call(req);
+        return save(result);
     }
 }
 ```
 
-①에서 커넥션을 하나 쓰고 바로 반납할 것 같지만, Spring Boot 기본 설정에서는 그렇지 않다. ①에서 받은 커넥션이 ②가 끝날 때까지, 심지어 요청 전체가 끝날 때까지 반납되지 않을 수 있다.
+`@Service`는 Spring annotation, 저장소와 externalApiClient는 애플리케이션이 연결하는 코드다. DB 조회 → 외부 응답 대기 → 저장 순서만 보여준다. 이 발췌만으로 각 구간의 최종 트랜잭션 경계를 확정할 수 없다.
 
-## open-in-view가 하는 일
-
-Spring Boot는 `spring.jpa.open-in-view`를 **기본값 true**로 둔다. 이 설정이 켜져 있으면, 요청이 들어와서 응답이 나갈 때까지 하나의 Hibernate 세션을 계속 열어둔다.
-
-```
-요청 시작 ─▶ 컨트롤러 ─▶ 서비스(①DB조회 ②외부호출 ③DB저장) ─▶ 뷰 렌더링 ─▶ 응답
-          └──────────────── 같은 Hibernate 세션 ────────────────┘
-```
-
-이게 왜 편한가 하면, 컨트롤러나 뷰 렌더링 단계에서 엔티티의 지연 로딩(lazy loading) 필드에 접근해도 터지지 않는다. 트랜잭션은 서비스 메서드 안에서만 열리지만(`@Transactional`), 세션 자체는 더 오래 살아있어서 그 뒤에도 지연 로딩이 동작한다.
-
-<details>
-<summary><b>🔍 트랜잭션이랑 세션이랑 뭐가 다른가요</b></summary>
-
-트랜잭션은 "이 작업들을 한 단위로 묶어서, 전부 성공하거나 전부 취소한다"는 경계다. 세션(Hibernate의 영속성 컨텍스트)은 그보다 넓은 개념으로, 엔티티를 추적하고 지연 로딩을 가능하게 해주는 "작업 공간"이다. open-in-view는 트랜잭션은 평소처럼 메서드 단위로 짧게 끝내면서, 세션만 요청 끝까지 늘려서 편의를 얻는 설정이다.
+OSIV를 끄면 응답 직렬화나 화면 처리에서 뒤늦게 연관 데이터를 읽는 경로를 점검해야 한다. 필요한 값을 미리 준비하지 않으면 LazyInitializationException이 발생할 수 있다.
 
 </details>
 
-## 대가: 커넥션이 "요청 끝까지" 묶인다
+<details>
+<summary>프로젝트의 현재 설정이라고 단정해도 될까?</summary>
 
-세션이 요청 끝까지 열려 있다는 건, 그 세션이 필요할 때 받아온 DB 커넥션도 똑같이 요청 끝까지(정확히는 커넥션을 실제로 반납하는 시점까지) 붙잡혀 있을 수 있다는 뜻이다. 평소엔 문제가 안 된다 — 보통 요청 하나가 수십 ms 안에 끝나기 때문이다.
+2026-10-08에 읽은 로컬 PromptHub의 여러 서비스 설정에는 open-in-view:false가 있다. 실제 활성 profile과 배포된 최종 설정, 연결 점유 실측은 확인하지 않았다. 과거 OSIV 위험과 현재 배포 상태를 동일시하지 않는다.
 
-문제는 그 요청 안에 **느린 외부 호출**이 섞일 때다. 위 예시의 ②(외부 API 호출)가 몇 초씩 걸리면, ①에서 받은 커넥션이 ②가 끝날 때까지 다른 요청에서 못 쓰는 상태로 묶인다. 동시 요청이 늘어나면 커넥션 풀이 금방 고갈된다 — DB 자체엔 부하가 없는데도 "커넥션을 못 구해서" 전체가 느려지는 상황이 생길 수 있다.
+</details>
 
-## 대안과 각각의 대가
+## 자기 말로 답해보기
 
-| 방법 | 효과 | 대가 |
-|---|---|---|
-| `open-in-view: false`로 끈다 | 트랜잭션이 끝나면 세션도 바로 끝나, 커넥션 점유가 트랜잭션 범위로 줄어든다 | 컨트롤러·뷰에서 지연 로딩을 쓰던 코드가 `LazyInitializationException`을 던진다 — 앱 전체의 지연 로딩 의존 코드를 찾아 서비스 계층에서 미리 로딩하도록 고쳐야 한다 |
-| 느린 호출을 트랜잭션 밖으로 뺀다 | 설정은 그대로 두고, DB 조회와 느린 호출의 순서·경계만 바꾼다(먼저 호출 → 그 결과로 한 번에 저장) | 모든 호출 지점을 일일이 점검해서 "DB 조회와 느린 작업이 섞여 있는 곳"을 찾아 고쳐야 한다 |
+OSIV=false인데 외부 API를 기다리는 메서드 전체에 트랜잭션이 걸려 있다면?
 
-둘 다 "DB 세션이 열려 있는 동안 느린 작업을 하지 않는다"는 같은 원칙으로 가는 길이고, 전자는 설정 하나로 앱 전체에 그 원칙을 강제하는 방법, 후자는 문제가 되는 지점만 개별적으로 고치는 방법이다.
+<details>
+<summary>답 확인</summary>
+
+연결 점유 위험은 여전히 확인해야 한다. 스위치 하나가 모든 긴 트랜잭션을 없애지는 않는다.
+
+</details>
