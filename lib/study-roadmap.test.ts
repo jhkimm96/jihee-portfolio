@@ -11,6 +11,37 @@ import {
 } from './study-roadmap'
 
 describe('기술 노트 읽기 순서', () => {
+  it('Java 코드 읽기와 CompletableFuture를 공유 Future 구현보다 먼저 읽는다', () => {
+    const slugs = getStudyRoadmapSlugs()
+    const implementation = slugs.indexOf('cs/single-flight-shared-future')
+    expect(slugs.indexOf('jvm/java-code-reading-basics')).toBeLessThan(implementation)
+    expect(slugs.indexOf('jvm/concurrency-and-completablefuture')).toBeLessThan(implementation)
+  })
+
+  it('영속성 컨텍스트를 OSIV보다 먼저 읽는다', () => {
+    const slugs = getStudyRoadmapSlugs()
+    expect(slugs.indexOf('jpa/persistence-context-and-fetch-strategy'))
+      .toBeLessThan(slugs.indexOf('spring/open-in-view-connection-hold'))
+  })
+
+  it('GC 도달 가능성을 메모리 회수보다 먼저 읽는다', () => {
+    const slugs = getStudyRoadmapSlugs()
+    expect(slugs.indexOf('jvm/gc-roots-reachability-and-memory-reclaim'))
+      .toBeLessThan(slugs.indexOf('jvm/heap-memory-reclaim'))
+  })
+
+  it('관측성은 신호, JSON 로그, 추적 ID 순서로 Kafka 뒤와 운영 앞에 둔다', () => {
+    const slugs = getStudyRoadmapSlugs()
+    const start = slugs.indexOf('cs/logs-metrics-traces')
+    expect(start).toBeGreaterThan(slugs.indexOf('msa/kafka-offset-lag-reprocessing-idempotency'))
+    expect(slugs.slice(start, start + 3)).toEqual([
+      'cs/logs-metrics-traces',
+      'cs/structured-json-logs',
+      'cs/trace-span-event-identifiers'
+    ])
+    expect(start + 2).toBeLessThan(slugs.indexOf('aws/s3-presigned-url'))
+  })
+
   it('캐시 병합은 개념, 진단, 구현, 취소 경계 순서로 읽는다', () => {
     const slugs = getStudyRoadmapSlugs()
     const start = slugs.indexOf('cs/cache-stampede-and-single-flight')

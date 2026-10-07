@@ -21,15 +21,15 @@ export type StudyRoadmapContext<T extends RoadmapStudy> = {
 export const studyRoadmap: StudyRoadmapTrack[] = [
   {
     step: 1,
-    title: 'CS와 Java 런타임',
+    title: 'Java와 런타임 기초',
     description: '자료구조, 메모리, 동시성처럼 다른 기술을 이해하는 기반부터 다집니다.',
-    categories: ['cs', 'jvm']
+    categories: ['jvm']
   },
   {
     step: 2,
     title: 'API와 애플리케이션 설계',
-    description: 'Spring, JPA, 테스트를 통해 요청이 도메인 로직과 데이터로 이어지는 흐름을 읽습니다.',
-    categories: ['spring', 'jpa', 'testing']
+    description: 'JPA의 데이터 조회에서 Spring의 요청 처리와 테스트로 이어지는 흐름을 읽습니다.',
+    categories: ['jpa', 'spring', 'testing']
   },
   {
     step: 3,
@@ -39,9 +39,9 @@ export const studyRoadmap: StudyRoadmapTrack[] = [
   },
   {
     step: 4,
-    title: '분산 시스템과 서비스 경계',
-    description: '이벤트, 메시지, 멱등성, 장애 전파를 서비스 간 계약의 관점에서 연결합니다.',
-    categories: ['msa']
+    title: '분산 시스템과 관측성',
+    description: '이벤트와 복구를 익힌 뒤 캐시 경합, 로그와 추적을 연결해 서비스 사이의 문제를 살펴봅니다.',
+    categories: ['msa', 'cs']
   },
   {
     step: 5,
@@ -60,6 +60,7 @@ export const studyReadingOrder: Record<string, string[]> = {
     'redis-ttl-and-eviction', 'cache-stampede-and-single-flight',
     'cache-miss-duplicate-load-diagnosis', 'single-flight-shared-future',
     'cancellation-propagation', 'async-throughput-and-queue-latency',
+    'logs-metrics-traces', 'structured-json-logs', 'trace-span-event-identifiers',
     'graceful-shutdown-and-traffic-draining', 'utc-and-local-day-boundaries',
     'sharding-design-decisions'
   ],
@@ -69,7 +70,7 @@ export const studyReadingOrder: Record<string, string[]> = {
     'oop-polymorphism-and-interfaces', 'collections-and-generics',
     'arraylist-vs-linkedlist', 'hashmap-collision-resize-and-lookup',
     'equals-hashcode-and-immutability', 'exceptions-and-resource-safety',
-    'heap-memory-reclaim', 'gc-roots-reachability-and-memory-reclaim',
+    'gc-roots-reachability-and-memory-reclaim', 'heap-memory-reclaim',
     'concurrency-and-completablefuture', 'modern-java-records-optionals-streams',
     'choosing-collections-for-search-ranking', 'junior-java-interview-expectations'
   ],
