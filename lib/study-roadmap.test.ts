@@ -67,16 +67,17 @@ describe('기술 노트 읽기 순서', () => {
     ])
   })
 
-  it('Label 뒤에 대시보드, 알림, Kafka 진단, 트레이스를 순서대로 읽는다', () => {
+  it('Label 뒤에 대시보드, 알림, Kafka 진단, 트레이스, Loki를 순서대로 읽는다', () => {
     const slugs = getStudyRoadmapSlugs()
     const start = slugs.indexOf('cs/metric-label-cardinality')
     expect(start).toBeGreaterThanOrEqual(0)
-    expect(slugs.slice(start, start + 6)).toEqual([
+    expect(slugs.slice(start, start + 7)).toEqual([
       'cs/metric-label-cardinality',
       'cs/grafana-payment-dashboard',
       'cs/alert-evaluation-and-notification',
       'cs/kafka-lag-diagnosis',
       'cs/opentelemetry-trace-waterfall',
+      'cs/loki-labels-and-log-search',
       'cs/utc-and-local-day-boundaries'
     ])
   })
