@@ -67,7 +67,7 @@ export const studyReadingOrder: Record<string, string[]> = {
     'metric-label-cardinality', 'grafana-payment-dashboard',
     'alert-evaluation-and-notification', 'kafka-lag-diagnosis',
     'opentelemetry-trace-waterfall', 'loki-labels-and-log-search',
-    'utc-and-local-day-boundaries',
+    'retry-backoff-jitter-budget', 'utc-and-local-day-boundaries',
     'sharding-design-decisions'
   ],
   jvm: [
