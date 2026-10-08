@@ -55,6 +55,18 @@ describe('기술 노트 읽기 순서', () => {
     ])
   })
 
+  it('앱 상태와 종료 절차 뒤에 수치 수집과 Label 설계 순서로 읽는다', () => {
+    const slugs = getStudyRoadmapSlugs()
+    const start = slugs.indexOf('cs/actuator-health-and-readiness')
+    expect(start).toBeGreaterThanOrEqual(0)
+    expect(slugs.slice(start, start + 4)).toEqual([
+      'cs/actuator-health-and-readiness',
+      'cs/graceful-shutdown-and-traffic-draining',
+      'cs/prometheus-metric-scraping',
+      'cs/metric-label-cardinality'
+    ])
+  })
+
   it('캐시 병합은 개념, 진단, 구현, 취소 경계 순서로 읽는다', () => {
     const slugs = getStudyRoadmapSlugs()
     const start = slugs.indexOf('cs/cache-stampede-and-single-flight')

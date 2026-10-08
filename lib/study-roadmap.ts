@@ -63,7 +63,8 @@ export const studyReadingOrder: Record<string, string[]> = {
     'logs-metrics-traces', 'structured-json-logs', 'trace-span-event-identifiers',
     'log-collection-and-search', 'kibana-data-view-and-saved-objects',
     'actuator-health-and-readiness',
-    'graceful-shutdown-and-traffic-draining', 'utc-and-local-day-boundaries',
+    'graceful-shutdown-and-traffic-draining', 'prometheus-metric-scraping',
+    'metric-label-cardinality', 'utc-and-local-day-boundaries',
     'sharding-design-decisions'
   ],
   jvm: [
