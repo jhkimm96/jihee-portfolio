@@ -1,11 +1,13 @@
 ---
 title: "Kafka Offset와 Consumer Lag 이해하기"
 date: "2026-09-04"
+updatedAt: "2026-10-08"
 status: "evergreen"
 reviewAfter: "2027-03-04"
 related:
   - "msa/project-based-backend-learning-guide"
   - "msa/async-event-processing-foundations"
+  - "cs/kafka-lag-diagnosis"
 summary: "Kafka가 이벤트를 파티션에 저장하고 Consumer가 읽은 위치를 관리하는 과정을 살펴본다. Offset commit, Consumer Lag, 재처리, 중복 소비와 멱등 처리까지 하나의 흐름으로 연결한다."
 tags:
   - Kafka
@@ -318,6 +320,10 @@ Lag만 보고 원인을 확정할 수는 없다. 다음 지표를 함께 확인�
 - CPU와 메모리 사용량
 
 Kafka는 `records-lag-max`, commit latency, rebalance 관련 지표 등을 제공한다. 운영 환경에서는 Prometheus와 Grafana 같은 도구로 추세를 확인할 수 있다.
+
+이 절의 단순화 식은 committed Offset 기준이다. 클라이언트의 `records-lag-max`는 현재 읽기 위치 기준이며 측정 구간의 Partition 최대값이다. 둘을 같은 숫자로 취급하거나 업무 처리 성공량으로 읽지 않는다. [공식 Consumer 지표](https://kafka.apache.org/43/operations/monitoring/)
+
+Lag가 늘 때 확인할 순서는 [주문 알림이 밀릴 때 Kafka에서 먼저 볼 것](/study/cs/kafka-lag-diagnosis)에서 살펴본다.
 
 </details>
 

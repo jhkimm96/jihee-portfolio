@@ -1,0 +1,120 @@
+---
+title: "주문 알림이 밀릴 때 Kafka에서 먼저 볼 것"
+date: "2026-10-08"
+status: "growing"
+question: "Lag가 늘 때 유입 증가와 처리 지연을 어떻게 구분할까?"
+summary: "같은 시간의 유입과 처리·commit 진행을 비교한 뒤 파티션 편중, 실패와 대기, 담당 상태를 확인한다. Lag 감소와 실제 업무 회복은 따로 검증한다."
+prerequisites:
+  - "msa/kafka-offset-lag-reprocessing-idempotency"
+  - "cs/async-throughput-and-queue-latency"
+  - "cs/grafana-payment-dashboard"
+related:
+  - "cs/alert-evaluation-and-notification"
+  - "cs/database-bottleneck-diagnosis"
+tags: ["Kafka", "Consumer Lag", "Offset", "Partition", "Observability"]
+group: "observability-foundations"
+draft: false
+---
+
+## 01 · 결제는 끝났는데 주문 알림이 늦는다
+
+주문 7의 결제 완료 이벤트는 Kafka에 들어왔다. 그런데 사용자에게 보여줄 주문 알림이 늦는다. 앞 글의 운영자 장애 알림과는 다른, 사용자용 주문 알림이다.
+
+**같은 시간의 유입과 처리 진행을 비교한 뒤 어디서 멈추는지 좁힌다.** Lag 숫자 하나로 서버 부족을 단정하지 않는다. 다음은 운영 실측이 아닌 학습용 사례다.
+
+이벤트를 읽어 처리하는 앱이 **Consumer**, 같은 일을 나눠 맡는 묶음이 **Consumer Group**이다. **Topic**은 이벤트를 모으는 이름, **Partition**은 그 안에서 순서를 가진 저장 줄이다. 먼저 같은 Topic/Group/Partition과 시간 범위를 보고 있는지 확인한다.
+
+## 02 · “얼마나 남았나”와 “얼마나 오래 기다렸나”는 다르다
+
+```text
+저장 줄의 위치 — 학습용
+
+재시작 위치로 기록된 번호 90
+          ↓
+  [90] [91] … [99]
+                   ↑
+          저장 끝의 다음 번호 100
+
+위치 차이: 100 - 90 = 10
+```
+
+저장된 재시작 위치를 **committed Offset**이라고 한다. 이 글의 Lag는 저장 끝과 그 위치의 차이다. 연속된 일반 메시지이고 삭제·트랜잭션 등으로 번호가 건너뛰지 않는 예시다. 실제 Offset 차이는 업무 미완료 건수나 대기 초와 반드시 같지 않다. [그룹 위치 확인](https://kafka.apache.org/43/operations/basic-kafka-operations/)
+
+주문 알림이 실제로 얼마나 늦는지는 이벤트 생성부터 알림 저장·전달까지의 시간도 별도로 본다. Lag 10만 보고 “10초 늦다”고 읽지 않는다.
+
+## 03 · 들어오는 쪽이 늘었을까, 처리하는 쪽이 느려졌을까?
+
+같은 1분을 비교하는 단순화된 두 장면이다. 처리한 메시지의 위치까지 정상적으로 commit되고 중간 생략·재시작·재처리가 없다고 가정한다. **commit은 재시작할 위치를 기록하는 일**이다.
+
+```text
+A. 유입이 늘어난 장면
+이전: 유입 40 → 처리 40
+지금: 유입 60 → 처리 40 → 차이 20이 더 쌓임
+
+B. 처리가 느려진 장면
+이전: 유입 40 → 처리 40
+지금: 유입 40 → 처리 20 → 차이 20이 더 쌓임
+```
+
+둘 다 더 밀리지만 조사할 곳은 다르다. A는 어떤 기능의 이벤트가 늘었는지, B는 어느 작업의 처리 시간과 실패가 늘었는지 확인한다. 실제로는 업무 처리 완료와 commit 진행을 각각 측정해, 처리가 느린지 위치 저장이 늦는지도 구분한다. 단순 Consumer 수신량을 업무 성공량으로 대신하지 않는다.
+
+## 04 · 전체 합계 대신 막힌 줄을 찾아본다
+
+일반 Consumer Group에서는 같은 Partition을 동시에 여러 Consumer에게 나눠 맡기지 않는다. 아래는 시점 하나의 학습용 거리다.
+
+```text
+Partition 0: Lag  2  ██
+Partition 1: Lag 38  ███████████████████
+Partition 2: Lag  0
+```
+
+1번 줄에 유입이 몰렸는지, 그 줄의 담당 Consumer가 느린지부터 본다. Consumer를 더 켜도 이미 한 담당자가 맡는 뜨거운 Partition이 자동으로 둘로 나뉘지는 않는다. 총합만 줄었는지보다 해당 줄의 진행과 주문 알림 지연이 회복되는지를 확인한다. [Kafka Consumer의 파티션 분담](https://kafka.apache.org/43/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html)
+
+## 05 · 멈춘 이유에 맞춰 다음 확인을 고른다
+
+| 관찰 | 다음에 확인할 근거 |
+| --- | --- |
+| 유입은 비슷한데 처리 시간이 늘어남 | DB 대기·쿼리, 외부 호출 지연, CPU·GC 정지 |
+| 같은 이벤트가 반복 실패 | 예외 종류, 재시도 대기와 횟수, 실패 분리 상태 |
+| 담당자가 없거나 자주 바뀜 | Consumer 실행 상태, 연결/권한 오류, 재배치 기록 |
+| 앱 처리는 끝났는데 commit이 정체 | 실제 AckMode, acknowledge 호출과 commit 성공/실패 |
+
+증상은 원인 후보를 고르는 출발점이다. DB 대기가 확인되면 쿼리/잠금/연결 풀을, 반복 실패가 확인되면 오류 분류와 재시도 정책을 먼저 검토한다. 무조건 Consumer 수나 대기 제한만 키우지 않는다.
+
+담당 Partition을 다시 나누는 일을 **Rebalance**라고 한다. 같은 시간의 처리 정체와 재배치 기록을 함께 확인하되 재배치가 원인인지 느린 처리의 결과인지도 구분한다.
+
+<details>
+<summary>숫자 이름이 비슷하면 같은 Lag일까?</summary>
+
+아니다. Kafka 클라이언트의 `records-lag-max`는 현재 읽기 위치 기준이며 측정 구간의 Partition 최대 Lag다. 위의 committed Offset 기준 거리나 모든 Partition의 합과 같지 않다. 지표를 만든 주체, 기준 위치와 최대/합계를 먼저 확인한다. [Kafka Consumer 지표](https://kafka.apache.org/43/operations/monitoring/)
+
+Kafka의 `poll()`은 읽은 메시지를 앱에 반환하는 호출이다. 반환됐다고 DB 반영이나 알림 전송이 끝난 것은 아니다. `max.poll.interval.ms`는 다음 poll 호출까지 허용하는 최대 간격이며, 넘겼을 때의 재할당 시점은 정적 멤버십과 그룹 프로토콜 등에 따라 달라진다. 긴 처리 시간을 확인하지 않고 이 값만 늘리면 원인을 가릴 수 있다. [Consumer 설정](https://kafka.apache.org/43/configuration/consumer-configs/)
+
+</details>
+
+## 06 · Lag를 작게 만드는 것과 문제를 해결하는 것은 다르다
+
+재시작 위치를 강제로 앞으로 옮겨 메시지를 건너뛰면 Lag는 줄어도 주문 알림은 누락될 수 있다. 실패 메시지를 별도 보관한 뒤 본 줄이 진행되는 경우도 업무 실패가 해결됐다는 뜻은 아니다.
+
+변경 뒤에는 유입이 계속되는 동안 처리·commit 진행이 회복되는지, 실패 보관 건수와 실제 알림 지연이 어떤지도 확인한다. **Lag 감소와 업무 결과 회복을 함께 본다.** 이 글에서는 Offset을 변경하거나 운영 서버를 늘리지 않는다.
+
+## 프로젝트 근거와 적용 범위
+
+2026-10-08 로컬 PromptHub의 알림 Consumer, 처리 Handler, Kafka 설정과 설정 테스트 소스를 확인했다. Consumer는 지원하는 메시지의 Handler를 호출한 뒤 acknowledge한다. Handler에는 이벤트 처리 이력 확인과 알림 생성 호출이 있다. 자동 commit 비활성화, MANUAL AckMode, 일부 오류의 재시도 제외와 실패 메시지를 별도 줄에 보내는 DLT 설정도 확인했다.
+
+Spring Kafka는 Java 기본 기능이 아닌 **외부 라이브러리**다. 프로젝트는 Spring Boot의 Kafka starter 의존성으로 가져온다. `acknowledge()`는 처리 확인을 컨테이너에 알리는 호출이며 **MANUAL은 호출 즉시 매 메시지 commit을 보장하는 설정이 아니다.** 컨테이너의 배치 처리 조건을 따른다. [Spring Kafka commit 방식](https://docs.spring.io/spring-kafka/reference/kafka/receiving-messages/message-listener-container.html)
+
+소스를 확인했을 뿐 실제 Lag, 느린 DB, 알림 누락이나 개선 효과를 측정하지 않았다. 테스트도 실행하지 않았고 원격 HEAD와 배포 상태는 확인 범위 밖이다.
+
+## 자기 말로 답해보기
+
+Consumer를 두 배로 늘렸는데 Partition 1의 Lag만 계속 커진다. 서버를 또 두 배로 늘리면 해결될까?
+
+<details>
+<summary>답 확인</summary>
+
+보장할 수 없다. 해당 Partition에 유입이 몰렸는지, 담당 처리와 DB/외부 호출이 막혔는지 확인한다. 같은 Partition은 일반 그룹의 여러 Consumer가 동시에 나눠 읽는 줄이 아니다.
+
+</details>
+
+공식 자료 확인일: 2026-10-08. [Kafka 최고 안정 계열 4.3.1](https://kafka.apache.org/community/downloads/)과 [Spring Kafka 안정 4.1.1](https://docs.spring.io/spring-kafka/reference/index.html) 문서 기준이다. 프로젝트에는 서로 다른 Kafka 이미지 설정이 있어 활성 브로커 버전은 미확인이고, 실제 해결된 Spring Kafka 의존성 버전도 확인하지 않았다. 후속 학습은 추적 도구와 로그 도구 선택이며 아직 미작성 백로그다.
