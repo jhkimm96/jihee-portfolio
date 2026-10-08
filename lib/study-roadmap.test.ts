@@ -67,6 +67,18 @@ describe('기술 노트 읽기 순서', () => {
     ])
   })
 
+  it('Label 뒤에 대시보드와 알림을 순서대로 읽는다', () => {
+    const slugs = getStudyRoadmapSlugs()
+    const start = slugs.indexOf('cs/metric-label-cardinality')
+    expect(start).toBeGreaterThanOrEqual(0)
+    expect(slugs.slice(start, start + 4)).toEqual([
+      'cs/metric-label-cardinality',
+      'cs/grafana-payment-dashboard',
+      'cs/alert-evaluation-and-notification',
+      'cs/utc-and-local-day-boundaries'
+    ])
+  })
+
   it('캐시 병합은 개념, 진단, 구현, 취소 경계 순서로 읽는다', () => {
     const slugs = getStudyRoadmapSlugs()
     const start = slugs.indexOf('cs/cache-stampede-and-single-flight')

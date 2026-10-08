@@ -64,7 +64,8 @@ export const studyReadingOrder: Record<string, string[]> = {
     'log-collection-and-search', 'kibana-data-view-and-saved-objects',
     'actuator-health-and-readiness',
     'graceful-shutdown-and-traffic-draining', 'prometheus-metric-scraping',
-    'metric-label-cardinality', 'utc-and-local-day-boundaries',
+    'metric-label-cardinality', 'grafana-payment-dashboard',
+    'alert-evaluation-and-notification', 'utc-and-local-day-boundaries',
     'sharding-design-decisions'
   ],
   jvm: [

@@ -1,0 +1,93 @@
+---
+title: "화면을 안 보고 있어도 결제 이상을 알게 하기"
+date: "2026-10-08"
+status: "growing"
+question: "어떤 상태가 얼마 동안 이어지면 누구에게 알릴까?"
+summary: "주기적으로 조건을 평가하고 지속 시간과 알림 받을 곳을 별도로 정한다. 규칙의 이상 판단과 실제 메시지 수신은 다르므로 평가와 전달을 각각 확인한다."
+prerequisites:
+  - "cs/grafana-payment-dashboard"
+related:
+  - "cs/prometheus-metric-scraping"
+  - "cs/structured-json-logs"
+  - "msa/kafka-offset-lag-reprocessing-idempotency"
+tags: ["Grafana", "Alerting", "Pending", "Notifications", "Observability"]
+group: "observability-foundations"
+draft: false
+---
+
+## 01 · 화면을 닫으면 누가 이상을 확인할까?
+
+대시보드는 열어서 볼 때 도움이 된다. 하지만 담당자가 다른 일을 하는 동안에도 결제 시간 초과가 이어질 수 있다.
+
+**Grafana의 알림 규칙이 주기적으로 숫자를 확인하고 정한 상태가 이어지면 알릴 대상으로 전달한다.** 조회·평가와 수신 경로가 연결되어야 한다. 이번 글은 Grafana가 직접 평가하는 관리형 규칙의 학습 예시다. 대시보드를 만들었다고 알림까지 자동 완성되지는 않는다. [알림 평가](https://grafana.com/docs/grafana/latest/alerting/fundamentals/alert-rule-evaluation/)
+
+## 02 · “최근 5분”과 “1분 지속”은 다른 시간이다
+
+예시 규칙은 최근 5분의 시간 초과 증가량이 5 이상인지를 20초마다 확인한다. 그 조건이 평가 때마다 1분 동안 유지되면 알림 대상으로 전환한다. **5회와 1분은 이해를 위한 값이지 운영 권장값이 아니다.**
+
+```text
+10:05:00  조회값 6 → 조건 충족, 대기 시작
+10:05:20  조회값 7 → 대기 20초
+10:05:40  조회값 8 → 대기 40초
+10:06:00  조회값 9 → 1분 유지, 알림 대상
+```
+
+각 값은 그 시각에서 뒤로 5분을 본 조회 결과를 단순화한 학습용 숫자다. 앞 글의 30초 수집값으로 계산한 결과가 아니다. 대기 상태를 **Pending**, 알림 대상 상태를 **Alerting**이라고 한다. 이 판단은 주기적 평가 기준이지 매 순간을 끊김 없이 감시했다는 보장은 아니다. [평가 주기와 지속 시간](https://grafana.com/docs/grafana/latest/alerting/fundamentals/alert-rule-evaluation/)
+
+## 03 · 중간에 조건이 풀리면 다시 기다린다
+
+```text
+10:05:00  조회값 6 → 대기 시작
+10:05:20  조회값 4 → 기준 미달, 대기 해제
+10:05:40  조회값 6 → 새로 대기 시작
+```
+
+짧은 흔들림마다 호출받지 않도록 지속 시간을 둔다. 대신 너무 오래 기다리면 대응도 늦어진다. 평소 요청량, 고객 영향과 담당자가 취할 조치를 기준으로 조건을 정한다. [알림 설계 원칙](https://grafana.com/docs/grafana/latest/alerting/guides/best-practices/)
+
+## 04 · 이상 판단과 메시지 도착은 다른 단계다
+
+```text
+규칙이 이상 판단
+  ↓
+누구에게 보낼지 선택
+  ↓
+이메일·메신저 등 전달 경로
+  ↓
+담당자가 수신하고 확인
+```
+
+알림 받을 곳의 설정이 **Contact point**다. 규칙에서 직접 고르거나 여러 알림을 담당별로 나누는 **Notification policy**로 연결할 수 있다. 묶음 전송이나 일시 음소거, 전달 실패 때문에 Alerting 전환 시각과 실제 수신 시각은 다를 수 있다. [알림 전달 설정](https://grafana.com/docs/grafana/latest/alerting/fundamentals/notifications/)
+
+메시지는 “결제 시간 초과 증가, 확인할 대시보드, 먼저 볼 로그와 담당 역할”처럼 행동으로 이어지게 쓴다. 실제 수신 채널과 자격증명은 이 글에 넣지 않는다.
+
+<details>
+<summary>패널과 알림 규칙은 같은 조회를 자동 공유할까?</summary>
+
+패널에서 규칙을 만들면 일부 설정을 가져오고 화면을 연결할 수 있다. 하지만 이후 **패널 조회와 규칙 조회는 자동으로 동기화되지 않는다.** 화면 조건을 바꿨다면 규칙도 따로 확인한다. [패널과 알림 연결](https://grafana.com/docs/grafana/latest/alerting/alerting-rules/link-alert-rules-to-panels/)
+
+Prometheus 서버가 규칙을 평가하고 별도 Alertmanager가 알림을 전달하는 구성도 있다. Grafana 관리형 규칙과는 평가 주체가 다르다. Grafana 자체에도 알림 수신·전달용 Alertmanager가 포함되어 있으므로 외부 Alertmanager를 항상 추가 설치해야 한다는 뜻은 아니다. [Prometheus 알림 구성](https://prometheus.io/docs/alerting/latest/overview/), [Grafana 알림 구조](https://grafana.com/docs/grafana/latest/alerting/fundamentals/notifications/)
+
+</details>
+
+## 05 · 숫자를 못 가져왔을 때도 정책이 필요하다
+
+**No Data**는 조회했지만 데이터가 없는 상태, **Error**는 조회·평가가 실패한 상태다. 둘을 “오류 0건, 정상”으로 뭉개지 않는다. Grafana 관리형 규칙에서는 이 경우의 동작을 따로 설정할 수 있다. [No Data와 Error](https://grafana.com/docs/grafana/latest/alerting/fundamentals/alert-rule-evaluation/nodata-and-error-states/)
+
+규칙의 정상·대기·알림 대상 전환과 수신 경로를 각각 시험해야 한다. 알림 판단이 맞더라도 메시지가 도착하지 않으면 담당자는 놓칠 수 있다. 이번 게시에서는 실제 채널로 시험 메시지를 보내지 않는다.
+
+## 프로젝트 근거와 적용 범위
+
+2026-10-08 로컬 프로젝트의 YAML/JSON/Java/Gradle/MJS 검색에서 Grafana, Alertmanager, PrometheusRule 설정을 찾지 못했다. 외부 운영 환경에도 없다는 결론은 아니다. 위 조건과 타임라인은 학습 설계이며 실제 장애나 기존 운영 정책을 재현한 것이 아니다. 프로젝트의 사용 버전, 원격 HEAD와 실제 배포 상태도 확인하지 않았다.
+
+## 자기 말로 답해보기
+
+규칙 화면이 Alerting으로 바뀌었다. 담당자의 메신저에도 반드시 도착했을까?
+
+<details>
+<summary>답 확인</summary>
+
+아니다. 수신 대상 연결, 묶음·음소거 정책과 실제 전달 성공을 따로 확인한다.
+
+</details>
+
+공식 자료 확인일: 2026-10-08. [안정 릴리스 13.2.3](https://grafana.com/grafana/download)과 v13.2 문서 기준이다. Grafana의 실제 규칙 평가와 알림 수신 시험은 하지 않았다. 후속 학습에서는 Kafka Lag가 늘어나는 원인을 좁힌다.
