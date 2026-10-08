@@ -61,6 +61,8 @@ export const studyReadingOrder: Record<string, string[]> = {
     'cache-miss-duplicate-load-diagnosis', 'single-flight-shared-future',
     'cancellation-propagation', 'async-throughput-and-queue-latency',
     'logs-metrics-traces', 'structured-json-logs', 'trace-span-event-identifiers',
+    'log-collection-and-search', 'kibana-data-view-and-saved-objects',
+    'actuator-health-and-readiness',
     'graceful-shutdown-and-traffic-draining', 'utc-and-local-day-boundaries',
     'sharding-design-decisions'
   ],

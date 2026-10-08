@@ -42,6 +42,19 @@ describe('기술 노트 읽기 순서', () => {
     expect(start + 2).toBeLessThan(slugs.indexOf('aws/s3-presigned-url'))
   })
 
+  it('추적 ID 다음에 수집, Kibana 탐색, 앱 상태 확인 순서로 읽는다', () => {
+    const slugs = getStudyRoadmapSlugs()
+    const start = slugs.indexOf('cs/trace-span-event-identifiers')
+    expect(start).toBeGreaterThanOrEqual(0)
+    expect(slugs.slice(start, start + 5)).toEqual([
+      'cs/trace-span-event-identifiers',
+      'cs/log-collection-and-search',
+      'cs/kibana-data-view-and-saved-objects',
+      'cs/actuator-health-and-readiness',
+      'cs/graceful-shutdown-and-traffic-draining'
+    ])
+  })
+
   it('캐시 병합은 개념, 진단, 구현, 취소 경계 순서로 읽는다', () => {
     const slugs = getStudyRoadmapSlugs()
     const start = slugs.indexOf('cs/cache-stampede-and-single-flight')
