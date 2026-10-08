@@ -67,11 +67,11 @@ describe('기술 노트 읽기 순서', () => {
     ])
   })
 
-  it('Label 뒤에 대시보드, 알림, Kafka 진단, 트레이스, Loki, Retry를 순서대로 읽는다', () => {
+  it('Label 뒤에 관측성 글을 읽고 Retry와 Circuit Breaker로 이어간다', () => {
     const slugs = getStudyRoadmapSlugs()
     const start = slugs.indexOf('cs/metric-label-cardinality')
     expect(start).toBeGreaterThanOrEqual(0)
-    expect(slugs.slice(start, start + 8)).toEqual([
+    expect(slugs.slice(start, start + 9)).toEqual([
       'cs/metric-label-cardinality',
       'cs/grafana-payment-dashboard',
       'cs/alert-evaluation-and-notification',
@@ -79,6 +79,7 @@ describe('기술 노트 읽기 순서', () => {
       'cs/opentelemetry-trace-waterfall',
       'cs/loki-labels-and-log-search',
       'cs/retry-backoff-jitter-budget',
+      'cs/circuit-breaker-open-and-recovery',
       'cs/utc-and-local-day-boundaries'
     ])
   })
