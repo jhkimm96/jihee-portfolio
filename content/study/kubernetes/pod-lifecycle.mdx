@@ -1,10 +1,71 @@
 ---
-title: "Kubernetes Pod 라이프사이클 정리"
+title: "Pod가 Running인데 왜 요청을 못 받을까?"
 date: "2026-06-10"
-summary: "Pod의 Pending/Running/Succeeded/Failed 상태 전이를 정리했다."
-tags: ["Kubernetes"]
+updatedAt: "2026-10-09"
+status: "growing"
+question: "앱이 켜진 것과 요청을 받을 준비가 된 것은 어떻게 구분할까?"
+summary: "Pod 단계와 요청 준비 상태는 다르다. Startup은 시작, Readiness는 유입, Liveness는 재시작 판단을 맡는다."
+prerequisites:
+  - "docker/multi-stage-build"
+related:
+  - "cs/actuator-health-and-readiness"
+tags: ["Kubernetes", "Pod", "Probe"]
+draft: false
 ---
 
-## Pod 상태
+## 01 · 불은 켜졌는데 아직 주문은 못 받는다
 
-Pending, Running, Succeeded, Failed, Unknown 다섯 가지 상태를 가진다.
+새 상품 앱 B가 켜졌다. 하지만 초기 파일을 읽고 연결을 준비하는 중이라 상품 7의 요청을 아직 처리하지 못한다. 이는 설명용 장면이다.
+
+```text
+시작 전       Pending: 배치·이미지 준비 중일 수 있음
+프로세스 시작  Running: 시작했지만 아직 준비 중일 수 있음
+주문 가능     Ready: 요청 준비 확인을 통과
+```
+
+**Running은 앱의 모든 기능이 정상이라는 보증이 아니다.** Pod는 컨테이너를 함께 실행하는 Kubernetes 단위이며, Ready는 별도의 준비 조건이다.
+
+## 02 · 세 검사는 서로 다른 행동으로 이어진다
+
+| 검사 | 앱 B에게 묻는 질문 | 정한 실패 횟수를 넘으면 |
+| --- | --- | --- |
+| Startup | 처음 시작을 끝냈니? | 컨테이너 종료, 재시작 정책 적용 |
+| Readiness | 지금 새 요청을 받을 수 있니? | 일반 Service 요청 대상에서 제외 |
+| Liveness | 계속 실행해도 회복되지 않는 상태니? | 컨테이너 종료, 재시작 정책 적용 |
+
+Startup을 설정하면 그것이 성공하기 전에는 Readiness와 Liveness를 시작하지 않는다. Readiness 실패만으로 컨테이너를 재시작하지는 않는다. [Kubernetes Probe](https://kubernetes.io/docs/concepts/workloads/pods/probes/)
+
+## 03 · DB가 잠깐 느릴 때 앱까지 계속 껐다 켜면?
+
+```text
+DB 지연 → Liveness도 실패 → 앱 재시작 → 초기 연결 증가
+        → 남은 앱에 요청 몰림 → 더 느려질 수 있음
+```
+
+재시작으로 해결되지 않는 외부 장애를 Liveness에 무조건 넣지 않는다. 어떤 상태를 검사하는지가 중요하다. 검사 URL이 있다고 모든 의존성까지 자동 확인되는 것도 아니다.
+
+## 04 · 프로젝트에서는 어디를 확인할까?
+
+PromptHub의 `k8s/base/services/product/deployment.yaml`은 Startup에 `/actuator/health`, Readiness에 `/actuator/health/readiness`, Liveness에 `/actuator/health/liveness`를 설정한다. 이는 **Kubernetes 기본 검사 설정**이다. Java 캐시 라이브러리가 아니다.
+
+Actuator는 Spring Boot의 외부 모듈이 제공하는 상태 확인 기능이다. 응답에 어떤 검사가 포함되는지는 [앱 상태 글](/study/cs/actuator-health-and-readiness)에서 이어 본다. 이번에는 설정을 읽었고 실제 Probe 실패·복구 실험은 하지 않았다.
+
+<details>
+<summary>Pod의 나머지 단계는?</summary>
+
+`Succeeded`는 모든 컨테이너가 성공 종료한 단계, `Failed`는 종료한 컨테이너 중 실패가 있는 단계, `Unknown`은 상태를 얻지 못한 단계다. 앱 기능 상태나 비즈니스 처리 성공과 동일하지 않다.
+
+</details>
+
+## 자기 말로 답해보기
+
+Running인 새 앱에 요청이 실패한다면 무엇을 먼저 확인할까?
+
+<details>
+<summary>답 확인하기</summary>
+
+Ready 조건과 Probe 결과, 실제 앱 준비 로그를 본다. 실행 시작과 요청 준비를 분리해 판단한다.
+
+</details>
+
+조사 기준: 2026-10-09. [Pod 단계 정의](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/)

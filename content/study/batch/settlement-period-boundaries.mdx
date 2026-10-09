@@ -1,0 +1,81 @@
+---
+title: "정산을 다시 실행하는 날에도 처리 기간은 같아야 할까?"
+date: "2026-10-09"
+status: "growing"
+question: "일별 정산의 날짜와 배치 실행 날짜는 왜 분리할까?"
+summary: "업무 기간을 고정하고 시작 포함·끝 제외 경계를 쓴다. 늦은 재실행이 새 기간을 처리하지 않게 한다."
+prerequisites:
+  - "cs/utc-and-local-day-boundaries"
+  - "batch/transaction-and-settlement-model"
+related:
+  - "batch/job-step-and-restart-identity"
+tags: ["Settlement", "Time Zone", "Batch"]
+group: "settlement"
+draft: false
+---
+
+## 01 · 10월 8일 정산이 실패해 10일에 다시 켰다
+
+일별 정산의 학습 예시다. 실행할 때마다 “어제”를 새로 계산하면 재실행 날에는 9일을 처리하게 된다.
+
+```text
+원래 업무   10/8 거래 정산
+첫 실행     10/9: 실패
+재실행      10/10: 여전히 10/8 거래를 처리해야 함
+```
+
+**실행 날짜와 처리할 업무 기간은 다른 값이다.** 실패 기록에 고정한 기간을 재실행에서도 사용한다. Spring Batch의 실행 식별과 데이터 선택도 개발자가 연결해야 한다. [Batch 업무 실행과 파라미터](https://docs.spring.io/spring-batch/reference/domain.html)
+
+## 02 · 하루를 끝나는 순간까지 포함하면?
+
+서울 기준 10월 8일을 처리한다면 다음 경계를 쓴다.
+
+```text
+시작 포함  10/8 00:00 ├──── 10/8 거래 ────┤ 10/9 00:00  끝 제외
+다음 기간                                     ├── 10/9 거래
+```
+
+정확히 10/9 00:00에 발생한 거래는 다음 날에만 속한다. 사업 시간대에서 경계를 정한 뒤 DB 저장 기준에 맞춰 변환한다. SQL 조건은 시작 이상, 끝 미만이다.
+
+<details>
+<summary>기간 조건의 SQL 모양</summary>
+
+```sql
+WHERE occurred_at >= :periodStart
+  AND occurred_at < :periodEndExclusive
+```
+
+개념 발췌이며 프로젝트에 실행한 SQL이 아니다. `occurred_at`이 거래 발생 시각인지 적재 시각인지 먼저 정해야 한다. 이미 마감한 기간에 늦게 온 거래를 다음 기간 조정으로 처리할지 재대사할지도 업무 정책이다.
+
+</details>
+
+## 03 · 현재 프로젝트는 지난주를 처리한다
+
+`SettlementPeriod.previousWeek`는 실행일이 속한 주의 월요일을 찾고 그 이전 월~일을 반환한다.
+
+```text
+2026/10/12 월요일 실행
+처리 기간: 10/5 월요일 ~ 10/11 일요일
+조회 경계: 10/5 00:00 이상, 10/12 00:00 미만
+```
+
+`SettlementPeriod`는 프로젝트가 만든 값 객체다. `LocalDate`와 `LocalDateTime`은 Java 기본 클래스이며 후자는 시간대 자체를 담지 않는다. 이 반환값을 쓴다고 DB 시간대가 자동 맞춰지지는 않는다.
+
+## 04 · 무엇을 테스트해야 할까?
+
+기간 시작 직전, 시작과 정확히 같은 시각, 끝 직전, 끝과 같은 시각을 넣어 중복·누락을 확인한다. 월요일 실행과 며칠 뒤 재실행이 같은 업무 기간을 다루는지도 확인한다. 소스가 계속 바뀐다면 마감 기준·조회 일관성·늦은 도착 정책도 필요하다.
+
+## 프로젝트 근거와 확인 범위
+
+2026-10-09 `SettlementPeriod.java`, `SettlementCronJobRunner.java`와 `SettlementJobParametersFactory.java`를 읽었다. 현재 생성자는 월~일 주간만 허용한다. 위 **일별 예시는 미구현 학습 설계**이고 일별 배치를 프로젝트에서 실행했다는 뜻이 아니다. DB 저장 시간대와 실제 경계 테스트는 이번에 검증하지 않았다.
+
+## 자기 말로 답해보기
+
+10월 8일 정산을 10일에 다시 할 때 “어제”로 기간을 새로 만들면?
+
+<details>
+<summary>답 확인하기</summary>
+
+9일을 처리할 수 있다. 처리해야 할 8일 업무 기간을 저장·식별해서 그대로 가져와야 한다.
+
+</details>

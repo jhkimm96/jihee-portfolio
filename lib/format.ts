@@ -7,6 +7,7 @@ const categoryLabels: Record<string, string> = {
   database: 'Database',
   performance: 'Performance',
   spring: 'Spring',
+  batch: '정산과 배치',
   kubernetes: 'Kubernetes',
   elasticsearch: 'Elasticsearch',
   es: 'Elasticsearch',

@@ -1,73 +1,75 @@
 ---
-title: "Dockerfile과 멀티스테이지 빌드 — 왜 FROM이 두 번 나오나"
+title: "Dockerfile, 이미지, 컨테이너 — FROM이 두 번인 이유"
 date: "2026-07-21"
-summary: "Dockerfile 문법을 한 줄씩 읽으며 멀티스테이지 빌드가 뭔지, 최종 이미지가 왜 가벼워지는지 PromptHub 실제 Dockerfile로 정리했다."
-tags: ["Docker", "Dockerfile"]
+updatedAt: "2026-10-09"
+status: "growing"
+question: "앱을 실행할 때 왜 개발 도구까지 함께 보내지 않을까?"
+summary: "Dockerfile은 만드는 순서, 이미지는 실행 재료 묶음, 컨테이너는 그 이미지로 실행한 프로세스다."
+related:
+  - "kubernetes/pod-lifecycle"
+tags: ["Docker", "Dockerfile", "Container"]
 draft: false
 ---
 
-## Dockerfile이 뭔가요
+## 01 · 내 컴퓨터에서는 되는데 서버에서는 안 된다
 
-그냥 텍스트 파일이다. 개발자가 손으로 쓰는 "이 순서대로 상자(이미지)를 포장해줘"라는 조리법이고, PromptHub 레포 맨 위에 `Dockerfile`이라는 이름으로 실제로 있다.
+상품 앱은 Java 실행 환경과 앱 파일이 함께 있어야 동작한다. 파일 하나만 보내고 서버의 환경을 운에 맡기지 않고, 실행에 필요한 재료를 이미지로 묶는다. 호스트의 커널·CPU 구조 등 실행 조건까지 없어지는 것은 아니다.
+
+```text
+Dockerfile        → 이미지                   → 컨테이너
+만드는 순서         Java + app.jar 묶음         실제로 켜진 상품 앱
+                   같은 묶음에서               A와 B를 각각 실행 가능
+```
+
+**이미지는 실행 재료이고, 컨테이너는 그것으로 실행한 독립된 프로세스다.** 이미지를 만들었다고 앱이 켜진 것은 아니다. [Docker 이미지](https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-an-image/), [컨테이너](https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-a-container/)
+
+## 02 · 만들 때는 공구가 필요하지만 실행할 때는 완성품이 필요하다
+
+PromptHub의 현재 루트 Dockerfile은 Java 21 JDK로 앱을 빌드하고, Java 21 JRE 단계로 완성된 JAR를 옮긴다. **JDK**는 컴파일 등 개발 도구를 포함한 환경, **JRE**는 만들어진 Java 앱을 실행하는 환경이다. JAR는 이 프로젝트의 실행 가능한 앱 묶음이다.
+
+```text
+빌드 단계 [JDK / Gradle / 소스 → app.jar 완성]
+                                     ↓ JAR만 복사
+최종 단계 [JRE / app.jar] → 상품 앱 실행
+```
+
+최종 단계에 개발 도구와 소스를 함께 복사하지 않는 것이 핵심이다. 이미지 크기를 이번에 측정한 것은 아니다.
+
+## 03 · 두 번째 FROM은 이전 작업을 삭제하는 명령이 아니다
 
 ```dockerfile
 FROM eclipse-temurin:21-jdk AS build
-ARG MODULE_NAME
-ARG MODULE_PATH
-WORKDIR /workspace
-COPY . .
-RUN chmod +x gradlew
-RUN ./gradlew :${MODULE_PATH}:bootJar --no-daemon
+# 이 단계에서 앱을 빌드한다
 
 FROM eclipse-temurin:21-jre
-ARG MODULE_NAME
-ARG MODULE_PATH
-WORKDIR /app
-COPY --from=build /workspace/${MODULE_PATH}/build/libs/*.jar /app/app.jar
-EXPOSE 8080
+COPY --from=build /workspace/product-service/build/libs/*.jar /app/app.jar
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
 ```
 
-## 핵심 3줄만 먼저 보기
+실제 Dockerfile의 핵심을 상품 서비스로 고정한 발췌다. 전체 빌드 파일은 아니다.
 
-- **`FROM eclipse-temurin:21-jdk AS build`** — 자바 개발도구(JDK)가 깔린 이미지로 시작하고, 여기에 **"build"라는 별명**을 붙인다.
-- **두 번째 `FROM eclipse-temurin:21-jre`** — `FROM`이 또 나온다. **`FROM`이 다시 나오면 지금까지 만든 걸 다 버리고 완전히 새 빈 상자를 시작한다**는 뜻이다. 이번엔 실행만 되는 가벼운 JRE로 새로 시작한다.
-- **`COPY --from=build .../*.jar /app/app.jar`** — "아까 **build라는 별명 붙인 상자** 안에서, 완성된 `.jar` 파일 딱 하나만 콕 찍어서 지금 상자로 복사해라"라는 뜻이다.
+첫 `FROM`은 빌드 단계를 시작하고 이름을 `build`로 붙인다. 두 번째 `FROM`은 **JRE 기본 이미지에서 새 단계**를 시작한다. 빈 상자도 아니고 앞 단계가 삭제되는 것도 아니다. `COPY --from=build`가 앞 단계의 완성품을 가져올 수 있다. [멀티스테이지 빌드](https://docs.docker.com/build/building/multi-stage/)
 
 <details>
-<summary><b>🔍 나머지 줄(ARG·WORKDIR·RUN·EXPOSE)은 뭐 하는 거예요?</b></summary>
+<summary>나머지 Dockerfile 문법을 읽는 순서</summary>
 
-- `ARG MODULE_NAME` / `ARG MODULE_PATH` — 빌드할 때 밖에서 값을 채워 넣는 빈칸이다. PromptHub는 서비스가 여러 개라 "지금 product-service 빌드해" 하고 바깥에서 알려준다.
-- `WORKDIR /workspace` — "지금부터 이 폴더 안에서 작업할게" (터미널의 `cd`와 같다)
-- `COPY . .` — 내 컴퓨터의 소스코드 전체를 상자 안으로 복사한다.
-- `RUN chmod +x gradlew` — Gradle 실행 파일에 "실행 권한"을 부여한다 (권한 없으면 다음 줄이 실패한다).
-- `RUN ./gradlew :${MODULE_PATH}:bootJar --no-daemon` — Gradle로 실행 가능한 `.jar` 파일을 생성한다.
-- `EXPOSE 8080` — "이 컨테이너는 8080번 포트를 쓸 거예요"라는 안내 표시다 (실제로 포트를 여는 건 아니고, 문서화 목적).
+`ARG`는 빌드 때 받는 값, `WORKDIR`는 작업 폴더, `COPY`는 파일 복사, `RUN`은 이미지 생성 중 명령 실행이다. `ENTRYPOINT`는 컨테이너 시작 때 실행할 명령이다.
+
+`EXPOSE`는 포트 안내이지 네트워크 공개 명령이 아니다. 실제 앱의 포트와 Service의 연결도 맞아야 한다. `COPY . .`의 범위는 빌드 컨텍스트와 `.dockerignore`에 따라 달라진다.
 
 </details>
 
-## 멀티스테이지 빌드가 뭔가요
+## 프로젝트에서 어디를 볼까?
 
-`FROM`이 두 번 나와서 상자가 두 개 생겼다 — 이걸 **멀티스테이지 빌드**라고 한다.
+루트 `Dockerfile`의 두 `FROM`, `bootJar`, `COPY --from=build`와 실행 명령을 확인했다. 소스 확인 기준은 2026-10-09이며 이미지 빌드·컨테이너 실행은 이번에 하지 않았다.
 
-**비유**: 케이크를 만들 때 부엌은 밀가루·계란·믹싱볼·오븐으로 엉망진창이지만(1단계 = JDK, Gradle, 소스코드), 손님상엔 **완성된 케이크 한 조각만** 올리지 부엌 전체를 옮기지 않는다(2단계 = `.jar` 파일 하나만 담은 새 상자).
+## 자기 말로 답해보기
 
-## 왜 이렇게 나누나
-
-> "애플리케이션 빌드에 필요했던 도구들은 최종 이미지에 전혀 포함되지 않는다" — Docker 공식 문서
-
-1단계만 썼다면 최종 상자에 JDK·소스코드·빌드 찌꺼기까지 남아서 무거웠을 것이다. 2단계로 나누면 **진짜 실행에 필요한 것만** 남아 가볍고 깔끔해진다.
+같은 이미지로 컨테이너 두 개를 켜면 두 앱이 하나의 메모리를 자동 공유할까?
 
 <details>
-<summary><b>🔍 JDK랑 JRE가 정확히 뭐가 다른데요?</b></summary>
+<summary>답 확인하기</summary>
 
-- **JDK**(Java Development Kit) = 컴파일러까지 포함된 **개발용 풀세트**. 코드를 `.jar`로 빌드하려면 이게 있어야 한다. 무겁다.
-- **JRE**(Java Runtime Environment) = 이미 만들어진 `.jar`를 **실행만** 하는 가벼운 버전. 컴파일러가 없어서 새 코드를 빌드할 수는 없다.
-
-비유하면 JDK는 재료·도구·레시피북까지 다 있는 풀세트 주방이고, JRE는 이미 완성된 요리를 데워서 내놓기만 하는 미니 주방이다. 그래서 1단계(빌드)는 JDK, 2단계(실행)는 JRE를 쓰는 것이다.
+아니다. 각각 별도 프로세스로 실행한다. 공유할 데이터는 DB나 외부 저장소 같은 경계를 따로 설계한다.
 
 </details>
-
-## 참고
-
-- [Multi-stage builds — Docker 공식 문서](https://docs.docker.com/build/building/multi-stage/)

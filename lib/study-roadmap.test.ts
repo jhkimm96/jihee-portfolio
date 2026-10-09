@@ -11,6 +11,27 @@ import {
 } from './study-roadmap'
 
 describe('기술 노트 읽기 순서', () => {
+  it('배포 기초 뒤에 자원, 메모리 장애, 일정과 운영 검증을 읽는다', () => {
+    expect(studyReadingOrder.kubernetes).toEqual([
+      'cluster-control-plane-worker', 'pod-lifecycle', 'deployment-vs-statefulset',
+      'service-and-ingress', 'storage-secret-configmap', 'resource-requests-and-limits',
+      'oom-killed-and-java-memory', 'cronjob-schedule-and-idempotency',
+      'deployment-operational-verification'
+    ])
+  })
+
+  it('정산은 배포 뒤 마지막 단계에서 모델, 기간, 대사, 재전송과 재시작을 읽는다', () => {
+    const slugs = getStudyRoadmapSlugs()
+    expect(studyRoadmap.at(-1)).toMatchObject({ step: 6, categories: ['batch'] })
+    expect(slugs.slice(-5)).toEqual([
+      'batch/transaction-and-settlement-model', 'batch/settlement-period-boundaries',
+      'batch/reconciliation-and-result-verification', 'batch/failed-delivery-and-idempotent-retry',
+      'batch/job-step-and-restart-identity'
+    ])
+    expect(slugs.indexOf('spring/spring-batch-chunk-processing'))
+      .toBeLessThan(slugs.indexOf('batch/job-step-and-restart-identity'))
+  })
+
   it('Java 코드 읽기와 CompletableFuture를 공유 Future 구현보다 먼저 읽는다', () => {
     const slugs = getStudyRoadmapSlugs()
     const implementation = slugs.indexOf('cs/single-flight-shared-future')

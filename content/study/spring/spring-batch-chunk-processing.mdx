@@ -1,14 +1,78 @@
 ---
-title: "Spring Batch Chunk 처리 방식 정리"
+title: "정산 1,000건을 한 번에 저장하지 않고 나누는 이유"
 date: "2026-05-20"
-summary: "Chunk 기반 처리와 Tasklet 기반 처리의 차이를 정리했다."
-tags: ["Spring Batch"]
+updatedAt: "2026-10-09"
+status: "growing"
+question: "Chunk는 무엇을 묶고 실패하면 어디까지 되돌릴까?"
+summary: "작은 묶음마다 읽기, 가공과 저장을 트랜잭션으로 처리한다. 이미 커밋된 묶음과 실패한 묶음을 구분한다."
+prerequisites:
+  - "cs/transaction-rollback-boundaries"
+related:
+  - "batch/job-step-and-restart-identity"
+tags: ["Spring Batch", "Chunk", "Transaction"]
+draft: false
 ---
 
-## Chunk 지향 처리
+## 01 · 두 장은 저장됐고 다음 두 장에서 실패했다
 
-Reader → Processor → Writer 단위로 일정 개수(chunk)씩 묶어 트랜잭션을 처리한다.
+정산 대상 5개를 2개씩 처리하는 학습 예시다. 같은 DB 트랜잭션에 참여하는 변경을 가정한다.
 
-## Tasklet 지향 처리
+```text
+묶음1 [A B] → 성공·커밋       DB에 남음
+묶음2 [C D] → 도중 실패      이 묶음 DB 변경 롤백
+묶음3 [E]   → 아직 미처리
+```
 
-단일 작업 단위를 한 번에 처리할 때 사용한다.
+**Chunk는 한 번에 커밋할 처리 묶음이다.** 두 번째 묶음 실패가 첫 번째의 커밋까지 자동 되돌리는 것은 아니다. [Chunk 처리](https://docs.spring.io/spring-batch/reference/step/chunk-oriented-processing.html)
+
+## 02 · 세 역할을 실제 값으로 읽어보자
+
+```text
+Reader     판매자 A를 읽음
+Processor  A의 정산 금액을 계산
+Writer     이번 묶음의 결과를 처리
+커밋       묶음 DB 변경을 확정
+```
+
+Reader·Processor·Writer는 Spring Batch 외부 프레임워크의 처리 역할이다. Java 기본 클래스가 아니며, 이 프로젝트는 Batch starter 의존성을 선언한다. 어떤 대상을 읽고 무엇을 저장할지는 앱이 구현한다.
+
+## 03 · 이름만 보고 저장 위치를 단정하면 안 된다
+
+PromptHub의 Reader는 정산 가능한 판매자를 읽고 Processor는 계산 유스케이스를 호출한다. **현재 Writer는 저장이 아니라 처리 건수 로그를 남긴다.** 실제 저장, 소스 라인 연결과 전달 기록 생성은 계산 유스케이스에 있다.
+
+```text
+판매자 → Processor의 계산 유스케이스에서 저장·연결
+       → Writer는 묶음 건수 로그 → Chunk 트랜잭션 커밋
+```
+
+Writer라는 이름 때문에 “DB 저장은 무조건 여기”라고 외우지 않고 호출한 메서드와 트랜잭션 경계를 따라간다. 설정 기본 Chunk 크기는 100이며 예시의 2와 다르다.
+
+## 04 · 모든 행동이 롤백되는 것은 아니다
+
+같은 DB 트랜잭션의 변경은 되돌릴 수 있지만 이미 보낸 이메일이나 외부 송금, 독립적으로 커밋한 작업까지 자동 취소되지는 않는다. 묶음 재시도에 안전한 외부 처리가 필요한 이유다.
+
+<details>
+<summary>Tasklet과는 무엇이 다를까?</summary>
+
+Tasklet은 Step 안에서 한 작업을 구현하는 역할이다. 예를 들어 소스 대사나 완료 상태 변경에 쓴다. Tasklet이라고 반드시 전체 데이터를 한 트랜잭션에서 한 번만 처리하는 것은 아니다.
+
+Reader가 마지막 위치를 저장하지 않는다면 재시작 때 자동으로 “C부터”를 기억한다고 기대하면 안 된다. 현재 프로젝트 Reader는 정산 가능한 대상을 다시 조회하는 방식이다.
+
+</details>
+
+## 프로젝트 근거와 확인 범위
+
+2026-10-09 `SettlementStepConfig`, `SettlementTargetReader`, `SettlementProcessor`, `SettlementWriter`와 `SettlementCalculationApplicationService`를 읽었다. 백엔드 테스트와 실제 롤백 실험은 하지 않았다.
+
+공식 문서는 안정판 **Spring Batch 6.0.5** 기준으로 확인했다. 프로젝트는 Boot 4.1.0과 Batch starter를 선언하지만 실제 해석된 Batch 패치 버전은 이번에 확인하지 않았다. 개발 중인 6.1 preview를 안정판과 섞지 않는다.
+
+## 자기 말로 답해보기
+
+묶음2가 실패했다. 묶음1의 완료 결과도 모두 삭제될까?
+
+<details>
+<summary>답 확인하기</summary>
+
+아니다. 이미 커밋된 묶음1과 실패해 롤백된 묶음2는 다른 트랜잭션이다. 재처리는 저장 상태와 재시작 정책을 함께 봐야 한다.
+
+</details>

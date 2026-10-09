@@ -48,6 +48,12 @@ export const studyRoadmap: StudyRoadmapTrack[] = [
     title: '배포와 운영',
     description: 'AWS와 컨테이너, Kubernetes, CI/CD를 실제 운영 검증의 흐름으로 묶습니다.',
     categories: ['aws', 'docker', 'kubernetes', 'cicd']
+  },
+  {
+    step: 6,
+    title: '정산과 배치',
+    description: '거래와 기간을 정한 뒤 대사, 실패 재전송과 배치 재시작을 구분합니다.',
+    categories: ['batch']
   }
 ]
 
@@ -116,9 +122,16 @@ export const studyReadingOrder: Record<string, string[]> = {
   docker: ['multi-stage-build'],
   kubernetes: [
     'cluster-control-plane-worker', 'pod-lifecycle', 'deployment-vs-statefulset',
-    'service-and-ingress', 'storage-secret-configmap'
+    'service-and-ingress', 'storage-secret-configmap', 'resource-requests-and-limits',
+    'oom-killed-and-java-memory', 'cronjob-schedule-and-idempotency',
+    'deployment-operational-verification'
   ],
-  cicd: ['github-actions-parallel-build-registry']
+  cicd: ['github-actions-parallel-build-registry'],
+  batch: [
+    'transaction-and-settlement-model', 'settlement-period-boundaries',
+    'reconciliation-and-result-verification', 'failed-delivery-and-idempotent-retry',
+    'job-step-and-restart-identity'
+  ]
 }
 
 export function orderStudyPosts<T extends { slug: string }>(posts: T[], category: string): T[] {

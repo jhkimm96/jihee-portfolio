@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { formatCategory, formatDate } from './format'
 
 describe('formatCategory', () => {
+  it('정산 학습 카테고리를 이해할 수 있는 이름으로 표시한다', () => {
+    expect(formatCategory('batch')).toBe('정산과 배치')
+  })
+
   it('uses the hardcoded label when the category is known', () => {
     expect(formatCategory('es')).toBe('Elasticsearch')
     expect(formatCategory('api')).toBe('API')
