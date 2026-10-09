@@ -1,144 +1,89 @@
 ---
 title: "배포할 때 잠깐 502가 발생하는 이유 — 트래픽 제외와 Graceful Shutdown"
 date: "2026-09-16"
+updatedAt: "2026-10-09"
 status: "growing"
 reviewAfter: "2026-12-16"
+question: "처리 중인 요청을 기다리는데도 배포 오류가 생길 수 있는 이유는?"
+summary: "기존 요청 마무리와 새 요청의 이동은 다른 작업이다. 실제 요청 경로의 제외 전파와 종료 시간을 함께 확인한다."
+prerequisites:
+  - "cs/actuator-health-and-readiness"
 related:
-  - "cs/cancellation-propagation"
-summary: "서버가 처리 중인 요청만 마무리해서는 무중단 종료가 되지 않는 이유와 로드밸런서 제외, 요청 배출, 프로세스 종료의 순서를 정리한다."
-tags: ["CS", "Deployment", "Graceful Shutdown", "Load Balancer", "Kubernetes", "Readiness"]
+  - "kubernetes/pod-lifecycle"
+  - "kubernetes/deployment-operational-verification"
+tags: ["CS", "Deployment", "Graceful Shutdown", "Kubernetes"]
 group: "CS 기본기"
 draft: false
 ---
 
-## 문을 잠갔는데 안내 데스크는 손님을 계속 보낸다
+## 01 · 민지는 A에서 기다리고 지수는 새로 들어온다
 
-영업을 종료하는 식당을 생각해보자. 안에서 식사 중인 손님이 나갈 때까지 기다리는 것은 Graceful Shutdown과 같다. 하지만 안내 데스크가 영업 종료 사실을 모르고 새 손님을 계속 보내면 입구에서 문제가 생긴다.
-
-```mermaid
-flowchart LR
-    client["새 요청"] --> lb["Load Balancer"]
-    lb --> server["종료 중인 서버"]
-    server --> failure["연결 실패·502"]
-```
-
-**Graceful Shutdown**은 서버가 종료될 때 진행 중인 요청을 갑자기 끊지 않고 마무리할 시간을 주는 절차다. 하지만 이것만으로 새 요청 유입까지 자동으로 막히지는 않는다.
-
-## 실패는 두 종류였다
-
-| 실패 종류 | 의미 |
-|---|---|
-| 연결 후 응답 실패 | 서버가 처리 중인 요청을 끝내지 못하고 종료 |
-| 연결 자체 실패 | 로드밸런서가 이미 종료된 서버로 새 요청 전달 |
-
-영상에서는 즉시 종료했을 때 총 75건 중 17건이 실패했다. Graceful Shutdown을 적용하자 연결 후 응답 실패는 `7건 → 0건`이 됐지만 전체 실패는 `17건 → 16건`으로 거의 줄지 않았다.
+상품 앱 A를 새 버전 B로 바꾸는 설명용 장면이다. A는 민지의 상품 7 요청을 아직 처리 중이다.
 
 ```text
-Graceful Shutdown 적용
-진행 중이던 요청 보호: 성공
-새 요청 유입 차단: 실패
+민지: 이미 A에 들어간 요청 → A가 마무리 → 정상 응답
+지수: 새 상품 7 요청      → 준비된 B로 이동 → 정상 응답
 ```
 
-서버는 요청을 마무리했지만 로드밸런서가 종료 사실을 아직 알지 못해 새 요청을 계속 보낸 것이다.
+**기존 요청을 마무리하는 일과 새 요청을 A로 보내지 않는 일은 둘 다 필요하다.** Graceful Shutdown은 갑자기 끊지 않고 종료를 준비하는 절차다. B가 준비돼 있고 실제 요청 경로가 새 대상을 반영해야 위 장면이 성립한다.
 
-## Readiness와 Liveness는 질문이 다르다
-
-| 상태 | 묻는 질문 | 실패했을 때 |
-|---|---|---|
-| Readiness | 새 트래픽을 받아도 되는가 | 트래픽 대상에서 제외 |
-| Liveness | 프로세스를 재시작해야 하는가 | 컨테이너 재시작 |
-| Startup | 애플리케이션 시작이 끝났는가 | 시작 시간을 기다림 |
-
-종료를 시작할 때 필요한 것은 “죽었다”가 아니라 “이제 새 요청을 받지 않는다”는 신호다. Liveness부터 실패시키면 요청을 마무리하기 전에 프로세스가 재시작될 수 있다.
-
-## 종료에는 순서가 있다
-
-```mermaid
-sequenceDiagram
-    participant S as 서버
-    participant R as Readiness
-    participant L as Load Balancer
-
-    S->>R: 새 요청을 받을 수 없음
-    R->>L: 서버를 대상에서 제외
-    Note over S,L: 제외 정보가 전파될 때까지 대기
-    L--xS: 새 요청 전달 중단
-    S->>S: 진행 중인 요청 마무리
-    S->>S: Connection·Thread 정리
-    S->>S: 프로세스 종료
-```
+## 02 · A만 기다리면 어디가 비어 있을까?
 
 ```text
-1. 새 트래픽을 받지 않는다고 알림
-2. 로드밸런서의 대상 제외를 기다림
-3. 그동안 기존 요청은 계속 처리
-4. 진행 중인 요청이 끝나면 종료
+A: 기존 요청을 끝낸 뒤 종료
+연결 담당: 아직 A 주소를 사용
+지수: 종료된 A로 연결 → 연결 실패 → 프록시 오류가 날 수 있음
 ```
 
-영상에서는 이 순서를 적용한 뒤 실패가 0건이 됐다. 이 수치는 해당 실험 결과이며 실제 결과는 로드밸런서와 배포 환경에 따라 달라진다.
+앱이 진행 중 요청을 보호해도 프록시·로드밸런서의 대상 갱신을 자동 완료해주지는 않는다. **502**는 프록시가 정상적인 상위 서버 응답을 받지 못한 상태이며, 종료 외에도 포트·주소·네트워크 문제가 원인일 수 있다.
 
-## 왜 잠깐 기다려야 할까
+## 03 · Kubernetes 종료는 한 줄짜리 순서도가 아니다
 
-Readiness가 실패했다고 모든 구성 요소가 같은 순간에 서버를 제외하지는 않는다.
-
-```mermaid
-flowchart LR
-    pod["Pod 종료 시작"] --> endpoint["Endpoint 상태 변경"]
-    endpoint --> controller["Controller 반영"]
-    controller --> lb["Load Balancer 갱신"]
-```
-
-상태 변경이 전달되는 동안 서버가 먼저 Listener를 닫으면 남아 있는 요청이 연결에 실패한다.
+Pod는 컨테이너 실행 단위다. 삭제가 시작되면 서로 다른 구성 요소가 종료와 연결 대상 변경을 처리한다.
 
 ```text
-종료 유예 시간
-≥ 트래픽 제외 전파 시간
-+ 진행 중인 요청의 최대 처리 시간
-+ 자원 정리 시간
+노드 쪽       종료 유예 시작 → preStop(있으면) → 종료 신호 → 앱 정리
+대상 관리 쪽   종료 상태 반영 → 일반 요청 대상의 ready=false
+실제 요청 쪽   대상 정보 전파 → 새 요청이 다른 앱으로 이동
 ```
 
-## Kubernetes에서는 어떻게 연결될까
+이 처리는 병행될 수 있으며 모든 곳에 같은 순간 반영되지 않는다. 종료 중 EndpointSlice 대상은 즉시 삭제되기보다 terminating 상태와 ready=false로 표시될 수 있다. 반드시 Readiness 실패를 먼저 수동 유발해야만 Pod 삭제가 되는 것은 아니다. [Kubernetes Pod 종료](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/)
 
-```yaml
-spec:
-  terminationGracePeriodSeconds: 30
-  containers:
-    - name: api
-      readinessProbe:
-        httpGet:
-          path: /ready
-          port: 8080
+## 04 · 30초는 항상 기다리는 시간이 아니라 끝내야 할 예산이다
+
+PromptHub 상품 Pod에는 `terminationGracePeriodSeconds: 30`이 있다. Kubernetes 기본 종료 설정이며 Java 라이브러리가 아니다.
+
+```text
+같은 30초 안에서 → preStop 시간 + 앱 요청 마무리·자원 정리
+기한 초과       → 남은 프로세스가 강제 종료될 수 있음
 ```
 
-- `readinessProbe`: 트래픽 수신 가능 여부를 알린다.
-- `terminationGracePeriodSeconds`: 종료 신호 후 강제 종료 전까지 기다리는 시간이다.
-- `preStop`: 애플리케이션 종료 전에 필요한 작업을 실행할 수 있다.
-
-고정된 `sleep`만 넣는 것보다 실제 종료 시간과 로드밸런서 제외 지연을 측정해 유예 시간을 정해야 한다.
+고정 sleep만 늘리면 실제 원인은 남고 앱 정리에 쓸 시간이 줄 수 있다. 대상 전파·요청 마무리 시간이 종료 예산에 맞는지 관찰한다. Spring Boot 웹 서버의 graceful 처리는 새 요청을 제한하며 진행 중 요청에 유예를 제공하지만 모든 Kafka 작업·외부 작업 완료까지 보장하지는 않는다. [Spring Boot 종료 처리](https://docs.spring.io/spring-boot/reference/web/graceful-shutdown.html)
 
 <details>
-<summary><b>🔍 502는 항상 종료 중인 서버가 원인일까?</b></summary>
+<summary>앱의 유예 설정과 Pod의 유예는 다르다</summary>
 
-아니다. 502는 프록시나 로드밸런서가 정상적인 upstream 응답을 받지 못했다는 뜻으로, 잘못된 주소·포트, 네트워크 오류, 서버 crash 등 여러 원인이 있을 수 있다.
+Spring Boot의 `spring.lifecycle.timeout-per-shutdown-phase`는 앱 생명주기 종료 단계의 제한이다. Pod의 전체 종료 제한과 같은 숫자라고 같은 범위를 뜻하지 않는다.
 
-배포 시간과 502 발생 시간이 겹치고 종료되는 인스턴스로 향한 연결 실패가 확인될 때 종료 절차를 원인으로 판단할 수 있다.
+현재 공식 Boot 문서는 웹 graceful 종료가 기본 활성화라고 설명한다. 프로젝트는 Boot 4.1.0을 선언하지만 실행 중 설정·종료 신호·모든 작업의 실제 완료는 별도로 확인해야 한다.
 
 </details>
 
-## 확인할 지표
+## 05 · 프로젝트에서는 무엇을 보고 검증할까?
 
-| 지표 | 확인하는 문제 |
-|---|---|
-| 배포 시각과 502 발생 시각 | 배포와 오류가 연결되는가 |
-| 종료 인스턴스의 새 연결 수 | 대상 제외 후에도 새 요청이 오는가 |
-| 진행 중인 요청 수 | 종료 전에 모두 끝났는가 |
-| 종료 소요 시간 | 유예 시간 안에 종료되는가 |
-| Load Balancer 대상 상태 | 언제 대상에서 제외됐는가 |
+2026-10-09 `k8s/base/services/product/deployment.yaml`의 종료 유예 30초와 Readiness 경로를 읽었다. 이 파일에는 preStop이 없지만 그것만으로 배포 실패를 판정하지 않는다.
 
-> 종료는 프로세스를 끄는 순간이 아니라 새 요청 차단, 기존 요청 배출과 자원 정리를 포함한 절차다.
+배포 시각, A로 향한 새 연결, A의 진행 중 요청과 종료 시각, B의 준비 상태를 같은 시간축에 놓는다. 현재 프로젝트의 실패 횟수나 무중단 결과를 측정하지 않았다.
 
-## 참고
+기존 글의 Instagram 실험 수치는 원본을 재확인할 수 없어 제외했다. 위 민지·지수 장면은 학습 예시다.
 
-- [Instagram — 배포할 때마다 잠깐 502가 뜬다](https://www.instagram.com/reel/DcoNhtaNRU0/)
-- [Kubernetes — Pod Lifecycle](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/)
-- [Kubernetes — Liveness, Readiness and Startup Probes](https://kubernetes.io/docs/concepts/configuration/liveness-readiness-startup-probes/)
+## 자기 말로 답해보기
+
+A에서 처리 중 요청이 모두 끝났다. 그것만으로 배포 오류 0건을 보장할까?
+
+<details>
+<summary>답 확인하기</summary>
+
+아니다. 새 요청이 종료된 A로 가지 않는지, B가 준비됐는지, 실제 프록시 경로가 대상을 갱신했는지도 확인한다.
+
+</details>

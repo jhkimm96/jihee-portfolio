@@ -1,171 +1,97 @@
 ---
-title: "Redis 메모리가 차면 왜 쓰기만 멈출까 — TTL과 Eviction"
+title: "TTL이 있는데도 Redis 메모리가 찰 수 있을까?"
 date: "2026-09-10"
+updatedAt: "2026-10-09"
 status: "growing"
 reviewAfter: "2026-12-10"
+question: "키의 유효기간과 메모리 한도에서 버리는 정책은 왜 다를까?"
+summary: "TTL은 시간 경계, eviction은 공간 부족 시 제거 기준이다. 유입 속도와 보관 목적, 실제 메모리 한도도 함께 확인한다."
 related:
-  - "database/stock-concurrency-control"
-summary: "Redis 메모리가 가득 찼을 때 쓰기가 실패하는 이유와 TTL, maxmemory, eviction policy의 서로 다른 역할을 정리한다."
+  - "cs/cache-stampede-and-single-flight"
+  - "kubernetes/oom-killed-and-java-memory"
 tags: ["CS", "Redis", "Cache", "TTL", "Eviction", "Memory"]
 group: "CS 기본기"
 draft: false
 ---
 
-## 창고가 가득 찼는데 아무것도 버리지 않는다
+## 01 · 상품 7 캐시는 60초만 두기로 했다
 
-상품을 임시로 보관하는 창고를 생각해보자. 새 상품은 계속 들어오는데 오래된 상품을 버리는 기준이 없다면 창고는 언젠가 가득 찬다.
-
-```mermaid
-flowchart LR
-    request["새 캐시 데이터"] --> redis["Redis"]
-    redis --> memory["제한된 메모리"]
-    memory --> full["메모리 한계 도달"]
-```
-
-Redis를 캐시로 사용해도 키의 수명과 메모리 한계에서 버릴 데이터를 정하지 않으면 같은 문제가 생긴다.
-
-## 왜 읽기는 되는데 쓰기만 실패할까
-
-Redis에 `maxmemory`가 설정되어 있고 `maxmemory-policy`가 `noeviction`이면, 메모리 한계에 도달해도 기존 키를 자동으로 제거하지 않는다.
+Redis는 키와 값을 저장하는 외부 서버다. TTL(Time To Live)은 키가 남아 있을 유효기간이다. 별도 Java 기본 클래스의 이름이 아니다.
 
 ```text
-maxmemory 도달
-      ↓
-noeviction
-      ↓
-기존 데이터 유지
-새 쓰기 → OOM 오류
-기존 읽기 → 대부분 정상
+0초   product:7 생성 / 유효기간 60초
+30초  아직 조회 가능
+60초  만료 → 조회하면 없는 키로 취급
 ```
 
-`noeviction`은 데이터를 임의로 잃지 않는다는 점에서는 안전하지만, 새로운 캐시나 세션을 저장하지 못해 서비스 기능이 멈출 수 있다.
+**시간이 끝나는 것과 공간이 부족해 먼저 버리는 것은 다른 사건이다.** 아래 장면은 예시이며 프로젝트의 실제 TTL 설정이 아니다.
+
+## 02 · 60초가 지나기 전에 너무 많이 들어오면?
+
+서로 다른 새 키가 초당 1,000개씩 들어와 각각 60초 남는 단순 모델을 생각해보자.
+
+```text
+1초 뒤   약 1,000개
+30초 뒤  약 30,000개
+60초 뒤  유효한 키만도 약 60,000개 규모
+```
+
+TTL은 입력량을 제한하지 않는다. 키·값 크기와 부가 비용, 실제 만료 제거 속도에 따라 메모리는 달라진다. 만료된 키는 접근 시와 주기 검사로 제거되므로 정각에 모든 물리 메모리가 한꺼번에 반환되는 그림으로 이해하지 않는다. [Redis 만료 처리](https://redis.io/docs/latest/commands/expire/)
+
+## 03 · 공간이 모자란 순간의 선택은 별도다
+
+`maxmemory`는 Redis의 메모리 관리 한도, `maxmemory-policy`는 그 한도에서 제거할 기준이다.
+
+```text
+한도 도달
+  noeviction  → 기존 키를 축출하지 않음 → 새 데이터를 늘리는 명령 거절 가능
+  allkeys-lru → 표본에서 덜 최근에 쓴 키 축출 → 새 데이터 공간 마련
+```
+
+순수 읽기 명령은 noeviction 한도에서도 동작할 수 있다. “모든 쓰기 명령이 반드시 실패한다”로 외우지 않는다. LRU는 최근 사용 기준이며 Redis의 LRU는 근사 방식이다. [Redis 축출 정책](https://redis.io/docs/latest/develop/reference/eviction/)
+
+## 04 · product:7과 lock:7을 같은 식으로 버려도 될까?
+
+| 보관 대상 | 먼저 제거되면 생기는 일 |
+| --- | --- |
+| 다시 만들 수 있는 상품 캐시 | DB 재조회 증가 |
+| 로그인 세션 | 인증 흐름 변화 |
+| 잠금·작업 상태 | 중복 실행이나 처리 유실 위험 |
+
+캐시를 살리려 선택한 축출 정책이 중요한 상태까지 없앨 수 있다. 정책의 적용 범위와 데이터의 복구 방법부터 확인한다. TTL이 있는 키만 고르는 volatile 정책도 후보가 없으면 공간을 만들지 못할 수 있다.
+
+## 05 · 컨테이너 256Mi와 Redis 한도는 같은 설정이 아니다
+
+현재 PromptHub Redis StatefulSet은 이미지 태그 `redis:7.4-alpine`, 컨테이너 메모리 한도 256Mi와 AOF 옵션을 선언한다. **읽은 매니페스트에는 maxmemory와 축출 정책을 명시하지 않았다.** 실제 서버 설정은 아직 확인하지 않았다.
+
+```text
+Redis 내부 공간 관리 → maxmemory와 정책
+컨테이너 전체 상한    → 256Mi
+                        서로 자동으로 같은 값이 되지는 않음
+```
+
+내부 정책이 동작하기 전에 컨테이너 전체가 OOM 종료될 수도 있다. 버퍼 등 전체 사용과 Redis 한도를 함께 보고 여유를 정한다. 이미지 태그는 실행 버전의 실측이나 최신 안정 버전 확인이 아니다.
 
 <details>
-<summary><b>🔍 Redis는 항상 메모리가 차면 쓰기를 거부할까?</b></summary>
+<summary>진단할 값은 어디서 읽을까?</summary>
 
-아니다. `maxmemory`와 eviction policy 설정에 따라 다르다.
+Redis의 `INFO memory`, `INFO stats`와 실제 설정에서 used_memory, maxmemory, evicted_keys, expired_keys 및 거절된 명령 변화를 확인한다. 누적 수치는 시간 구간의 증가량으로 비교한다.
 
-메모리 제한 없이 운영하면 Redis의 축출 정책이 동작하기 전에 운영체제나 컨테이너의 메모리 한계로 프로세스가 종료될 수도 있다. 관리형 Redis는 서비스별 기본 설정이 다를 수 있으므로 실제 설정을 확인해야 한다.
+축출이 늘어 DB 조회까지 급증하면 [캐시 동시 재조회](/study/cs/cache-stampede-and-single-flight)로 이어 본다. 이번에는 Redis 명령을 실제 서버에 실행하지 않았다.
 
 </details>
 
-영상에서는 `maxmemory`를 8MB로 제한하고 512바이트 세션을 계속 저장했다.
+## 근거와 확인 범위
 
-```text
-noeviction 적용
-→ 10,326번째 쓰기부터 실패
-→ 이후 쓰기도 계속 실패
-```
+2026-10-09 공식 문서와 `k8s/base/infrastructure/redis/statefulset.yaml`을 대조했다. 운영 쓰기 실패나 메모리 효과는 미측정이다. 기존 Instagram 실험 숫자는 원본을 재확인할 수 없어 제외했다.
 
-이 수치는 해당 실험 환경에서 측정한 값이다. 실제 메모리는 값뿐 아니라 key와 Redis 자료구조의 부가 비용도 사용한다.
+## 자기 말로 답해보기
 
-## TTL은 사용 기한이다
+모든 키에 TTL을 넣으면 메모리 부족과 중요한 데이터 축출이 자동 해결될까?
 
-**TTL(Time To Live)**은 키가 얼마 동안 유효한지를 나타내는 수명이다.
+<details>
+<summary>답 확인하기</summary>
 
-```text
-session:123
-TTL 30분
-→ 30분 뒤 만료
-```
+아니다. 유입량·키 크기·한도·정책과 데이터 목적을 함께 확인한다. TTL은 유효기간일 뿐 공간이나 재처리 안전성의 보증이 아니다.
 
-```mermaid
-flowchart LR
-    create["키 생성"] --> alive["TTL 동안 유지"]
-    alive --> expire["시간 만료"]
-    expire --> delete["Redis에서 제거"]
-```
-
-세션이나 인증 코드처럼 시간이 지나면 필요 없는 데이터가 계속 남지 않도록 한다.
-
-## TTL이 있어도 메모리는 찰 수 있다
-
-TTL은 시간이 지난 키를 정리하지만 들어오는 속도를 제한하지는 않는다.
-
-```text
-초당 생성되는 키: 1,000개
-TTL:             60초
-
-동시에 살아 있을 수 있는 키
-≈ 1,000 × 60
-= 약 60,000개
-```
-
-만료되기 전에 더 많은 키가 들어오면 메모리는 계속 증가한다. 영상에서도 TTL을 적용했지만 입력 속도가 만료 속도보다 빨라 9,697번째 쓰기에서 실패했다.
-
-> TTL은 오래된 키를 정리하지만 메모리 한계에서 즉시 공간을 만드는 정책은 아니다.
-
-## Eviction은 한계에서 무엇을 버릴지 정한다
-
-**Eviction policy**는 Redis가 `maxmemory`에 도달했을 때 공간을 만들기 위해 어떤 키를 제거할지 정하는 규칙이다.
-
-| 정책 | 제거 대상 |
-|---|---|
-| `noeviction` | 키를 제거하지 않고 새 쓰기를 거부 |
-| `allkeys-lru` | 모든 키 중 오래 사용되지 않은 키 |
-| `allkeys-lfu` | 모든 키 중 사용 빈도가 낮은 키 |
-| `volatile-lru` | TTL이 있는 키 중 오래 사용되지 않은 키 |
-| `volatile-ttl` | TTL이 있는 키 중 만료가 가까운 키 |
-
-```text
-TTL      → 시간이 끝난 키 정리
-Eviction → 메모리가 찼을 때 공간 확보
-```
-
-영상에서는 `allkeys-lru`를 적용한 뒤 19,745개의 키를 축출하면서 쓰기 실패 없이 계속 저장할 수 있었다.
-
-```mermaid
-flowchart TD
-    full["maxmemory 도달"] --> policy{"Eviction policy"}
-    policy -->|noeviction| reject["새 쓰기 거부"]
-    policy -->|allkeys-lru| remove["오래 사용하지 않은 키 제거"]
-    remove --> write["새 데이터 저장"]
-```
-
-Redis의 LRU는 모든 키의 완벽한 사용 순위를 계산하는 방식이 아니라 일부 키를 표본으로 뽑아 오래 사용되지 않은 키를 찾는 근사 방식이다.
-
-## 모든 Redis에 allkeys-lru를 쓰면 안 된다
-
-축출돼도 다시 만들 수 있는 캐시라면 `allkeys-lru`나 `allkeys-lfu`를 사용할 수 있다. 하지만 중요한 데이터가 섞여 있다면 주의해야 한다.
-
-| 데이터 | 축출됐을 때 영향 |
-|---|---|
-| 상품 조회 캐시 | DB에서 다시 생성 가능 |
-| 로그인 세션 | 사용자가 갑자기 로그아웃될 수 있음 |
-| 분산 락 | 여러 서버가 동시에 작업할 위험 |
-| 작업 Queue | 처리할 작업이 유실될 수 있음 |
-| 결제 중간 상태 | 복구하기 어려운 데이터 손실 |
-
-Redis에 여러 목적의 데이터를 함께 넣으면 하나의 eviction policy가 모든 키에 적용된다. 캐시와 중요한 상태는 용도별로 분리하는 편이 안전하다.
-
-## 무엇을 확인해야 할까
-
-| 지표 | 확인할 내용 |
-|---|---|
-| `used_memory` | Redis가 사용하는 메모리 |
-| `maxmemory` | 설정된 메모리 한계 |
-| `evicted_keys` | 한계 때문에 축출된 키 |
-| `expired_keys` | TTL이 끝나 만료된 키 |
-| `mem_fragmentation_ratio` | 메모리 단편화 상태 |
-| OOM 오류 수 | 메모리 부족으로 쓰기가 실패했는지 |
-| 키 생성 속도 | 만료보다 빠르게 키가 쌓이는지 |
-
-```mermaid
-flowchart TD
-    growing["메모리 증가"] --> ttl{"불필요한 키에 TTL이 있는가?"}
-    ttl -->|아니요| add["적절한 TTL 설정"]
-    ttl -->|예| rate{"생성 속도가 만료보다 빠른가?"}
-    rate -->|예| capacity["용량·TTL·유입량 재계산"]
-    rate -->|아니요| policy{"Eviction 정책이 목적에 맞는가?"}
-    policy -->|아니요| separate["정책 변경 또는 Redis 분리"]
-    policy -->|예| monitor["메모리와 축출 지표 관찰"]
-```
-
-> TTL은 키의 수명을 정하고 Eviction은 메모리 한계에서 살아남을 키를 정한다.
-
-## 참고
-
-- [Instagram — Redis 메모리가 차오르다 쓰기가 멈춘다](https://www.instagram.com/reel/Dcq5KgSNK76/)
-- [Redis — Key eviction](https://redis.io/docs/latest/develop/reference/eviction/)
-- [Redis — EXPIRE](https://redis.io/docs/latest/commands/expire/)
-- [Redis — INFO](https://redis.io/docs/latest/commands/info/)
+</details>
