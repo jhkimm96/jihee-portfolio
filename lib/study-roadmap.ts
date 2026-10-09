@@ -68,7 +68,8 @@ export const studyReadingOrder: Record<string, string[]> = {
     'alert-evaluation-and-notification', 'kafka-lag-diagnosis',
     'opentelemetry-trace-waterfall', 'loki-labels-and-log-search',
     'retry-backoff-jitter-budget', 'circuit-breaker-open-and-recovery',
-    'fallback-safe-results', 'utc-and-local-day-boundaries',
+    'fallback-safe-results', 'bulkhead-concurrent-call-isolation',
+    'utc-and-local-day-boundaries',
     'sharding-design-decisions'
   ],
   jvm: [
