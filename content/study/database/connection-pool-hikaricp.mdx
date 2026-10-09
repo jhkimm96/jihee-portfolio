@@ -1,35 +1,86 @@
 ---
 title: "커넥션 풀(HikariCP) — DB 연결을 왜 매번 새로 안 맺나"
 date: "2026-07-21"
-summary: "DB 커넥션을 요청마다 새로 맺지 않고 미리 만들어둔 걸 재사용하는 커넥션 풀의 원리를, PromptHub가 그대로 쓰는 Spring Boot 기본값(HikariCP)으로 정리했다."
+updatedAt: "2026-10-09"
+status: "growing"
+question: "DB 연결을 빌린 뒤 닫으면 다음 요청은 또 새로 연결해야 할까?"
+summary: "풀에서 빌린 연결을 정상 반납하면 다른 요청이 재사용한다. 풀 상한과 기다릴 시간은 설정이며 DB 처리 속도의 보증이 아니다."
+related:
+  - "cs/connection-pool-bottleneck"
+  - "cs/database-bottleneck-diagnosis"
 tags: ["Database", "HikariCP", "Spring Boot"]
 draft: false
 ---
 
-## DB 커넥션을 맺는 건 생각보다 비싸다
+## 01 · 상품 조회마다 DB와 처음 인사할 필요는 없다
 
-DB에 연결(커넥션)을 새로 맺는 과정은 TCP 연결, 인증 등 여러 단계를 거쳐서 시간이 꽤 든다. API 요청이 들어올 때마다 매번 새 커넥션을 맺고, 쓰고 나서 바로 끊어버리면 이 비용을 매번 치러야 한다.
+DB 연결은 앱이 DB와 통신하는 통로다. 새로 열 때는 네트워크 연결과 인증 등이 필요하다. 커넥션 풀은 통로를 관리하며 여러 요청에 재사용한다.
 
-**커넥션 풀**은 미리 커넥션을 몇 개 만들어서 "풀"에 담아두고, 요청이 오면 그중 하나를 빌려주고, 다 쓰면 끊지 않고 풀에 반납하는 방식이다.
+```text
+준비된 연결     [연결1 대기] [연결2 대기]
+A의 상품7 조회  [연결1 사용] [연결2 대기]
+조회가 끝남     [연결1 반납] [연결2 대기]
+민지의 조회     [연결1 재사용]
+```
 
-**비유**: 택시를 매번 새로 사는 대신, 택시 회사가 차 여러 대를 미리 사놓고 손님이 올 때마다 빌려주고 돌려받는 것과 같다. 차를 새로 사는(커넥션을 새로 맺는) 비용을 손님마다 반복하지 않는다.
+**정상 반납은 통로를 매번 없애는 것과 다르다.** 위는 건강한 연결이 재사용되는 학습 장면이다. 끊기거나 수명이 끝난 연결은 폐기·교체할 수 있다.
 
-## HikariCP — Spring Boot의 기본 커넥션 풀
+## 02 · HikariCP는 Java 기본 클래스일까?
 
-Spring Boot는 별도 설정 없이도 **HikariCP**를 기본 커넥션 풀로 쓴다. HikariCP 자체의 기본값은 이렇다:
+아니다. **HikariCP는 연결 풀을 제공하는 외부 Java 라이브러리**다. 앱 의존성으로 가져온다. Spring Boot의 JDBC 또는 Data JPA starter는 이 의존성을 포함한다. [Spring Boot 데이터 접근](https://docs.spring.io/spring-boot/reference/data/sql.html)
 
-- `maximumPoolSize`(풀 안에 최대 몇 개까지 만들지): **10**
-- `connectionTimeout`(커넥션을 못 빌리면 얼마나 기다릴지): 30초
-- `idleTimeout`(안 쓰는 커넥션을 얼마나 유지할지): 10분
+Java 기본 API인 `DataSource`는 연결을 얻는 접점, `Connection`은 빌린 연결을 다루는 접점이다. HikariCP는 이 API 뒤에서 연결 관리와 재사용을 구현한다. 쿼리 계산이나 DB 락을 대신 해결하지는 않는다.
 
-PromptHub는 이 값을 별도로 튜닝하지 않고 **Spring Boot·HikariCP의 기본값을 그대로** 쓴다. 지금 트래픽 규모에서는 기본값으로 충분하다고 판단한 것이다.
+## 03 · close라고 적혀 있는데 왜 반납일까?
 
-## 풀 크기를 왜 함부로 늘리면 안 되나
+```text
+풀에서 getConnection() → 이번 요청이 쓸 연결 접점
+그 접점의 close()     → 풀에 사용 종료를 알림
+다음 요청             → 재사용 가능한 연결을 다시 빌림
+```
 
-"동시 요청이 많으니 풀을 크게 늘리면 되지 않나" 싶을 수 있는데, 커넥션 풀 크기는 **DB 서버가 감당할 수 있는 동시 커넥션 수** 안에서 정해야 한다. 앱 서버가 여러 대라면, 각 서버의 풀 크기 × 서버 대수가 DB 쪽 최대 커넥션 수를 넘으면 안 된다.
+HikariCP가 돌려준 연결 접점의 정상 close는 풀로 돌려주는 처리다. 모든 종류의 Connection에서 close가 같은 내부 동작을 한다고 일반화하지 않는다. [HikariCP 연결 반환 구현](https://github.com/brettwooldridge/HikariCP/blob/dev/src/main/java/com/zaxxer/hikari/pool/ProxyConnection.java)
 
-이전 편(트랜잭션 전파)에서 다룬 `REQUIRES_NEW`도 이 커넥션 풀과 연결된다 — 새로운 독립 트랜잭션을 만들 때마다 별도의 커넥션이 필요해서, 풀 크기가 부족하면 트랜잭션이 커넥션을 못 얻어 대기하다 타임아웃이 날 수 있다.
+Spring/JPA가 관리하는 트랜잭션에서는 프레임워크가 연결 생명주기를 관리한다. 이 설명을 보고 서비스 코드에서 관리 중인 연결을 임의로 닫으면 안 된다.
 
-## 참고
+## 04 · 두 연결을 모두 빌렸다면?
 
-- [HikariCP GitHub](https://github.com/brettwooldridge/HikariCP)
+```text
+연결1 A 사용 / 연결2 B 사용
+민지의 요청 → 반납될 때까지 대기 → 얻거나 제한 시간 뒤 실패
+```
+
+| 설정 | 무엇을 정하나 |
+| --- | --- |
+| maximumPoolSize | 유휴·사용 중을 포함한 풀 연결 상한 |
+| connectionTimeout | 연결을 얻기 위해 기다릴 최대 시간 |
+
+2026-10-09 공식 README의 기본값은 각각 10개와 30초다. **우리 앱의 실제 값이나 권장 크기라는 뜻은 아니다.** 연결 대기 제한은 SQL 실행 시간이나 전체 HTTP 요청의 제한도 아니다. [HikariCP 설정 계약](https://github.com/brettwooldridge/HikariCP)
+
+<details>
+<summary>나머지 설정도 같이 읽고 싶다면</summary>
+
+`minimumIdle`은 유지하려는 최소 유휴 연결 수다. `idleTimeout`은 남는 유휴 연결을 정리하는 설정이며 minimumIdle이 최대 크기보다 작은 경우에 적용된다. “안 쓰면 모든 연결이 정확히 10분 뒤 끊긴다”로 해석하지 않는다.
+
+자동 설정은 의존성·클래스 경로와 앱이 직접 정의한 DataSource 여부에 따라 달라진다. 최종 선택과 적용값은 실행 환경에서 확인한다.
+
+</details>
+
+## 프로젝트에서 어디를 확인할까?
+
+PromptHub 루트 `build.gradle`은 Boot 4.1.0과 Data JPA starter를 선언한다. 중앙 `product-service.yml`에는 DB 연결 설정이 있지만 풀 상한과 획득 제한을 명시하지 않았다.
+
+2026-10-09 두 근거를 대조했으며, 실행 중 DataSource 종류·최종값·부하를 확인하지 않았다. 따라서 기존의 “기본값을 그대로 쓰며 현재 규모에 충분하다고 판단했다”는 설명은 제외했다.
+
+다음은 [풀이 커져도 빨라지지 않는 이유](/study/cs/connection-pool-bottleneck)다. 연결을 재사용하는 원리와 최적 연결 수는 다른 질문이다.
+
+## 자기 말로 답해보기
+
+풀의 정상 연결을 반납했다. 다음 요청도 인증부터 새로 해야 할까?
+
+<details>
+<summary>답 확인하기</summary>
+
+아니다. 건강한 연결은 재사용할 수 있다. 다만 연결 장애나 수명 정책에 따라 새 연결로 교체될 수 있다.
+
+</details>

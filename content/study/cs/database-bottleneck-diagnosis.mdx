@@ -1,168 +1,97 @@
 ---
 title: "DB가 느릴 때 병목은 어떻게 확인하나"
 date: "2026-09-10"
+updatedAt: "2026-10-09"
 status: "growing"
 reviewAfter: "2026-12-10"
-related:
+question: "느린 상품 조회가 풀 대기인지 쿼리나 락 문제인지 어떻게 좁힐까?"
+summary: "같은 요청의 시간 구간과 같은 시간대의 풀·DB 증거를 연결한다. 앱 경과시간이나 CPU 하나만으로 원인을 확정하지 않는다."
+prerequisites:
   - "cs/connection-pool-bottleneck"
+related:
   - "database/connection-pool-hikaricp"
-summary: "커넥션 대기, 쿼리 실행 시간과 DB 자원 지표를 함께 측정해 병목 위치를 찾는 방법을 정리한다."
-tags: ["CS", "Database", "Monitoring", "Connection Pool", "Query", "Bottleneck"]
+  - "database/deadlock-lock-ordering"
+tags: ["CS", "Database", "Monitoring", "Connection Pool", "Query"]
 group: "CS 기본기"
 draft: false
 ---
 
-## 병원 진료가 느린 이유부터 구분해보자
+## 01 · 민지의 상품7 조회에 920ms가 걸렸다
 
-환자가 오래 기다렸다고 의사 수가 부족한 것은 아니다.
-
-```text
-접수창구가 적음    → 접수 앞에서 대기
-진료가 오래 걸림   → 진료실 안에서 대기
-검사 장비가 부족함 → 검사실 앞에서 대기
-```
-
-DB 요청도 마찬가지다.
-
-```mermaid
-flowchart LR
-    request["요청"] --> pool["커넥션 획득"]
-    pool --> query["쿼리 실행"]
-    query --> result["결과 반환"]
-```
+한 요청을 추적하는 설명용 장면이다. 숫자는 운영 실측이 아니다.
 
 ```text
-전체 DB 소요 시간
-= 커넥션 획득 대기
-+ DB 내부의 쿼리 실행·대기
+0ms          연결 빌리기 시작
+500ms        연결 획득
+920ms        관찰한 DB 사용 구간 끝
 ```
 
-두 시간을 분리해야 커넥션 풀과 DB 중 어디가 문제인지 알 수 있다.
+연결 획득은 500ms, 그 뒤 관찰 구간은 420ms다. **이 420ms를 순수 DB 내부 실행 시간이라고 부를 수는 없다.** SQL 호출, 결과 전달·변환과 다른 앱 작업 등이 포함됐을 수 있다.
 
-## 커넥션 풀에서는 무엇을 볼까
+SQL은 DB에 조회·변경을 요청하는 명령이다. 무엇을 재기 시작하고 끝냈는지부터 정해야 어느 단계가 느린지 좁힐 수 있다.
 
-Spring Boot와 HikariCP를 사용한다면 Micrometer를 통해 다음 지표를 수집할 수 있다.
-
-| 지표 | 의미 |
-|---|---|
-| `hikaricp.connections.active` | 현재 사용 중인 커넥션 |
-| `hikaricp.connections.idle` | 사용하지 않는 커넥션 |
-| `hikaricp.connections.pending` | 커넥션을 기다리는 요청 |
-| `hikaricp.connections.max` | 풀의 최대 크기 |
-| `hikaricp.connections.acquire` | 커넥션 획득에 걸린 시간 |
-| `hikaricp.connections.timeout` | 기다리다 실패한 횟수 |
+## 02 · 풀 앞에 줄이 서 있는지 확인한다
 
 ```text
-max     = 10
-active  = 10
-idle    = 0
-pending = 35
-획득 대기 p95 = 500ms
+사용 중 연결 2 / 풀 상한2
+남는 연결   0
+대기 요청   민지·지수
 ```
 
-이 상태가 부하 시간 동안 계속되면 풀 앞에서 요청이 밀리고 있다는 뜻이다.
+이 상태가 지속되면 연결을 기다리는 요청이 있다는 증거다. 아직 “풀이 너무 작다”는 결론은 아니다. 연결을 오래 붙잡는 작업이나 DB 지연 때문에 같은 줄이 생길 수 있다.
+
+Spring Boot는 조건에 맞는 DataSource에 `jdbc.connections` 지표를 붙이고, HikariCP 전용 지표는 `hikaricp` 접두어를 사용한다. 실제 등록된 이름·풀·인스턴스를 확인한다. [Spring Boot 풀 지표](https://docs.spring.io/spring-boot/reference/actuator/metrics.html)
+
+## 03 · p95는 같은 요청의 타임라인이 아니다
+
+**p95**는 시간 측정값 분포의 95번째 백분위 지점이다. 같은 구간·작업의 대부분은 얼마나 빨랐고 느린 쪽은 어땠는지 보는 수치다. 계산법이나 히스토그램에 따라 추정 방식이 달라질 수 있다.
+
+```text
+개별 요청 추적   민지의 획득500ms / 이후420ms
+집계 지표       여러 요청의 획득 p95 / 여러 요청의 SQL p95
+```
+
+서로 다른 분포의 p95를 빼거나 더해 민지의 DB 내부 시간을 구할 수 없다. 집계는 경향을 찾고, 개별 추적은 어느 구간에서 기다렸는지 연결하는 데 쓴다.
+
+## 04 · DB 안에서 기다리는 이유도 나눈다
+
+| 함께 관찰할 흔적 | 다음에 확인할 후보 |
+| --- | --- |
+| 연결 획득이 느리고 점유가 김 | 긴 거래·외부 대기·반납 문제 |
+| SQL 호출이 길고 CPU·읽기 부하 증가 | 실행 계획·읽는 행·자원 |
+| SQL 호출이 길지만 락 대기가 있음 | 막고 있는 트랜잭션 |
+| 앱 시간은 긴데 DB 증거가 다름 | 네트워크·결과 크기·앱 처리 |
+
+후보 표이지 자동 판정표가 아니다. PostgreSQL의 `pg_stat_activity`는 DB 활동을 읽는 기본 뷰이며 wait_event로 기다리는 종류를 확인할 수 있다. Java 라이브러리가 아니다. [PostgreSQL18 활동과 대기](https://www.postgresql.org/docs/18/monitoring-stats.html)
+
+## 05 · 진단 명령이 실제 작업을 실행할 수도 있다
+
+실행 계획은 DB가 어떤 방법으로 데이터를 찾을지 보여준다. PostgreSQL의 **EXPLAIN ANALYZE는 쿼리를 실제 실행한다.** 읽기 부하도 만들고 변경문·함수는 부작용을 낼 수 있다. 운영 DB에 그대로 복사해 실행하지 않는다. [EXPLAIN의 실행 조건](https://www.postgresql.org/docs/18/sql-explain.html)
+
+안전한 시험 환경과 데이터, 권한·비용을 먼저 확인한다. 한 조건만 바꾸고 같은 부하에서 완료 시간·오류·처리량을 비교한다. 풀·쿼리·서버 사양을 한꺼번에 바꾸면 효과의 원인을 구분하기 어렵다.
 
 <details>
-<summary><b>🔍 p95는 무엇인가?</b></summary>
+<summary>측정이 비교 가능한지 점검하기</summary>
 
-측정값을 빠른 순서대로 정렬했을 때 95%가 그 값 이하라는 뜻이다. 커넥션 획득 시간의 p95가 500ms라면 요청 100개 중 약 95개는 500ms 안에 커넥션을 얻고, 나머지는 그보다 오래 기다렸다는 의미다.
+같은 인스턴스·풀·DB·시간 구간인가? 완료된 요청만 모아서 실패나 timeout을 빠뜨리지 않았나? timer 구간이 겹치지 않나? 누적 수치를 구간 증가량으로 비교했나?
 
-평균만 보면 일부 매우 느린 요청이 가려질 수 있어 p95나 p99를 함께 본다.
+Micrometer는 Spring 생태계에서 사용하는 외부 지표 라이브러리다. 의존성·자동 설정·노출 설정이 필요하며 지표 이름을 적었다고 실제 수집이 된 것은 아니다. 메트릭 endpoint를 무조건 외부 공개하지 않는다.
 
 </details>
 
-## 쿼리 시간은 어디서 확인할까
+## 프로젝트 근거와 확인 범위
 
-쿼리를 DB에 보낸 뒤 결과를 받을 때까지의 시간을 측정한다.
+2026-10-09 PromptHub의 Data JPA starter 선언과 중앙 상품 datasource 설정을 읽었다. 실제 풀 지표·DB 활동·추적·실행 계획을 수집하거나 부하 시험을 하지 않았다. 위 시간과 연결 수는 학습 예시다.
 
-```text
-쿼리 실행 시간 = 결과 수신 시각 - 쿼리 전송 시각
-```
+기존 글의 “920−500=DB 내부420ms” 설명을 계측 구간의 한계에 맞게 바꿨다. 숫자 하나만으로 풀 증설이나 DB 사양 확장을 권하지 않는다.
 
-| 환경 | 확인 방법 |
-|---|---|
-| 애플리케이션 | APM의 DB span |
-| PostgreSQL | `pg_stat_statements`, `EXPLAIN ANALYZE` |
-| MySQL | Slow Query Log, Performance Schema |
-| 개발 환경 | SQL 실행 시간 로그 |
+## 자기 말로 답해보기
 
-```text
-전체 DB 구간:     920ms
-커넥션 획득 대기: 500ms
-DB 내부 시간:     420ms
-```
+CPU는 낮고 SQL 호출은 길다. DB에는 여유가 있으니 풀을 늘려도 될까?
 
-전체 시간만 보면 느리다는 사실만 알 수 있다. 시간을 분리하면 풀 앞과 DB 내부에서 각각 얼마나 기다렸는지 알 수 있다.
+<details>
+<summary>답 확인하기</summary>
 
-## CPU가 낮아도 DB는 느릴 수 있다
+그것만으로 판단할 수 없다. 락·I/O 대기, 연결 점유와 앱 측정 범위를 함께 확인한다.
 
-DB CPU는 DB 서버나 클라우드 관리 화면에서 확인한다. 하지만 CPU만 봐서는 충분하지 않다.
-
-| 관찰한 상태 | 의심할 문제 |
-|---|---|
-| CPU와 쿼리 시간 모두 높음 | 계산량이 많은 쿼리, 과도한 동시 실행 |
-| CPU는 낮지만 Disk latency가 높음 | 디스크 I/O 대기 |
-| CPU는 낮지만 Lock wait가 높음 | 다른 트랜잭션의 Lock 대기 |
-| Swap 발생, 디스크 읽기 증가 | 메모리 부족 가능성 |
-| 실행 connection이 계속 많음 | 과도한 동시 요청 |
-
-DB는 메모리를 cache로 적극 사용하므로 사용률이 높다는 이유만으로 부족하다고 판단하면 안 된다. Swap, cache hit ratio와 디스크 읽기 증가를 함께 확인한다.
-
-## 숫자를 함께 보면 병목이 보인다
-
-### 풀을 늘려볼 수 있는 상태
-
-```text
-Pool active/max  10/10
-Pending          40
-획득 대기 p95    600ms
-쿼리 p95          25ms
-DB CPU            35%
-Lock wait         거의 없음
-```
-
-DB 쿼리는 빠르고 자원에도 여유가 있지만 풀 앞에서 오래 기다린다. 풀을 조금 늘리고 같은 부하에서 다시 측정할 수 있다.
-
-### 쿼리를 확인할 상태
-
-```text
-Pool active/max  18/20
-Pending           1
-획득 대기 p95     10ms
-쿼리 p95         900ms
-DB CPU            92%
-```
-
-커넥션은 빠르게 얻지만 DB 안에서 오래 걸린다. 풀보다 느린 쿼리와 실행 계획을 먼저 확인한다.
-
-### Lock을 확인할 상태
-
-```text
-획득 대기 p95     15ms
-쿼리 p95       2,000ms
-DB CPU            25%
-Lock wait         높음
-```
-
-CPU가 낮아도 다른 트랜잭션을 기다리느라 쿼리가 느릴 수 있다.
-
-## 한 번에 하나만 바꾼다
-
-```mermaid
-flowchart LR
-    load["같은 부하 재현"] --> measure["Pool·쿼리·DB 지표 측정"]
-    measure --> guess["병목 위치 추정"]
-    guess --> change["한 가지 설정 또는 쿼리 변경"]
-    change --> compare["같은 조건으로 재측정"]
-```
-
-풀 크기와 쿼리, DB 사양을 한꺼번에 바꾸면 무엇이 효과가 있었는지 알 수 없다.
-
-> 같은 시간대의 지표를 함께 보고, 한 번에 하나만 변경한 뒤 다시 측정한다.
-
-## 참고
-
-- [Micrometer — HikariCP metrics](https://docs.micrometer.io/micrometer/reference/reference/jvm.html)
-- [PostgreSQL — pg_stat_statements](https://www.postgresql.org/docs/current/pgstatstatements.html)
-- [PostgreSQL — EXPLAIN](https://www.postgresql.org/docs/current/sql-explain.html)
-- [MySQL — The Slow Query Log](https://dev.mysql.com/doc/refman/8.4/en/slow-query-log.html)
+</details>
