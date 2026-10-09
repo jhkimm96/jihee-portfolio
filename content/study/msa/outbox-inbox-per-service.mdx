@@ -1,80 +1,99 @@
 ---
-title: "서비스별 Outbox·Inbox 적용 전수 분석 — 우리 MSA는 왜 서비스마다 다른가"
-slug: "outbox-inbox-per-service"
+title: "서비스별 Outbox·Inbox — 현재 코드에서는 무엇을 확인할까?"
 date: "2026-07-14"
-summary: "5개 서비스가 Outbox/Inbox를 각각 어떻게(안) 쓰는지 코드로 전수 분석. 발행측은 '유실 방지가 얼마나 필요한가', 소비측은 '소비 연산이 멱등인가'로 갈린다."
+updatedAt: "2026-10-09"
+status: "growing"
+question: "서비스 이름보다 어떤 이벤트 경로의 제약과 트랜잭션을 확인해야 할까?"
+summary: "확인한 발행·소비 경로를 나누고, 키 조회와 실제 중복 방지 조건을 대조한다. 과거 설계와 현재 소스를 같은 구현이라고 쓰지 않는다."
+prerequisites:
+  - "msa/outbox-inbox-when-needed"
+related:
+  - "batch/failed-delivery-and-idempotent-retry"
+  - "cs/transaction-rollback-boundaries"
 tags: ["msa", "kafka", "outbox", "inbox", "idempotency"]
 draft: false
 ---
 
-[Part 1 — Outbox·Inbox는 짝이 아니다](/study/msa/outbox-inbox-when-needed)에서 Outbox·Inbox가 짝이 아니라 독립 선택임을 봤다. 여기선 5개 서비스를 전수로 훑으며 각 선택의 근거를 코드로 본다.
+## 01 · E7을 받는다고 모두 판매수를 늘리는 것은 아니다
 
-## 전체 매트릭스
-
-| 서비스 | 발행 | Outbox | 소비 | Inbox | 소비 연산 |
-|---|---|---|---|---|---|
-| order | order-events | ✅ | payment 이벤트 | ✅ | 상태전이 + 결제 INSERT + 이벤트 append (비멱등) |
-| settlement | SETTLEMENT_CREATED | ✅ | — | — | (소비 안 함) |
-| product | product-events | ❌ 직접 | order-events | ✅ | salesCount 증감 (비멱등) |
-| payment | payment 이벤트 | ❌ 직접 | ORDER_CREATED | ❌ | 스냅샷 기록 (멱등) |
-| user | — | — | SETTLEMENT_CREATED | ❌ | seed (멱등) |
-
-두 축으로 읽는다: **발행측(Outbox 여부)** 과 **소비측(Inbox 여부)**.
-
-## 발행측 — Outbox를 쓰느냐
-
-- **order / settlement**: Outbox로 발행. 상태 변경과 "발행할 이벤트"를 같은 트랜잭션으로 outbox에 적고 relay가 발행 → 유실 방지. 주문·정산 이벤트는 하류(판매수·정산 seed)의 트리거라 유실 시 정합성이 깨진다.
-- **product / payment**: Outbox 미도입, 직접 발행. payment는 커밋 후 `@TransactionalEventListener(AFTER_COMMIT)`로 발행(롤백 시 미발행). 유실 위험을 감수한 단순 발행 — 필요해지면 Outbox로 승격 가능.
-
-즉 Outbox는 "이 이벤트 흐름에 얼마나 강한 발행 보장이 필요한가 + 도입 성숙도"의 문제다. 규칙이 아니라 선택이다.
-
-## 소비측 — Inbox를 쓰느냐 (기준: 소비 연산이 멱등인가)
-
-### 비멱등 → Inbox 필요
-
-**product-service** — salesCount 증감:
-```java
-if (alreadyProcessed(eventId)) return;                      // inbox
-productSalesCountService.incrementSalesCount(productIds);   // += 1 (비멱등)
-markProcessed(eventId, "ORDER_PAID", occurredAt);
+```text
+주문 서비스: 결제 결과 → 주문 상태 변경 + 다음 이벤트 기록
+상품 서비스: 구매 사건 → 판매수 변경 + 처리 사건 기록
 ```
 
-**order-service** — 결제 이벤트로 주문 확정:
-```java
-// PaymentApprovedProcessor.process (요지)
-if (processedEventService.isProcessed(eventId, CONSUMER_GROUP)) return;  // inbox
+**판단 단위는 서비스 전체가 아니라 실제로 하는 업무 경로다.** 같은 메시지 기술을 써도 중복의 영향과 방어가 다르다. 이름이나 `id` 하나만 보고 “자연 멱등이라 안전”이라고 판단하지 않는다.
 
-order.markPaid(payload.approvedAt());                    // 상태 전이(멱등)
-orderPaymentRepository.save(OrderPayment.create(...));   // 결제 row INSERT (비멱등)
-outboxEventAppender.append(orderPaidMessage);            // ORDER_PAID 발행 예약 (재처리 시 이중 발행)
+## 02 · 현재 확인한 주요 경로를 두 방향으로 읽는다
 
-processedEventService.markProcessed(eventId, CONSUMER_GROUP, eventType, occurredAt);
+2026-10-09 로컬 소스 기준이다. 전체 기능 전수 검증이나 배포 현황 표는 아니다.
+
+| 서비스 | 발행·전달에서 읽은 것 | 소비·등록에서 읽은 것 |
+| --- | --- | --- |
+| order | Outbox 저장과 Kafka Relay | 결제 승인에 처리 이력·주문 잠금·상태 조건 |
+| product | Kafka 직접 발행 경로 | 구매·환불의 판매수 변경과 처리 이력 |
+| payment | 커밋 후 Kafka 직접 발행 | 현재 주문 소비자는 환불 요청을 호출 |
+| settlement | 현재 판매자 정산 등록은 gRPC | 전달 기록·재시도는 정산 학습 글에 연결 |
+| user | 이 글에서 전체 발행 경로 미검토 | 정산 등록 ID 조회와 등록 충돌 회복 경로 |
+
+과거 글의 “payment는 ORDER_CREATED 스냅샷 소비”, “settlement→user는 SETTLEMENT_CREATED 소비”를 현재 확인한 코드와 같게 쓰지 않는다. 당시 구현 여부까지 이번에 이력으로 검증한 것은 아니다.
+
+## 03 · 주문: 업무 변경과 보낼 기록을 같은 경계에서 본다
+
+현재 `PaymentApprovedProcessor`는 주문 잠금 조회 뒤 처리 여부를 다시 확인하고, 허용한 상태에서만 결제 반영과 Outbox 기록을 진행한다. 처리 이력도 저장한다.
+
+```text
+결제 승인 → 주문 잠금 → 중복 재확인
+                     → 상태 변경·Outbox·처리 이력 → 같은 트랜잭션
 ```
-상태 전이 자체는 멱등이지만, 재처리하면 **결제 row가 중복 INSERT되고 ORDER_PAID가 다시 append돼 하류(product salesCount 등)로 이중 발행**된다. 그래서 eventId로 전체 처리를 한 번으로 묶는다.
 
-### 자연 멱등 → Inbox 불필요
+`ProcessedEventService.markProcessed`는 기존 트랜잭션 참여를 요구한다. baseline에는 사건·소비 그룹 유니크 제약이 있다. Relay는 Kafka 발행 결과를 기다린 뒤 발행 상태를 바꾼다.
 
-**payment-service** — orderId 키로 스냅샷 기록:
-```java
-recordOrderSnapshotUseCase.record(new RecordOrderSnapshotCommand(
-    created.orderId(), ...));   // orderId 키 → 재처리해도 같은 결과
+이것은 확인한 코드 경계다. 발행 성공 뒤 DB 상태 기록 실패나 Relay 중복 실행에서도 **재발행 가능성**을 고려해야 한다. Outbox는 중복 없는 소비까지 대신하지 않는다. [Outbox의 중복 고려사항](https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/transactional-outbox.html)
+
+## 04 · 상품: exists 확인과 DB 중복 제약을 같이 본다
+
+상품 경로는 처리 여부 조회 → 판매수 변경 → 이력 저장 순서다.
+
+```text
+이미 E7 기록 있음 → 판매수 변경 안 함
+처음으로 보임     → 변경·이력 저장 시도
+동시에 처음처럼 보임 → 유니크 충돌과 전체 롤백 조건까지 확인
 ```
 
-**user-service** — settlement seed(키 기반 생성):
-```java
-case SETTLEMENT_CREATED -> seedSellerSettlementUseCase.seed(eventMessage.payload());
-```
-`seed`는 키 기준이라 중복 이벤트가 와도 같은 상태 → 멱등. Inbox 불필요.
+`exists`는 프로젝트 저장소의 “있나?” 조회 메서드이지 잠금이나 처리권을 자동 제공하는 기능이 아니다. 같은 사건 중복과 다른 사건들의 동시 상품 갱신도 구분한다. 실제 DB 제약 적용·트랜잭션·오류 처리 확인 없이 “동시 처리까지 완료 검증”이라고 쓰지 않는다.
+
+## 05 · 직접 발행과 키 기반 등록에도 조건이 있다
+
+payment의 현재 Publisher는 Spring의 커밋 후 이벤트 리스너에서 Kafka를 보낸다. product Producer도 활성 트랜잭션에는 커밋 후 전송을 등록하며 없으면 즉시 전송한다. KafkaTemplate은 Spring Kafka의 외부 라이브러리 기능이다.
+
+**커밋 후 보내기는 롤백 전에 보내는 문제를 줄이지만, 재전송할 기록을 같은 DB에 남기는 Outbox와는 다르다.** 발행 실패 로그가 있다고 영구 복구가 보장되지는 않는다.
+
+user의 현재 정산 등록은 전달 요청 ID·정산 ID로 기존 결과를 찾는다. 전달 요청 ID의 유니크 인덱스와 등록 충돌 후 읽어오는 Facade 경로도 있다. 같은 키의 다른 내용, 동시 처리와 상대 결과 비교는 별도로 검증해야 한다. [정산 재전송](/study/batch/failed-delivery-and-idempotent-retry)로 이어 읽는다.
 
 <details>
-<summary><b>🔍 seed가 뭔가</b></summary>
+<summary>확인한 코드 이름을 실제 역할과 연결하기</summary>
 
-여기서 `seed`(씨앗을 심다)는 **셀러 정산 레코드의 초기 데이터를 만드는 것**이다. 정산/셀러 기준의 **키 기반 생성**이라, 같은 `SETTLEMENT_CREATED`가 다시 와도 이미 있는 레코드를 다시 심을 뿐 상태가 안 바뀐다(create-if-absent 성격). 그래서 자연 멱등이고 Inbox가 필요 없다.
+`OrderOutboxAppender`, `OutboxRelay`, `OrderEventHandler`와 정산 등록 Facade는 프로젝트 자체 클래스다. 패턴 이름과 같다고 라이브러리가 모든 정책을 대신 구현한 것이 아니다.
+
+`@Transactional`과 커밋 후 리스너는 Spring 의존성의 기능이다. DB 유니크 제약은 실제 마이그레이션과 운영 DB에서 적용 여부를 확인한다. JPA 선언만으로 적용 완료를 판정하지 않는다.
+
+payment 소비자는 `ORDER_REFUND_REQUESTED`의 refundRequestId를 환불 유스케이스에 전달한다. 그 필드 존재만으로 환불 전체의 멱등성을 입증하지 않았으며 이번에는 환불 유스케이스 내부 전수 검증까지 하지 않았다.
 
 </details>
 
-## 결론
+## 확인 범위와 다음 검증
 
-- **발행측**: 유실 방지가 필요하면 Outbox(order·settlement), 아니면 직접 발행(product·payment).
-- **소비측**: 소비 연산이 **비멱등이면** Inbox(order·product), **멱등이면** 불필요(payment·user).
-- 두 축이 독립이라 서비스마다 조합이 다르다. "패턴이 있으니 다 붙인다"가 아니라 **각 이벤트 흐름의 성질**로 정한다.
+2026-10-09 위 Handler·Appender·Relay·Publisher·Consumer·정산 gRPC Adapter·등록 서비스와 관련 제약을 읽었다. 운영 DB 접속, 중복·동시·장애 시험과 백엔드 테스트 실행은 하지 않았다. 패턴과 PostgreSQL18 제약 자료를 대조했지만 프로젝트의 실행 중 DB·프레임워크 패치 버전은 확인하지 않았다.
+
+같은 사건의 순차 재전송, 동시 재전송, 처리 중 실패, 커밋 뒤 메시지 확인 실패를 각각 시험해야 한다. 확인한 사실과 아직 시험할 조건을 함께 남긴다.
+
+## 자기 말로 답해보기
+
+이벤트에 orderId가 있으니 Inbox 없이도 안전하다고 말할 수 있을까?
+
+<details>
+<summary>답 확인하기</summary>
+
+아니다. 그 ID로 어떤 제약·상태 판단·트랜잭션을 구현했는지와 외부 효과까지 확인해야 한다. 별도 Inbox 대신 업무 모델에서 멱등성을 구현할 수는 있다.
+
+</details>
