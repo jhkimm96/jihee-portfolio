@@ -69,7 +69,9 @@ export const studyReadingOrder: Record<string, string[]> = {
     'opentelemetry-trace-waterfall', 'loki-labels-and-log-search',
     'retry-backoff-jitter-budget', 'circuit-breaker-open-and-recovery',
     'fallback-safe-results', 'bulkhead-concurrent-call-isolation',
-    'rate-limiting-request-budget', 'utc-and-local-day-boundaries',
+    'rate-limiting-request-budget', 'token-bucket-and-bucket4j',
+    'redis-shared-rate-limit', 'http-retry-after-and-failure-response',
+    'resilience-pattern-boundaries', 'utc-and-local-day-boundaries',
     'sharding-design-decisions'
   ],
   jvm: [
