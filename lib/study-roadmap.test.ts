@@ -67,11 +67,11 @@ describe('기술 노트 읽기 순서', () => {
     ])
   })
 
-  it('Label 뒤에 관측성 글을 읽고 Retry, Circuit Breaker, Fallback, Bulkhead로 이어간다', () => {
+  it('Label 뒤에 관측성 글을 읽고 장애 보호와 요청량 제한으로 이어간다', () => {
     const slugs = getStudyRoadmapSlugs()
     const start = slugs.indexOf('cs/metric-label-cardinality')
     expect(start).toBeGreaterThanOrEqual(0)
-    expect(slugs.slice(start, start + 11)).toEqual([
+    expect(slugs.slice(start, start + 12)).toEqual([
       'cs/metric-label-cardinality',
       'cs/grafana-payment-dashboard',
       'cs/alert-evaluation-and-notification',
@@ -82,6 +82,7 @@ describe('기술 노트 읽기 순서', () => {
       'cs/circuit-breaker-open-and-recovery',
       'cs/fallback-safe-results',
       'cs/bulkhead-concurrent-call-isolation',
+      'cs/rate-limiting-request-budget',
       'cs/utc-and-local-day-boundaries'
     ])
   })
