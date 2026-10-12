@@ -32,7 +32,6 @@
 | [testing/java-backend-testing-basics](../../content/study/testing/java-backend-testing-basics.mdx) | 설명 보완 | Unit→Integration→E2E를 실행 단계처럼 잇는 그림. 입력·실행·관찰 한 실패 예제를 중심에 두고 시험 범위 차이를 별도 비교; PR4 출처도 확인. |
 | [kubernetes/pod-lifecycle](../../content/study/kubernetes/pod-lifecycle.mdx) | 내용 보강 필요 | 상태 이름 한 문장뿐. 컨테이너 실행 전/실행/종료 장면과 Pending 원인 등 질문을 정해 새 초안 범위 제안. Running과 준비 상태 혼동 방지. |
 | [spring/spring-batch-chunk-processing](../../content/study/spring/spring-batch-chunk-processing.mdx) | 내용 보강 필요 | Chunk/Tasklet 정의만 존재. 거래5건을 묶어 저장하고 실패한 묶음을 확인하는 장면 후보; 버전·실패 재시작 조건 조사 필요. |
-
 | [docker/multi-stage-build](../../content/study/docker/multi-stage-build.mdx) | 설명 보완·비유 정밀화 | 케이크/주방 비유와 핵심3줄은 살린다. 본문이 전체 Dockerfile로 시작하므로 빌드 상자→jar만 실행 상자로 옮기는 전후 그림을 먼저. 새 FROM이 이전 산출물을 전부 버린다는 표현은 stage 참조와 구분. |
 | [kubernetes/cluster-control-plane-worker](../../content/study/kubernetes/cluster-control-plane-worker.mdx) | 시각 설명·근거 보완 | 매니저/직원 비유를 실제 Pod 배치 장면으로 연결. 역할 구분과 물리 서버 분리를 동일시하는 설명, medium/large 배치·containerd 버전·팀 결정 근거를 현행 설정과 대조. |
 | [kubernetes/deployment-vs-statefulset](../../content/study/kubernetes/deployment-vs-statefulset.mdx) | 개요 유지·분리·근거 보완 후보 | 재생성/롤링배포/고정 신원·저장공간/CronJob이 섞임. 이전·새 Pod 교체 장면과 데이터 연결 장면을 분리. Deployment 저장소는 임시, CronJob 딱1회라는 단정과 미머지 운영 현황은 재검증. |
@@ -51,7 +50,6 @@
 | [jpa/specification-and-pageable](../../content/study/jpa/specification-and-pageable.mdx) | 개요 유지·질문 분리·근거 보완 후보 | 탭4개 문제상황은 좋지만 클래스5단계, 조건블록,닉네임선조회,Pageable sort가 한글. 탭선택→조건카드→결과상품 먼저. Page가 SQL한방이라는 표현/count범위·정렬400/500·현행API경로 대조. |
 | [spring/row-chain-versioning](../../content/study/spring/row-chain-versioning.mdx) | 개요 유지·분리·현행 근거 대조 | 상품row 전후는 이해자산이나 수정/검수/복원/대표조회/gRPC/판매수까지 코드 장문. 판매중v1과검수v2를 상태장면으로 먼저, 여정별 짧은글 연결. 항상판매중1개·transaction+test보장과 잔여위험 현행코드대조. |
 | [testing/frontend-e2e-without-backend](../../content/study/testing/frontend-e2e-without-backend.mdx) | 설명 보완·시험 범위 명시 | 실제UI/가짜인증·네트워크 경계를 구분한 점은 유지. 화면입력→요청→가짜응답→화면변화 그림 먼저, 긴 fixture는 토글. 로컬시험 전제와 전체통합/E2E의 제한을 앞에; 스텁의 기본성공 응답이 누락을 숨기는지 점검. |
-
 | [cs/async-throughput-and-queue-latency](../../content/study/cs/async-throughput-and-queue-latency.mdx) | 질문 분리·근거 보완 | 접수와 실제 완료 비유는 유지. 영상 응답/완료 수치 재검증; 같은 작업의 두 시간축과 쌓이는 큐를 먼저. 소비자 증설 효과는 DB·파티션 등 병목 조건 명시. |
 | [cs/cache-miss-duplicate-load-diagnosis](../../content/study/cs/cache-miss-duplicate-load-diagnosis.mdx) | 구조 유지 | A/B의 같은 key 겹침과 호출2회 예시, 독립 시험과 운영 관측 구분이 좋음. 관측 비교표는 유지; 실제 백엔드 시험 완료로 해석하지 않음. |
 | [cs/cache-stampede-and-single-flight](../../content/study/cs/cache-stampede-and-single-flight.mdx) | 구조 유지·소폭 보완 | 한 서버 같은 key 1000회→1회 장면은 유지. 서버5대 최대5회는 조건부 설명; 필요하면 서버별 대표 요청 그림. stale/jitter로 본문을 늘리지 않음. |
@@ -67,7 +65,6 @@
 | [cs/single-flight-shared-future](../../content/study/cs/single-flight-shared-future.mdx) | 구조 유지·범위 명시 | F1을 함께 기다림→같은 결과→완료 캐시 장면과 기본 클래스 출처 설명 유지. 긴 구현은 토글에 있음. 독립 예제의 용량·취소 한계와 운영 구현을 구분. |
 | [cs/transaction-rollback-boundaries](../../content/study/cs/transaction-rollback-boundaries.mdx) | 개요 유지·질문 분리 | 같은 DB 롤백과 외부 결제 잔존을 같은 주문으로 먼저 보여줌. sequence/Saga/Outbox/멱등성은 후속 연결 후보; 여러 긴 그림과 정의를 본문에 모두 두지 않음. |
 | [cs/utc-and-local-day-boundaries](../../content/study/cs/utc-and-local-day-boundaries.mdx) | 근거 보완·예시 정합성 | 같은 순간 KST/UTC와 반열린 날짜 구간은 유지. 영상 행 수 재검증; 오늘/어제09시 경계 설명의 대상 날짜 통일. DB 시간 타입·SQL 방언과 Java 예제 범위 명시. |
-
 | [es/aggregation-log-analysis](../../content/study/es/aggregation-log-analysis.mdx) | 설명 보완·근거 보완 | 같은 로그5건→검색어별 묶음→그래프 장면 먼저. 집계 문법은 토글. cardinality 정밀도 보장·TOP10 신뢰 단정은 공식 조건 확인; 분석 로그와 운영 메트릭은 구분. |
 | [es/analyzer-and-nori](../../content/study/es/analyzer-and-nori.mdx) | 우선 근거 보완 | 상품명→토큰 전후 예시는 유지하되 실제 _analyze 출력 확인 필요. standard로 이어폰 검색이 반드시0건이라는 예시, mixed/none 검색 결과와 분석기 변경 불가 범위를 점검. nori 필수와 프로젝트 미사용을 구분. |
 | [es/behavioral-recommendation-design](../../content/study/es/behavioral-recommendation-design.mdx) | 개요 유지·질문 분리 | 사용자A/B가 같은 상품 목록에서 다른 순서를 받는 장면 먼저. 추천 종류의 개요는 유지. 벡터 필수·계산은 이름을 안 본다는 단정은 뒤 텍스트 임베딩 설명과 대조; 담당자 분담은 사실 확인. |
@@ -82,7 +79,6 @@
 | [es/security-authentication-and-tls](../../content/study/es/security-authentication-and-tls.mdx) | 개요 유지·보안 근거 우선 | 출입증/봉투와 두 서비스 전환 장면 유지. 코드 긴 부분 토글; 단일 노드 bootstrap 예외·API key 전환 순서 재검증. 부분 인증 설정 시 무인증 연결은 당시 구현 사실과 권장 보안 정책 구분. |
 | [es/vector-quantization-and-storage-cost](../../content/study/es/vector-quantization-and-storage-cost.mdx) | 우선 근거 보완·시각 설명 | 1536×4 원시 벡터 계산은 유지. 한 벡터의 정밀도 전후를 먼저. int8 탐색 메모리 감소와 원본 보존 포함 총 디스크 용량 구분; 차원 축소 손해가 항상 더 크다는 단정 점검. |
 | [es/vector-search-knn](../../content/study/es/vector-search-knn.mdx) | 개요 유지·설명 보완 | 검색어→숫자 배열→가까운 상품 장면 먼저; 벡터 생성/검색 책임 구분 유지. 외부 모델 필수와 Elastic inference 경로 구분, 실제 반환 size/k·샤드 후보 조건 점검. 생략 배열은 실행 불가 표시. |
-
 | [msa/async-event-processing-foundations](../../content/study/msa/async-event-processing-foundations.mdx) | 개요 유지·질문별 연결 | 주문→판매량→알림 시각과 중복 event-123 예시는 유지. 동기/블로킹/Executor/내구성/멱등/Retry/Outbox의 독립 질문을 짧은 글로 연결. Future는 다른 스레드 전용 결과표 아님, Executor 항상 큐에 넣음 단정과 Inbox 원자성 조건 점검. |
 | [msa/kafka-offset-lag-reprocessing-idempotency](../../content/study/msa/kafka-offset-lag-reprocessing-idempotency.mdx) | 개요 유지·근거 보완 | 같은 주문 key·partition과 commit 다음 번호 예시는 좋은 자산. 위치/commit/Lag 한 장면부터 짧은 질문별 연결; 멱등 경합 조건을 본문에서도 짧게 표시. 최신4.3.1/4.1.1 출처와 Lag 계측 종류 재검증. |
 | [msa/msa-prompthub-service-map](../../content/study/msa/msa-prompthub-service-map.mdx) | 개요 유지·근거 보완 | 한 구매 요청으로 서비스 책임을 먼저 보여줌. 모놀리스=한 직원·MSA 자동 장애 격리·REST=HTTP1.1 단정과 gRPC 압축 비유 점검. 후속 전체 도메인 지도에 추가된 notification/ai 등 현황 대조. |
