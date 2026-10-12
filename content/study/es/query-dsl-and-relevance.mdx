@@ -1,259 +1,173 @@
 ---
-title: "검색 쿼리 DSL과 관련도 — bool·match·term, BM25 점수, function_score로 랭킹 조정"
+title: "검색 쿼리와 관련도 — 후보를 고르고 순서를 정하기"
 date: "2026-07-15"
+updatedAt: "2026-10-12"
 group: "검색 기본"
-summary: "ES에 검색을 요청하는 Query DSL을 정리한다. match·term·bool·range의 차이, 점수를 매기는 query와 거르기만 하는 filter, 관련도 점수 BM25, 그리고 판매량·최신순으로 순위를 조정하는 function_score까지 — 상품 검색과 추천 랭킹의 바탕."
-tags: ["Elasticsearch", "Query DSL", "BM25", "function_score", "관련도"]
+status: "growing"
+question: "같은 검색어인데 어떤 상품은 빠지고 어떤 상품은 먼저 나올까?"
+summary: "이어폰 상품들을 검색 후보, 필수 조건, 정렬 순서로 나눠 따라간다. bool, 점수 조정과 가격순을 실제 프로젝트 경로와 구분한다."
+prerequisites:
+  - "es/analyzer-and-nori"
+related:
+  - "es/aggregation-log-analysis"
+  - "es/search-suggest-autocomplete"
+tags: ["Elasticsearch", "Query DSL", "bool", "관련도", "sort"]
+draft: false
 ---
 
-3번 노트에서 상품명이 term으로 쪼개졌다. 이제 그 term들을 **어떻게 검색하고, 결과 순위를 어떻게 매기나** — Query DSL과 관련도다. 여기가 "검색이 잘 나온다"의 실체이자, 이후 추천 랭킹(8번 노트)의 바탕이다.
+## 01 · “이어폰, 5만원 이하, 판매 중”을 찾는다
 
-## Query DSL이란
+민지는 이어폰을 사고 싶다. 검색어는 **이어폰**, 유형은 **오디오**, 예산은 **5만원 이하**다. 같은 단어가 들어 있다고 이어폰 케이스나 판매 중지 상품까지 보여주면 안 된다.
 
-ES는 **JSON으로 검색 조건을 표현**한다. 이걸 Query DSL이라 하고, `_search` API로 보낸다.
+**검색은 결과에 들어올 조건과, 들어온 결과의 순서를 나눠 설계한다.** 이 글은 일반적인 글자 기반 검색 예시다. 상품이 ES 검색에 반영됐고, 이름에서 “이어폰”을 찾을 수 있는 분석 규칙이 준비됐다고 가정한다.
 
-```json
-GET products/_search
-{ "query": { "match": { "name": "무선 이어폰" } } }
+다음은 프로젝트 실측이 아닌 설명용 상품이다. 실제 프로젝트는 디지털 상품을 다룬다.
+
+| 상품 | 이름 | 유형 | 가격 | 판매 중 |
+|---|---|---|---|---|
+| 상품7 | 무선 이어폰 PRO | 오디오 | 50,000원 | 예 |
+| 상품8 | 무선 이어폰 기본형 | 오디오 | 30,000원 | 예 |
+| 상품9 | 블루투스 이어폰 | 오디오 | 70,000원 | 예 |
+| 상품10 | 이어폰 케이스 | 액세서리 | 10,000원 | 예 |
+| 상품11 | 무선 이어폰 구형 | 오디오 | 20,000원 | 아니오 |
+
+## 02 · 단어가 맞아도 필수 조건에서 빠진다
+
+```text
+이름에 “이어폰”이 맞는 후보
+[상품7] [상품8] [상품9] [상품10] [상품11]
+                  ↓ 예산 / 유형 / 판매 상태 확인
+[상품7] [상품8]    상품9: 7만원이라 제외
+                  상품10: 액세서리라 제외
+                  상품11: 판매 중이 아니라 제외
 ```
 
-`query` 안에 어떤 쿼리를 쓰느냐가 검색 동작을 정한다.
+이 그림은 **조건을 이해하기 위한 순서**다. ES가 반드시 이 순서로 모든 문서를 훑는다는 뜻은 아니다.
 
-## query context vs filter context — 점수를 매기냐, 거르기만 하냐
+여러 조건을 묶는 ES 기능이 **bool 쿼리**다. `must`는 맞아야 하며 점수 계산에 참여하는 조건, `filter`는 맞아야 하지만 점수에는 참여하지 않는 조건이다. 금지할 조건은 `must_not`으로 제외할 수도 있다.
 
-같은 조건이라도 **어디에 넣느냐**로 두 가지 뜻이 된다. 이 구분이 성능·정확도의 핵심이다.
+가격 조건을 filter에 두면 **싼 상품에 점수를 더 주는 것이 아니라, 예산을 넘은 상품을 빼는 것**이다. [bool 조건과 점수](https://www.elastic.co/docs/reference/query-languages/query-dsl/query-dsl-bool-query)
 
-- **query context** — "얼마나 잘 맞나"를 **점수(_score)로 매긴다.** 상품명 검색처럼 관련도 순위가 필요한 곳.
-- **filter context** — "맞다/아니다"만 따져 **거르기만 한다(점수 없음).** 게다가 **결과가 캐시**돼서 빠르다. 카테고리·가격범위·재고 유무처럼 정답이 딱 떨어지는 조건.
+## 03 · 남은 두 상품의 순서는 무엇으로 정할까?
 
-규칙: **"관련도 순위가 필요" = query, "예/아니오로 거르기" = filter.** 카테고리 필터를 query에 넣으면 쓸데없이 점수 계산에 끼어 느려지고 순위도 왜곡된다.
+검색에 얼마나 잘 맞는지 표현한 값이 **관련도 점수 `_score`**다. 일반적인 text 검색의 기본 유사도 방식은 **BM25**이며, 단어의 등장 횟수와 희소성, 필드 길이 등이 영향을 준다. 단어를 반복하면 점수가 끝없이 비례해 오르는 방식은 아니다. [BM25 공식 설명](https://www.elastic.co/docs/reference/elasticsearch/index-settings/similarity)
 
-<details>
-<summary><b>🔍 query랑 filter, 실제로 뭐가 얼마나 달라져?</b></summary>
+여기서는 상품7의 점수가 8, 상품8이 5라고 **가정**하자. 실제 계산 결과나 이 상품명에서 자동으로 나오는 점수가 아니다.
 
-같은 `{ "term": { "category": "전자기기" } }`를 어디 넣느냐로:
+```text
+같은 후보: 상품7 / 상품8
 
-- **query(must)에 넣으면** — 점수를 계산한다. 근데 카테고리는 맞거나 안 맞거나뿐이라 점수 계산이 **낭비**고, 그 점수가 최종 순위에 끼어 **관련도를 흐린다.**
-- **filter에 넣으면** — 점수 없이 예/아니오만 판단하고, 그 결과를 **캐시**해서 재사용한다.
-
-그래서 카테고리·가격·재고 같은 딱 떨어지는 조건은 **무조건 filter**, 검색어(match)만 must에 둔다.
-
-</details>
-
-## 주요 쿼리
-
-- **`match`** — `text` 필드 전문 검색. 검색어도 **분석기를 거쳐** term으로 쪼갠 뒤 매칭한다. 상품명 검색의 기본.
-- **`term`** — `keyword` 필드 정확 매칭. 검색어를 **분석하지 않고** 통째로 비교한다. 카테고리·상태 필터.
-- **`range`** — 숫자·날짜 범위. 가격 `lte`/`gte`, 날짜 범위.
-- **`multi_match`** — 여러 필드를 한 번에. 상품명 + 설명 동시 검색.
-- **`bool`** — 위들을 조합하는 뼈대(아래).
-
-```json
-// match: 분석됨 → "무선","이어폰"으로 쪼개 검색
-{ "match": { "name": "무선 이어폰" } }
-
-// term: 분석 안 됨 → "전자기기" 통째로 정확 매칭 (keyword 필드에)
-{ "term": { "category": "전자기기" } }
-
-// multi_match: name과 description 동시에
-{ "multi_match": { "query": "무선 이어폰", "fields": ["name^2", "description"] } }
+관련도 높은 순            가격 낮은 순
+1. 상품7 — 점수8           1. 상품8 — 30,000원
+2. 상품8 — 점수5           2. 상품7 — 50,000원
 ```
 
-주의: **`term`을 `text` 필드에 쓰면 거의 안 걸린다.** text는 분석돼 `무선`,`이어폰`으로 저장됐는데 term은 "무선 이어폰" 통째를 찾으니까. 정확 매칭은 `keyword` 필드에만 `term`을 쓴다. (`name^2`의 `^2`는 그 필드 점수에 2배 가중이라는 뜻 — 제목이 설명보다 중요하니까.)
+**후보는 그대로인데 정렬 기준만 바뀌었다.** 가격순은 관련도 점수가 더 높은 상품을 먼저 놓는 기준이 아니다.
+
+`sort`에는 여러 기준을 순서대로 지정할 수 있고 `_score`도 포함할 수 있다. “sort를 넣으면 점수 기준을 무조건 버린다”는 설명은 맞지 않는다. [정렬 기준의 우선순위](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/sort-search-results)
+
+## 04 · 판매량 같은 신호로 점수를 조정할 수도 있다
+
+관련도만으로는 서비스가 원하는 순서가 아닐 수 있다. ES의 **function_score**는 기존 후보의 점수를 문서의 판매량, 평점 같은 값으로 조정하는 기능이다. Java 메서드 이름이 아니라 ES 검색 조건의 일부다.
+
+다음은 **기존 점수와 추가 점수를 더하는 규칙**을 선택한 설명용 계산이다. 추가 점수도 임의의 값이며 판매량 원문이나 실제 프로젝트 점수가 아니다.
+
+```text
+상품7: 관련도8 + 추가점수1 = 9
+상품8: 관련도5 + 추가점수6 = 11
+
+조정 전: 상품7 → 상품8
+조정 후: 상품8 → 상품7
+```
+
+상품9는 예산에서 이미 제외됐으므로 점수를 높인다고 이 예시의 결과에 되살아나지 않는다. 다만 `min_score` 같은 추가 조건을 지정하면 점수로 결과를 제외하는 설계도 가능하다. [점수 조정과 조건](https://www.elastic.co/docs/reference/query-languages/query-dsl/query-dsl-function-score-query)
+
+이 순서를 바꿨다고 개인화 추천을 구현한 것은 아니다. 판매량은 여러 사용자에게 공통인 신호이고, 개인화는 사용자별 신호와 별도 검증이 필요하다.
 
 <details>
-<summary><b>🔍 name^2의 ^2는 정확히 뭐야?</b></summary>
+<summary>이 조건은 ES에 어떻게 보낼까?</summary>
 
-필드 가중치(boost)다. `"fields": ["name^2", "description"]`이면 **name에서 맞은 점수를 2배**로 쳐서 합산한다. 상품명에 "이어폰"이 있는 게 설명에 있는 것보다 더 관련 있으니 제목을 무겁게 준다. `^3`이면 3배. 제목·브랜드는 높게, 설명·태그는 낮게 주는 식으로 튜닝한다.
+Query DSL은 **검색 조건을 JSON으로 표현하는 방식**이다. 아래 HTTP 요청은 설명용 인덱스 `study-products`에 보내는 예시이며 현재 프로젝트에 그대로 실행하는 요청이 아니다.
 
-</details>
+조건: name은 text, productType은 keyword, amount는 숫자, onSale은 boolean으로 준비된 테스트 데이터다. 매핑을 만들거나 상품을 저장하는 요청이 아니라 이미 검색 가능한 문서들을 조회한다.
 
-## bool 쿼리 — 검색의 뼈대
-
-실전 검색은 대부분 `bool`로 여러 조건을 엮는다. 네 개의 절이 있다.
-
-- **`must`** — 반드시 만족(AND). **점수에 반영.**
-- **`should`** — 만족하면 좋음(OR). **점수를 올린다(boost).** must가 없으면 should 중 최소 1개는 맞아야.
-- **`filter`** — 반드시 만족(AND). **점수 없음 + 캐시.** 거르기 전용.
-- **`must_not`** — 반드시 불만족(제외). 점수 없음.
-
-```json
-GET products/_search
+```http
+POST /study-products/_search
 {
   "query": {
     "bool": {
-      "must":     [ { "match": { "name": "이어폰" } } ],
-      "filter":   [ { "term":  { "category": "전자기기" } },
-                    { "range": { "price": { "lte": 50000 } } } ],
-      "must_not": [ { "term":  { "onSale": false } } ]
-    }
-  }
-}
-```
-
-읽으면: "상품명에 '이어폰'이 맞는 것 중(점수 매김), 카테고리=전자기기이고 5만원 이하이며(거르기·캐시), 판매중지 아닌 것 제외." **검색어는 must, 필터는 filter** — 이 패턴이 상품 검색의 기본형이다.
-
-<details>
-<summary><b>🔍 must / should / filter / must_not, 언제 뭘 써?</b></summary>
-
-| 절 | 뜻 | 점수 | 언제 |
-|---|---|---|---|
-| `must` | 반드시 맞아야(AND) | 매김 | 검색어 매칭 |
-| `filter` | 반드시 맞아야(AND) | 없음·캐시 | 카테고리·가격 거르기 |
-| `should` | 맞으면 가점(OR) | 올림 | "브랜드 맞으면 위로" 부스팅 |
-| `must_not` | 반드시 아니어야 | 없음 | 품절·판매중지 제외 |
-
-**must와 filter는 둘 다 AND지만 점수 유무가 다르다** — 점수 필요하면 must, 거르기만 하면 filter. `should`는 `minimum_should_match`로 "3개 중 2개 이상" 같은 조건도 준다.
-
-</details>
-
-<details>
-<summary><b>🔍 이 쿼리 JSON은 앱 어디에 넣어? 컨트롤러에서 구현하나?</b></summary>
-
-**컨트롤러에 직접 쓰지 않는다.** 컨트롤러는 요청만 받아 넘기고(얇게), 실제 ES 쿼리 조립은 **별도 검색 서비스/리포지토리 계층**에서 한다. 그리고 이 JSON을 문자열로 쓰는 게 아니라 **ES 클라이언트 라이브러리의 빌더**로 조립한다.
-
-```
-Controller (GET /api/products/search)  ← 요청 파라미터만 받음
-  → ProductSearchService                ← 여기서 ES 쿼리 조립
-      → Elasticsearch Java Client → ES 서버로 전송
-  ← 결과 매핑해 반환
-```
-
-Java 예시(Elasticsearch Java Client, 9.x) — 앞의 bool JSON과 똑같은 걸 타입세이프하게 만든 것:
-
-```java
-SearchResponse<ProductDoc> res = esClient.search(s -> s
-    .index("products")
-    .query(q -> q.bool(b -> b
-        .must(m -> m.match(t -> t.field("name").query("무선 이어폰")))
-        .filter(f -> f.term(t -> t.field("category").value("전자기기")))
-    )),
-    ProductDoc.class);
-```
-
-`ProductDoc`은 ES 문서를 담을 Java 클래스다. **Spring Data Elasticsearch**를 쓰면 Repository + `NativeQuery`로도 조립할 수 있다. 어느 쪽이든 "JSON을 손으로 쓰는" 게 아니라 빌더로 만든다는 게 핵심 — product-service의 `ProductQueryService` 같은 검색 계층에 들어간다.
-
-</details>
-
-## 관련도 점수 (BM25) — 왜 순위가 나뉘나
-
-query context에서 각 문서는 **_score**를 받고, 그 순으로 정렬된다. ES 기본 점수 공식이 **BM25**다. 세 가지로 점수가 정해진다.
-
-- **TF (단어 빈도)** — 문서에 그 단어가 많이 나올수록 ↑ ("이어폰"이 상품명·설명에 여러 번).
-- **IDF (희소성)** — 전체 문서에서 드문 단어일수록 ↑ (흔한 "상품"보다 드문 "노이즈캔슬링"이 더 변별력 있음).
-- **필드 길이** — 짧은 필드에서 맞을수록 ↑ (짧은 상품명에 "이어폰"이 있으면 긴 설명에 묻힌 것보다 관련도 높음).
-
-즉 BM25는 "**드문 단어가, 짧은 필드에, 자주** 나오면 관련도가 높다"고 본다. 대부분 이걸 그대로 써도 충분하고, 손봐야 할 땐 아래 function_score로 조정한다.
-
-<details>
-<summary><b>🔍 BM25, TF-IDF랑 뭐가 달라? 손대야 하나?</b></summary>
-
-옛 방식(TF-IDF)은 단어가 많이 나올수록 점수가 계속 선형으로 올랐다. "이어폰"이 100번 나온 문서가 10번짜리보다 10배 관련 있진 않은데 점수는 10배가 됐다. **BM25는 단어 빈도에 상한(포화)을 둬서** 어느 정도 넘으면 완만해지고, 필드 길이로 정규화한다.
-
-실무에선 **BM25 기본값을 그대로** 쓰는 경우가 대부분이다. 텍스트 관련도는 BM25에 맡기고, 비즈니스 순위(판매량·최신)는 BM25를 건드리지 말고 **function_score로** 얹는 게 정석이다.
-
-</details>
-
-## function_score — 랭킹을 내 맘대로 (추천의 바탕)
-
-BM25는 "텍스트 관련도"만 본다. 하지만 커머스는 **판매량·최신·평점 같은 비즈니스 신호**로도 순위를 조정하고 싶다. 그게 `function_score`다.
-
-```json
-GET products/_search
-{
-  "query": {
-    "function_score": {
-      "query": { "match": { "name": "이어폰" } },
-      "functions": [
-        { "field_value_factor": {           // 판매량이 많을수록 부스팅
-            "field": "salesCount", "modifier": "log1p", "factor": 1.2 } },
-        { "gauss": {                         // 최근 등록일수록 부스팅
-            "createdAt": { "origin": "now", "scale": "30d", "decay": 0.5 } } }
+      "must": [
+        { "match": { "name": "이어폰" } }
       ],
-      "boost_mode": "multiply",   // 원래 점수 × 함수 결과
-      "score_mode": "sum"         // 여러 함수는 합산
+      "filter": [
+        { "term": { "productType": "오디오" } },
+        { "range": { "amount": { "lte": 50000 } } },
+        { "term": { "onSale": true } }
+      ]
     }
-  }
+  },
+  "sort": [
+    { "amount": "asc" }
+  ]
 }
 ```
 
-- **`field_value_factor`** — 특정 필드 값으로 점수 조정. 판매량·조회수. `log1p`로 완만하게(폭주 방지).
-- **감쇠 함수(`gauss`/`linear`/`exp`)** — 기준점에서 멀어질수록 점수 감소. "최근일수록", "가까울수록(위치)".
-- **`boost_mode`** — 원 점수와 함수 결과를 어떻게 합치나(`multiply`/`sum` 등).
-
-이게 **추천 랭킹의 출발점**이다. "이어폰 검색 결과를, 판매량 많고 최근 등록된 순으로" 같은 개인화·인기 반영이 전부 여기서 나온다(8번 노트에서 개인화 신호까지 확장).
-
-<details>
-<summary><b>🔍 function_score의 boost_mode·score_mode가 헷갈려</b></summary>
-
-둘은 "무엇을 합치나"가 다르다.
-
-- **`score_mode`** — 여러 **함수끼리** 결과를 합치는 방식(판매량 + 최신). `sum`/`avg`/`max` 등.
-- **`boost_mode`** — 그렇게 합친 **함수 결과와 원래 검색 점수(BM25)**를 합치는 방식. `multiply`(곱)/`sum`(합)/`replace`(BM25 무시) 등.
-
-`multiply`는 "관련도는 유지하되 비즈니스 신호로 배수 조정", `replace`는 "관련도 무시하고 순수 인기순"에 가깝다.
+`match`는 검색어를 분석해 비교하고, `term`은 색인된 단위와 비교한다. `range`는 값의 범위를 검사하며 `lte`는 “이하”다. 앞 예시의 상품7/8 중 가격순으로 상품8을 먼저 반환할 조건이다. 여기서는 실제 ES 요청을 실행하지 않았다.
 
 </details>
 
 <details>
-<summary><b>🔍 가중치 규칙은 어디 저장돼? functions는 자바 메소드야?</b></summary>
+<summary>should는 언제 필수 조건이 될까?</summary>
 
-ES엔 JSON이 세 종류이고 역할이 다르다.
+`should`는 일치하면 점수에 기여하는 조건이지만 언제나 선택 사항은 아니다. 같은 bool 안에 should가 있고 must와 filter가 **둘 다 없으면**, 기본적으로 should 한 개 이상이 맞아야 한다. must 또는 filter가 있으면 기본 필수 개수는 0이다.
 
-| JSON | 뭐냐 | 저장? |
-|---|---|---|
-| 매핑(`PUT products`) | 인덱스 틀 | 저장됨 |
-| 문서(`POST _doc`) | 상품 데이터 한 건 | 저장됨 |
-| 쿼리(`GET _search`) | 검색 요청 | **저장 안 됨** (매번 보냄) |
-
-**가중치 규칙(`name^2`, `function_score`)은 "쿼리 JSON"에 있다** → 어딘가 저장되는 게 아니라 검색할 때마다 보낸다. 가중의 **재료**(예: `salesCount` 값)만 문서 필드로 저장하고(RDB 컬럼을 복사), "그걸로 순위 올려"라는 **규칙**은 쿼리에 넣는다.
-
-- **`functions`는 자바 메소드가 아니다.** function_score의 `functions`는 ES **내장 점수 함수**(`field_value_factor`,`gauss` 등)를 JSON으로 지정하는 것이다. 자바 클라이언트는 그 JSON을 조립만 할 뿐, 새 함수를 만드는 게 아니다.
-- **ES는 자기 문서를 스스로 관리하지만, RDB 테이블을 자동으로 읽지 않는다.** "테이블·컬럼만 알려주면 ES가 알아서"가 아니라, 필요한 컬럼 값을 **ES 문서로 직접 복사(색인)**해 넣어야 한다. ES는 RDB의 뷰가 아니라 **별도 사본**이다.
+“필터에 맞는 상품 중 브랜드A나 브랜드B 중 하나도 반드시 맞아야 한다”면 `minimum_should_match: 1`처럼 필요한 개수를 명시한다. 필터가 있는데 should를 필수로 지정하지 않으면 브랜드가 안 맞는 상품도 나올 수 있다. [should 기본 조건](https://www.elastic.co/docs/reference/query-languages/query-dsl/query-dsl-bool-query)
 
 </details>
 
-## 정렬(sort) — 점수 대신 다른 기준
+<details>
+<summary>filter로 쓰면 항상 캐시되어 빠를까?</summary>
 
-관련도 대신 "가격 낮은 순", "최신순"으로 보고 싶으면 `sort`를 쓴다.
+항상은 아니다. filter는 점수를 계산하지 않는다는 의미가 먼저다. 노드 쿼리 캐시는 반복 사용 이력과 세그먼트 조건 등을 보고 적용되며, term 쿼리는 이 캐시 대상이 아니다. 작은 데이터의 조회가 반복됐다는 이유로 캐시가 사용됐다고 단정하지 않는다. [노드 쿼리 캐시 조건](https://www.elastic.co/docs/reference/elasticsearch/configuration-reference/node-query-cache-settings)
 
-```json
-GET products/_search
-{ "query": { "match": { "name": "이어폰" } },
-  "sort": [ { "price": "asc" } ] }
-```
+</details>
 
-주의: `sort`를 주면 **_score 정렬을 버리고** 그 필드로만 정렬한다. 그래서 정렬 필드는 `keyword`나 숫자·날짜여야 한다(`text`는 정렬 불가 → `name.keyword` 사용, 2번 노트).
+<details>
+<summary>name^3이면 모든 필드 점수를 더한 뒤 3배가 될까?</summary>
 
-## 상품 검색에 어떻게 쓰나 (종합)
+`name^3`는 name 필드에 가중치를 주는 표기다. 문서 전체의 점수나 최종 순위를 무조건 3배로 만드는 뜻은 아니다.
 
-기본형은 이렇게 조립된다.
+여러 필드를 검색하는 `multi_match`의 `best_fields`는 보통 가장 잘 맞는 필드의 점수를 쓴다. `tie_breaker`가 있으면 다른 일치 필드 점수의 일부를 더한다. 모든 필드 점수를 항상 단순 합산하는 방식으로 설명하면 안 된다. [multi_match 방식별 차이](https://www.elastic.co/docs/reference/query-languages/query-dsl/query-dsl-multi-match-query)
 
-```json
-GET products/_search
-{
-  "query": {
-    "function_score": {
-      "query": {
-        "bool": {
-          "must":   [ { "multi_match": { "query": "무선 이어폰",
-                        "fields": ["name^2", "description"] } } ],
-          "filter": [ { "term": { "category": "전자기기" } },
-                      { "range": { "price": { "lte": 100000 } } } ]
-        }
-      },
-      "functions": [
-        { "field_value_factor": { "field": "salesCount", "modifier": "log1p" } }
-      ],
-      "boost_mode": "multiply"
-    }
-  }
-}
-```
+function_score의 `score_mode`는 **추가 함수끼리** 합치는 방식이고, `boost_mode`는 그 결과를 **기존 검색 점수와** 합치는 방식이다. 두 이름의 합산 대상이 다르다. [점수 결합 옵션](https://www.elastic.co/docs/reference/query-languages/query-dsl/query-dsl-function-score-query)
 
-- **검색어**(match/multi_match) = `must`, **필터**(카테고리·가격) = `filter`(캐시)
-- **BM25**가 텍스트 관련도로 1차 순위
-- **function_score**가 판매량 등으로 2차 조정
-- 정렬 옵션 주면 관련도 대신 가격·최신순
+</details>
 
-다음은 이 검색 위에 얹는 **검색어 제안(자동완성·오타교정)** — 5번 노트다.
+## 05 · 내 프로젝트에서는 어디를 확인할까?
+
+2026-10-12에 상품 서비스의 다음 파일을 대조했다. 위 이어폰/오디오/onSale 예시는 현재 구현의 데이터나 필터가 아니다.
+
+- `ProductSearchQueryBuilder.java`: name, tags.text, description, model.text를 `best_fields`로 검색하고 `tie_breaker: 0.3`과 단어 일치 조건을 지정한다. 상품 유형은 filter로 제한한다.
+- 같은 파일의 `withPopularityBoost()`: popular일 때 판매량, 조회수, 평점, 등록일 신호를 넣는다. 함수끼리도, 기존 점수와도 `sum`으로 결합한다. 실제 추가 점수는 가중치와 변환을 거치므로 원래 판매량을 그대로 더하는 것이 아니다.
+- 같은 파일의 `buildSort()`: rating은 평점 내림차순, price-asc는 amount 오름차순이다. 같은 값이면 familyRootId로 순서를 정한다.
+- `ElasticsearchProductSearchQuerier.java`: 요청을 실행한다. 검색어가 있고 popular이며 요청 범위가 정해진 창 안이고 검색어 벡터를 얻으면, 글자 검색과 의미 검색의 순위를 합친다. **최종 popular 결과를 function_score만의 결과로 설명하지 않는다.**
+- `ProductSearchQueryBuilderTest.java`: 요청에 필터와 검색 필드, 점수 함수, 정렬 필드가 들어가는지 검사한다. 코드 구성 검사와 실제 ES의 검색 품질 검증은 다르다.
+
+공식 외부 Java 클라이언트는 요청을 조립·전송하는 라이브러리다. 프로젝트의 위 클래스들은 무엇을 검색하고 어떻게 정렬할지 정하는 자체 코드이며, Java 기본 제공 기능과 구분한다.
+
+테스트 지원 파일의 ES 이미지 선언은 9.4.3, 조사일 공식 릴리스 최신 항목은 9.5.5다. 실제 운영 버전과 가중치 적용값은 조회하지 않았다. 이번 작업에서 백엔드 테스트나 ES 요청을 실행하지 않았다. [공식 릴리스 노트](https://www.elastic.co/docs/release-notes/elasticsearch)
+
+이상한 결과는 **실제로 보낸 조건 → 포함·제외된 상품 → score 또는 sort 값 → 앱의 결과 병합** 순으로 확인한다. 기대한 상품이 후보에 없는데 가중치부터 높이면 원인을 놓칠 수 있다.
+
+## 기억해 볼 질문
+
+상품9의 판매량이 매우 높아도 예산 조건을 넘으면 나올까? 상품7과 상품8이 둘 다 통과했는데 가격순을 눌러 순서가 바뀌었다면 검색 조건이 잘못된 걸까?
+
+<details>
+<summary>답 확인</summary>
+
+이 예시에서는 상품9는 제외된다. 통과한 두 상품의 순서가 바뀌는 것은 가격 정렬의 정상 동작이다. 후보 포함 조건과 순위 계산을 따로 확인한다.
+
+</details>
+
+다음은 [집계와 로그 분석](/study/es/aggregation-log-analysis)이다. 찾은 문서를 목록으로 보여주는 것과 묶어서 개수를 세는 것이 어떻게 다른지 이어서 본다.
