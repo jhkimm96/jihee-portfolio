@@ -1,206 +1,149 @@
 ---
-title: "매핑과 필드 타입 — text vs keyword, 그리고 상품 검색 스키마 설계"
+title: "매핑과 필드 타입 — 같은 상품명을 두 방식으로 찾기"
 date: "2026-07-15"
+updatedAt: "2026-10-12"
 group: "검색 기본"
-summary: "ES에서 필드 구조를 정의하는 매핑을 정리한다. 상품 검색의 핵심인 text와 keyword의 차이, multi-field, object와 nested, 그리고 매핑을 못 바꾸는 제약까지 — 상품 인덱스 스키마를 직접 설계하며 본다."
-tags: ["Elasticsearch", "매핑", "필드 타입", "text vs keyword", "nested"]
+status: "growing"
+question: "상품명에서 단어를 찾는 것과 이름 전체를 비교하는 것은 왜 다를까?"
+summary: "상품7의 이름 하나를 text와 keyword로 준비해 검색 결과를 비교한다. 같은 원본을 두 방식으로 색인하는 multi-field와 현행 프로젝트 매핑을 연결한다."
+prerequisites:
+  - "es/search-system-and-es-basics"
+related:
+  - "es/analyzer-and-nori"
+  - "es/query-dsl-and-relevance"
+tags: ["Elasticsearch", "매핑", "text", "keyword", "multi-field"]
+draft: false
 ---
 
-1번 노트에서 "원본은 RDB, 검색은 ES"라고 나눴다. (RDB = MySQL·PostgreSQL 같은, 흔히 쓰는 그 테이블 DB)
-이제 ES 쪽 상품 인덱스를 어떻게 생기게 할지 — **매핑(mapping)**을 정한다. 매핑을 잘못 잡으면 검색이 안 되거나 나중에 통째로 재색인해야 하므로, 여기가 설계의 뼈대다.
+## 01 · “이어폰”을 찾기와 “무선 이어폰”만 고르기
 
-## 매핑이란
+민지는 상품7 **무선 이어폰**을 등록했다. 구매자는 “이어폰”만 입력해도 찾고 싶고, 운영자는 **이름 전체가 “무선 이어폰”인 상품만** 모아 보고 싶다.
 
-매핑은 **인덱스의 각 필드가 어떤 타입인지, 어떻게 색인될지를 정의**한 것이다. RDB의 테이블 스키마와 비슷하지만 두 가지가 다르다.
+**같은 값도 찾는 목적에 따라 검색용 형태를 다르게 준비한다.** 단어 검색에는 `text`, 이름 전체 비교에는 `keyword`가 흔히 쓰인다. 이 글은 기본적인 문자열 필드와 검색을 설명하며, 별도 정규화나 동의어 규칙은 넣지 않은 예시다.
 
-- **필드 타입에 따라 "색인 방식"이 달라진다.** 같은 문자열이라도 `text`로 잡으면 분석기로 쪼개 전문 검색용이 되고, `keyword`로 잡으면 통째로 저장돼 정확 매칭·집계용이 된다. (이게 이 노트의 핵심)
-- **한 번 정한 필드 타입은 못 바꾼다.** 뒤에서 다시 다룬다.
+ES에 어떤 필드를 어떤 타입으로 준비할지 정하는 설정이 **매핑(mapping)**이다. 필드는 `name`처럼 값의 이름이고, 타입은 그 값을 어떻게 다룰지 정하는 종류다.
 
-<details>
-<summary><b>🔍 그럼 RDB를 써야 하나? ES 매핑이랑 RDB 테이블 만드는 거랑 뭐가 다르지?</b></summary>
+## 02 · 원본 이름은 하나, 검색용 준비는 두 갈래
 
-**둘 중 하나를 고르는 게 아니라 둘 다 쓴다.** 1번 노트의 "원본은 RDB, 검색은 ES" 그대로다.
-
-- **RDB 테이블** = 상품의 **원본**(가격·재고·판매자·주문). 정합성·트랜잭션·조인이 필요한 진짜 데이터. 이건 그대로 RDB에 둔다.
-- **ES 상품 인덱스** = 그 원본을 **검색·추천용으로 복제**한 사본. RDB를 대체하는 게 아니라 옆에 두는 "검색 전용 창구"다.
-
-겉보기엔 둘 다 "필드 정의"라 비슷하지만 목적이 다르다:
-
-| | RDB 테이블 | ES 매핑(인덱스) |
-|---|---|---|
-| 목적 | 원본 저장·거래(트랜잭션) | 빠른 검색·집계 |
-| 정의하는 것 | 값을 어떻게 **저장·제약**할지 | 필드를 어떻게 **검색 가능하게 쪼갤지** |
-| 구조 | 정규화(여러 테이블 + 조인) | 비정규화(한 문서에 다 담기) |
-| 트랜잭션 | 있음 | 없음 |
-
-그래서 상품을 저장할 때: RDB에 원본을 쓰고(진실), 그 내용을 ES 인덱스에도 색인한다(검색용). 주문·결제 같은 정합성은 RDB가, 검색·추천은 ES가 맡는다.
-
-</details>
-
-## 동적 매핑 vs 명시적 매핑
-
-- **동적 매핑** — 매핑을 안 만들고 그냥 문서를 색인하면, ES가 값을 보고 타입을 **자동 추정**한다. 편하지만, 문자열을 무조건 기본 분석기로 잡아서 **한글이 제대로 안 쪼개진다.**
-- **명시적 매핑** — 인덱스를 만들 때 필드 타입을 직접 지정한다. 상품 검색은 **반드시 이 방식**으로, 상품명에 한글 분석기(nori)를 지정해야 한다.
-
-<details>
-<summary><b>🔍 동적 매핑·명시적 매핑을 실제로 어떻게 구현해?</b></summary>
-
-**동적 매핑** — 매핑을 안 만들고 그냥 문서부터 넣으면 끝. 인덱스와 매핑이 자동 생성된다.
-
-```json
-POST products/_doc
-{ "name": "무선 이어폰", "price": 39000, "onSale": true }
+```text
+입력: 상품7의 name = "무선 이어폰"
+                  │
+          ┌───────┴─────────┐
+          ▼                 ▼
+name: text             name.keyword: keyword
+무선 / 이어폰          무선 이어폰
+단어로 찾을 준비       이름 전체로 비교할 준비
 ```
 
-ES가 추론: `name` → `text` + `name.keyword`(멀티필드), `price` → `long`, `onSale` → `boolean`.
-결과는 `GET products/_mapping`으로 확인한다.
+그림의 단어 분리는 이해용이며 실제 분석기 출력이 아니다. 단어를 나누고 정리하는 **분석기**에 따라 결과가 달라진다. 이름이 “무선이어폰”처럼 붙어 있어도 언제나 같은 단어가 나온다고 보장하지 않는다.
 
-**명시적 매핑** — 인덱스를 만들 때 `mappings`로 타입을 직접 지정.
+한 원본 필드를 여러 방식으로 색인하는 설정이 **multi-field**다. 개발자가 이름을 두 번 입력하거나 원본 JSON에 `name.keyword` 값을 따로 넣는 것이 아니다. `.keyword`도 모든 필드에 자동으로 존재하는 이름은 아니다. 이 예시에서는 우리가 붙인 하위 필드 이름이다. [multi-field 공식 설명](https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/multi-fields)
+
+## 03 · 같은 상품에 다른 질문을 보낸다
+
+상품7이 검색에 반영됐고, `name`에 “무선”, “이어폰”이 각각 검색 단위로 준비됐다고 가정하자.
+
+| 우리가 묻는 질문 | ES가 보는 필드와 방식 | 상품7 |
+|---|---|---|
+| “이어폰” 단어를 가진 상품인가? | `name`에 `match` | 찾음 |
+| 이름 전체가 “이어폰”인가? | `name.keyword`에 `term` | 못 찾음 |
+| 이름 전체가 “무선 이어폰”인가? | `name.keyword`에 `term` | 찾음 |
+
+`match`는 입력을 분석해서 검색하는 ES 기능이다. `term`은 이미 색인된 검색 단위와 비교하는 기능으로, 위 예시에서는 이름 전체를 비교한다. Java 기본 함수나 새로 설치할 라이브러리가 아니다. [text 필드](https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/text), [term 검색](https://www.elastic.co/docs/reference/query-languages/query-dsl/query-dsl-term-query)
+
+**단어 검색은 임의의 글자 조각 검색과 다르다.** “이어” 두 글자만 입력해 “이어폰”을 항상 찾는 것은 아니다. 자동완성은 별도 검색 조건과 색인 방식을 검토한다.
+
+`keyword`도 “정확 비교만 가능하고 다른 검색은 불가능하다”는 뜻은 아니다. 이 글은 대표 용도인 전체 값 비교를 보여준다. 이름 전체로 묶어 개수를 세거나 정렬할 때도 보통 이 필드를 쓴다. `text`의 단어를 정렬하기 위해 메모리 기능을 켜는 것과 이름 전체를 정렬하는 것은 다르다. [keyword 용도](https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/keyword)
+
+## 04 · 설정에서는 어디를 바꿀까?
+
+아래는 **매핑의 name 부분만** 떼어낸 JSON이다. JSON은 설정 데이터를 표현하는 형식이다. 이것만 실행하는 Java 코드나 완전한 인덱스 생성 요청은 아니다.
 
 ```json
-PUT products
 {
-  "mappings": {
-    "properties": {
-      "name":  { "type": "text", "analyzer": "nori",
-                 "fields": { "keyword": { "type": "keyword" } } },
-      "price": { "type": "integer" }
+  "name": {
+    "type": "text",
+    "fields": {
+      "keyword": { "type": "keyword" }
     }
   }
 }
 ```
 
-**섞어 쓰기(실무 권장)** — 핵심 필드는 명시적으로 잡고, 예상 못 한 새 필드가 들어올 때의 정책을 `dynamic`으로 정한다.
+읽는 순서는 간단하다.
 
-- `dynamic: "true"`(기본) — 모르는 새 필드가 오면 자동 추가
-- `dynamic: "false"` — 저장은 하되 색인 안 함(검색 불가)
-- `dynamic: "strict"` — 모르는 필드가 오면 **에러로 거부** (스키마 엄격 통제)
+1. `name` 값을 `text`로 준비한다.
+2. `fields` 안에 같은 값을 다른 방식으로 준비할 하위 필드를 둔다.
+3. `keyword`라는 이름의 하위 필드를 `keyword` 타입으로 준비한다.
 
-```json
-PUT products
-{ "mappings": { "dynamic": "strict", "properties": { /* ... */ } } }
-```
-
-상품 인덱스는 보통 **핵심 필드 명시적 + `dynamic: "strict"`**로 잡아, 오타 필드 하나가 매핑을 오염시키지 않게 한다.
-
-</details>
-
-## text vs keyword — 상품 검색의 핵심
-
-문자열 필드는 두 타입 중 하나로 잡는다. **무엇을 고르냐가 검색 품질을 좌우한다.**
-
-| | `text` | `keyword` |
-|---|---|---|
-| 처리 방식 | 분석기로 단어 단위로 **쪼갬** | 값 전체를 **통째로 하나**로 |
-| 용도 | 전문 검색 ("무선"으로 "무선 이어폰" 찾기) | 정확 매칭·필터·집계·정렬 |
-| 정렬·집계 | 기본 불가(비용 큼) | 가능 |
-| 상품 예시 | 상품명, 설명 | 카테고리, 태그, 셀러ID, 상태 |
-
-핵심 규칙: **"사람이 자유롭게 검색할 텍스트" = `text`, "값이 정해져 있고 거르거나 셀 것" = `keyword`.**
-상품명은 `text`(무선으로도 걸려야 하니까), 카테고리는 `keyword`("전자기기"로 정확히 거르고 개수를 세니까).
-
-## multi-field — 한 필드를 둘 다
-
-상품명은 검색도 되어야 하고(text) 정렬·집계도 필요할 때가 있다(keyword). ES는 **한 필드를 여러 타입으로 동시에** 잡을 수 있다. 이게 `fields`(multi-field)다.
-
-```json
-"name": {
-  "type": "text",
-  "fields": {
-    "keyword": { "type": "keyword", "ignore_above": 256 }
-  }
-}
-```
-
-이러면 검색은 `name`(text)으로, 정렬·집계는 `name.keyword`로 쓴다. **동적 매핑이 문자열에 이 구조를 자동으로 만들어준다** — 그래서 예제에서 `.keyword`를 자주 본다. (`ignore_above: 256`은 256자 넘는 값은 keyword로 색인 안 한다는 뜻 — 긴 텍스트가 집계에 안 끼게.)
+이 설정으로 만들어진 인덱스에 상품7을 넣으면 앞 장면처럼 두 방식으로 검색할 수 있다. **이미 저장된 인덱스는 설정 파일만 고쳤다고 바뀌지 않는다.**
 
 <details>
-<summary><b>🔍 name은 text인데 name.keyword는 keyword? 한 필드가 두 타입이라는 게 무슨 말?</b></summary>
+<summary>없는 필드가 들어오면 자동으로 만드는 게 좋을까?</summary>
 
-먼저 text와 keyword를 거꾸로 알기 쉬운데 정리하면:
+타입을 값에서 추정하는 것이 **동적 매핑**이고, 우리가 미리 선언하는 것이 **명시적 매핑**이다. 두 방식은 함께 쓸 수 있다. 날짜처럼 보이는 문자열, 템플릿과 인덱스 설정에 따라 추정 결과가 달라지므로 문자열이 항상 똑같은 매핑이 된다고 가정하지 않는다.
 
-- **`text`** = 값을 **쪼개서** 색인. "무선 이어폰" → `무선`, `이어폰`. 그래서 **"무선"만 쳐도 걸린다**(부분·전문 검색).
-- **`keyword`** = 값을 **통째로 하나**로 색인. "무선 이어폰" → `무선 이어폰` 그대로. **전체가 정확히 같아야** 걸린다(정확 매칭·정렬·집계).
+일반 비-columnar 인덱스에서 `dynamic: false`는 새 필드를 매핑에 추가하지 않으며, 기본적으로 켜져 있는 원문 보관 영역 `_source`에는 값이 남는다. `dynamic: strict`는 선언하지 않은 필드가 오면 문서를 거부한다. 오타를 일찍 발견할 수 있지만 생산자가 필드를 추가할 때도 실패하므로 무조건 실무 정답은 아니다. [dynamic 공식 설명](https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/dynamic)
 
-multi-field는 "한 필드가 두 타입"이라기보다, **같은 원본 값을 두 벌로 색인**하는 것이다. `name` 하나를 넣으면 ES가:
-
-- `name` (text) — 쪼갠 버전 → **검색용**
-- `name.keyword` (keyword) — 통째 버전 → **정렬·집계·정확 매칭용**
-
-둘 다 같은 "무선 이어폰"에서 나왔지만 저장 방식이 달라, 상황에 맞는 쪽을 골라 쓴다. 검색은 `name`, "이 상품명 그대로 개수 세기"는 `name.keyword`.
+한글 분석기 Nori 역시 모든 상품 검색의 필수 조건이 아니다. 데이터와 필요한 검색어를 놓고 기본 분석기와 비교해 선택한다.
 
 </details>
 
 <details>
-<summary><b>🔍 ignore_above가 뭐야?</b></summary>
+<summary>원본에는 값이 있는데 keyword로 못 찾는 경우</summary>
 
-keyword 필드에서 **"이 글자 수를 넘는 값은 색인하지 말라"**는 상한이다. `ignore_above: 256`이면 256자를 넘는 문자열은 그 keyword 필드에 **저장은 되지만 색인되지 않아**, 정렬·집계·정확 매칭 대상에서 빠진다.
+일반 비-columnar 인덱스에서 `ignore_above: 256`을 설정했다면 256자를 넘는 값은 해당 keyword 필드의 색인 대상에서 빠진다. 기본 `_source`에는 원문이 남아도 그 하위 필드의 정확 비교나 집계에는 나오지 않는다.
 
-왜 쓰나: keyword는 정렬·집계용인데, 아주 긴 문자열(예: 긴 설명문)까지 keyword로 색인하면 메모리를 크게 쓰고 집계도 무의미하다. 그래서 "적당히 짧은 값(카테고리·상품명 등)만 keyword로 다루자"는 안전장치다. 동적 매핑이 문자열에 `.keyword`를 만들 때 기본으로 `ignore_above: 256`을 붙이는 이유다.
-
-함정 하나: keyword로 정확 매칭이 안 될 때 "혹시 값이 256자를 넘어 색인이 안 된 건 아닌지" 의심해볼 것.
+다만 256은 모든 keyword 필드의 기본값이 아니다. 흔한 동적 문자열 매핑의 하위 keyword에 붙는 값이며, 직접 선언한 매핑과 실제 적용 설정을 확인해야 한다. [ignore_above](https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/ignore-above), [keyword 기본값 구분](https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/keyword)
 
 </details>
 
-## 자주 쓰는 나머지 타입
+<details>
+<summary>기존 매핑은 정말 아무것도 못 바꿀까?</summary>
 
-- **숫자** — `integer`, `long`, `float`, `double` 등. 가격·재고·개수.
-- **날짜** — `date`. 등록일·수정일. 범위 검색과 날짜 히스토그램(트렌드 분석)에 쓴다.
-- **불리언** — `boolean`. 판매중 여부 등.
-- **object** — JSON 중첩 객체. 그냥 `{ "seller": { "id": ..., "name": ... } }`처럼 넣으면 ES가 내부적으로 `seller.id`, `seller.name`으로 펼쳐 저장한다.
-- **nested** — object 배열을 다룰 때 필요한 특수 타입(아래에서).
+기존 필드 타입을 `text`에서 `keyword`로 직접 바꿀 수는 없다. 새 인덱스를 원하는 타입으로 만들고 데이터를 다시 색인하는 방법을 검토한다. 하지만 새 필드나 multi-field 추가, 지원되는 일부 매핑 옵션 변경은 가능하다. [매핑 변경 공식 예시](https://www.elastic.co/docs/manage-data/data-store/mapping/update-mappings-examples)
 
-## object vs nested — 배열 객체의 함정
+**하위 필드를 나중에 추가해도 기존 문서에 값이 자동으로 채워지지는 않는다.** 기존 문서를 다시 반영하는 작업과 검증이 필요하다. 별칭(alias)은 조회 대상을 가리키는 이름이며, 별칭 전환만으로 데이터 복사나 전환 중 발생한 새 변경까지 해결되는 것은 아니다. [기존 문서의 multi-field 주의점](https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/multi-fields)
 
-상품 옵션처럼 **객체가 배열로 여러 개** 있을 때 조심해야 한다.
+</details>
 
-```json
-"options": [
-  { "color": "red",  "stock": 0 },
-  { "color": "blue", "stock": 5 }
-]
+<details>
+<summary>옵션의 색상과 재고도 text/keyword만 정하면 될까?</summary>
+
+옵션 배열은 **값 사이의 짝**도 중요하다. 다음은 프로젝트 구현이 아닌 설명용 옵션이다.
+
+```text
+실제 옵션                 짝을 잃고 각각 비교하면
+빨강 → 재고0              색상: 빨강, 파랑
+파랑 → 재고5              재고: 0, 5
 ```
 
-이걸 기본 `object`로 두면 ES는 내부적으로 각 필드를 납작하게 펴서 `color: [red, blue]`, `stock: [0, 5]`처럼 **따로따로** 저장한다. 그러면 "color=red **이면서** stock>0" 검색이 **잘못 걸린다** — red의 stock은 0인데, 배열 전체로 보면 stock에 5도 있으니 매칭돼 버린다.
+일반 `object` 배열에서 필드를 독립적으로 비교하면 “빨강이 있고 재고5도 있다”는 이유로 빨강 재고가 있는 것처럼 잘못 매칭할 수 있다. 같은 옵션 안에서 두 조건을 확인하려면 `nested` 매핑과 `nested` 검색을 검토한다. 별도 비용이 있으므로 모든 객체 배열에 강제하지 않는다. [nested와 객체 배열](https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/nested)
 
-**`nested` 타입**은 배열의 각 객체를 **독립된 문서처럼** 취급해서 이 문제를 없앤다. 대신 검색할 때 `nested` 쿼리를 써야 한다. "특정 옵션 조합"으로 검색·필터할 거면 nested로 잡는다.
+</details>
 
-## 매핑은 못 바꾼다 — 그래서 처음이 중요
+## 05 · 내 프로젝트에서는 어디를 확인할까?
 
-**이미 만든 필드의 타입은 변경할 수 없다.** `text`로 잡은 걸 `keyword`로 바꾸거나, 분석기를 교체하는 건 불가능하다. 새 필드를 **추가**하는 건 되지만, 기존 필드를 고치려면 **새 인덱스를 만들어 데이터를 옮겨 담아야 한다(재색인)** — 1번 노트에서 본 그 재색인이다.
+2026-10-12에 상품 서비스의 파일을 직접 대조했다. 실제 상품은 디지털 상품이며 이어폰은 이해용 예시다.
 
-그래서 상품 인덱스 매핑은 처음에 신중히 잡고, 바꿀 일이 생기면 **별칭(alias) + 재색인**으로 무중단 교체한다(별칭은 뒤 노트에서).
+- `products-v1-mapping.json`: 상품명에 위와 같은 `text`와 하위 `keyword`가 있다. Nori, `ignore_above: 256`, `dynamic: strict`는 이 파일에 선언돼 있지 않다.
+- `ProductSearchQueryBuilder.java`: 글자 검색은 `name`, `tags.text`, `description`, `model.text`를 사용한다. 상품 유형은 `productType`에 `term` 조건을 건다. **name.keyword 선언이 있다고 현재 이름 전체 비교 기능까지 사용 중이라고 말하지 않는다.**
+- `ProductIndexBootstrap.java`: `products` 별칭이 있으면 생성 작업을 건너뛴다. 파일의 매핑과 운영에 이미 만들어진 매핑은 다를 수 있다.
+- `ProductIndexBootstrapIntegrationTest.java`: name 분석 결과가 비어 있지 않은지 확인한다. 원하는 단어가 정확히 나오는지, 모든 검색어의 품질이 좋은지까지 보장하는 테스트는 아니다.
 
-## 상품 인덱스 스키마 설계 (종합)
+테스트 지원 파일의 ES 이미지 선언은 9.4.3이다. 현행 공식 문서를 함께 대조했지만 실제 실행 버전과 적용 매핑은 조회하지 않았다. 이번 작업에서는 ES 요청이나 백엔드 테스트도 실행하지 않았다. 최신 문서의 다른 인덱스 모드와 기본값을 현재 프로젝트에 그대로 적용하지 않는다. [공식 릴리스 노트](https://www.elastic.co/docs/release-notes/elasticsearch)
 
-지금까지를 상품 인덱스 하나로 모으면 이렇게 된다. 이게 이후 검색·집계·추천의 바탕이 된다.
+확인은 테스트 환경에서 **적용 매핑 → name의 실제 분석 결과 → 같은 상품에 대한 match와 term 결과** 순으로 하면 된다. 코드가 틀렸다는 추측부터 하지 않고 요청한 필드, 값과 검색 반영 여부를 함께 본다.
 
-```json
-PUT products
-{
-  "mappings": {
-    "properties": {
-      "name":        { "type": "text", "analyzer": "nori",
-                       "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
-      "description": { "type": "text", "analyzer": "nori" },
-      "price":       { "type": "integer" },
-      "category":    { "type": "keyword" },
-      "tags":        { "type": "keyword" },
-      "sellerId":    { "type": "keyword" },
-      "createdAt":   { "type": "date" },
-      "onSale":      { "type": "boolean" },
-      "options":     { "type": "nested",
-                       "properties": {
-                         "color": { "type": "keyword" },
-                         "stock": { "type": "integer" } } }
-    }
-  }
-}
-```
+## 기억해 볼 질문
 
-- `name` — 검색은 text(nori로 한글 분석), 정렬·집계는 `name.keyword`
-- `category`·`tags`·`sellerId` — 거르고 세야 하니 keyword
-- `price`·`createdAt` — 범위 검색·정렬용 숫자/날짜
-- `options` — 옵션 조합 검색을 위해 nested
+“무선 이어폰”은 `name` 검색에 나오는데 `name.keyword`에 “이어폰”을 보내면 안 나온다. 장애일까? 하위 keyword 필드를 오늘 추가하면 어제 넣은 상품도 바로 검색될까?
 
-`analyzer: "nori"`가 상품명 검색 품질의 핵심인데, 이 분석기가 정확히 뭘 하는지가 **3번 노트**의 주제다.
+<details>
+<summary>답 확인</summary>
+
+설명한 기본 조건에서는 정상이다. 이름 전체가 “이어폰”과 같지 않다. 하위 필드를 나중에 추가한 기존 문서도 자동으로 채워지지 않으므로 재반영과 검증이 필요하다.
+
+</details>
+
+다음은 [분석기와 Nori](/study/es/analyzer-and-nori)다. `text`라는 이름만 보고 단어가 어떻게 만들어지는지 단정하지 않고, 실제 결과를 확인하는 방법을 이어서 본다.
