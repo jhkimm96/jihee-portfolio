@@ -6,7 +6,7 @@ import { studyConcepts, type StudyConcept } from "@/lib/certifications/informati
 
 const categories = [...new Set(studyConcepts.map((concept) => concept.category))];
 
-export function ConceptLibrary({ onOpenQuestion }: { onOpenQuestion: (questionId: string) => void }) {
+export function ConceptLibrary({ onOpenQuestion }: { onOpenQuestion: (questionId: string, conceptId: string) => void }) {
   const [category, setCategory] = useState("전체");
   const [query, setQuery] = useState("");
   const [level, setLevel] = useState("전체");
@@ -54,7 +54,7 @@ export function ConceptLibrary({ onOpenQuestion }: { onOpenQuestion: (questionId
   );
 }
 
-function ConceptCard({ concept, pass, onOpenQuestion }: { concept: StudyConcept; pass: number; onOpenQuestion: (questionId: string) => void }) {
+function ConceptCard({ concept, pass, onOpenQuestion }: { concept: StudyConcept; pass: number; onOpenQuestion: (questionId: string, conceptId: string) => void }) {
   return (
     <details id={`concept-${concept.id}`} className="group scroll-mt-24 rounded border border-border bg-card">
       <summary className="min-h-16 cursor-pointer px-4 py-4 focus-visible:outline-2 focus-visible:outline-brand sm:px-5">
@@ -73,7 +73,7 @@ function ConceptCard({ concept, pass, onOpenQuestion }: { concept: StudyConcept;
         <div><h3 className="text-sm font-semibold">스스로 확인</h3><p className="mt-2 text-sm leading-7">{concept.selfCheck}</p><details className="mt-2"><summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-brand">답 확인</summary><p className="text-sm leading-7">{concept.selfCheckAnswer}</p></details></div>
         <details open={pass !== 3} className="rounded bg-brand/5 px-3 py-2"><summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold text-brand">다시 기억할 규칙</summary><p className="pb-2 text-sm leading-7">{concept.memoryRule}</p></details>
 
-        {concept.relatedQuestionIds.length > 0 ? <div><h3 className="text-sm font-semibold">연결 기출</h3><div className="mt-2 flex flex-wrap gap-2">{concept.relatedQuestionIds.map((questionId) => <button key={questionId} type="button" onClick={() => onOpenQuestion(questionId)} className="inline-flex min-h-11 items-center gap-2 rounded border border-border px-3 text-sm hover:border-brand">{questionId}<ArrowRight aria-hidden="true" className="size-3.5" /></button>)}</div></div> : null}
+        {concept.relatedQuestionIds.length > 0 ? <div><h3 className="text-sm font-semibold">연결 기출</h3><div className="mt-2 flex flex-wrap gap-2">{concept.relatedQuestionIds.map((questionId) => <button key={questionId} type="button" onClick={() => onOpenQuestion(questionId, concept.id)} className="inline-flex min-h-11 items-center gap-2 rounded border border-border px-3 text-sm hover:border-brand">{questionId}<ArrowRight aria-hidden="true" className="size-3.5" /></button>)}</div></div> : null}
         <div className="border-t border-border pt-3 text-xs leading-6 text-muted-foreground">
           <p className="flex items-center gap-2"><BookOpen aria-hidden="true" className="size-3.5" />내 학습 자료: {concept.pdfReferences.join(", ")}</p>
           {concept.officialUrl ? <a href={concept.officialUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex min-h-11 items-center gap-1 text-brand underline underline-offset-4">공식 문서 확인<ExternalLink aria-hidden="true" className="size-3.5" /></a> : null}

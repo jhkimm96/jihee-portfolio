@@ -32,6 +32,7 @@ export function InformationProcessingEngineerHub() {
   const [recordsLoaded, setRecordsLoaded] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [targetQuestionId, setTargetQuestionId] = useState<string | null>(null);
+  const [returnConceptId, setReturnConceptId] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -82,6 +83,15 @@ export function InformationProcessingEngineerHub() {
     return () => document.body.classList.remove("study-focus");
   }, [focusMode]);
 
+  useEffect(() => {
+    if (activeTab !== "concepts" || !returnConceptId) return;
+    const returnConcept = document.getElementById(`concept-${returnConceptId}`) as HTMLDetailsElement | null;
+    if (!returnConcept) return;
+    returnConcept.open = true;
+    returnConcept.scrollIntoView({ behavior: "smooth", block: "start" });
+    setReturnConceptId(null);
+  }, [activeTab, returnConceptId]);
+
   const activeSession = useMemo(
     () => examSessions.find((session) => session.id === sessionId) ?? examSessions.at(-1)!,
     [sessionId],
@@ -93,13 +103,24 @@ export function InformationProcessingEngineerHub() {
     setMoreMenuOpen(false);
   }
 
-  function openConceptQuestion(questionId: string) {
+  function openExamQuestion(questionId: string) {
     const session = examSessions.find((entry) => entry.questions.some((question) => question.id === questionId));
     if (!session) return;
     setSessionId(session.id);
     setProgress((current) => ({ ...current, activeSessionId: session.id }));
     setTargetQuestionId(questionId);
-    changeTab("exams");
+    setActiveTab("exams");
+    setMoreMenuOpen(false);
+  }
+
+  function openConceptQuestion(questionId: string, conceptId: string) {
+    openExamQuestion(questionId);
+    setReturnConceptId(conceptId);
+  }
+
+  function returnToConcept() {
+    setActiveTab("concepts");
+    setMoreMenuOpen(false);
   }
 
   function beginExam(mode: ExamAttempt["mode"]) {
@@ -183,9 +204,9 @@ export function InformationProcessingEngineerHub() {
         {activeTab === "today" ? <><TodayPanel day={nextDay} currentDay={progress.currentDay} onComplete={() => setProgress((current) => ({ ...current, completedDays: [...new Set([...current.completedDays, current.currentDay])], currentDay: Math.min(10, current.currentDay + 1) }))} /><section className="mt-5 border-t border-border pt-5"><h2 className="font-semibold">오늘 복습할 오답 {dueReviews.length}개</h2><p className="mt-2 text-sm text-muted-foreground">복습 날짜가 지났어도 기록은 그대로 남습니다.</p><button type="button" onClick={() => changeTab("cards")} className="mt-3 min-h-11 rounded border border-border px-4 text-sm">암기카드로 복습</button></section></> : null}
         {activeTab === "plan" ? <PlanPanel currentDay={progress.currentDay} /> : null}
         {activeTab === "concepts" ? <ConceptLibrary onOpenQuestion={openConceptQuestion} /> : null}
-        {activeTab === "exams" ? <section><div className="mb-5 flex flex-wrap gap-2">{examSessions.map((session) => <button type="button" key={session.id} onClick={() => { setSessionId(session.id); setProgress((current) => ({ ...current, activeSessionId: session.id })); setTargetQuestionId(null); }} className={session.id === activeSession.id ? "min-h-11 rounded bg-primary px-3 text-sm font-semibold text-primary-foreground" : "min-h-11 rounded border border-border px-3 text-sm"}>{session.label}</button>)}</div><ExamWorkspace key={activeSession.id} session={activeSession} attempt={activeAttempt} savedAnswers={progress.answers} onAnswerChange={updateAnswer} onStart={beginExam} onSubmit={finishExam} targetQuestionId={targetQuestionId} /><section className="mt-6 border-t border-border pt-5" aria-label="점수 기록"><h3 className="font-semibold">이 회차 점수 기록</h3><ul className="mt-3 space-y-2 text-sm">{progress.examAttempts.filter((attempt) => attempt.sessionId === activeSession.id && attempt.submittedAt).map((attempt, index) => <li key={`${attempt.startedAt}-${index}`}>{new Date(attempt.submittedAt!).toLocaleString("ko-KR")} — {attempt.mode === "mock" ? "모의고사" : "연습"} {attempt.score}점</li>)}</ul></section></section> : null}
-        {activeTab === "wrong" ? <WrongAnswerNotebook wrongAnswers={progress.wrongAnswers} examAttempts={progress.examAttempts} onOpenQuestion={openConceptQuestion} onUpdate={updateWrongAnswerNote} /> : null}
-        {activeTab === "cards" ? <FlashcardDeck wrongAnswers={progress.wrongAnswers} onReview={recordReview} onOpenQuestion={openConceptQuestion} /> : null}
+        {activeTab === "exams" ? <section>{returnConceptId ? <button type="button" onClick={returnToConcept} className="mb-4 min-h-11 rounded border border-border px-3 text-sm">← 개념으로 돌아가기</button> : null}<div className="mb-5 flex flex-wrap gap-2">{examSessions.map((session) => <button type="button" key={session.id} onClick={() => { setSessionId(session.id); setProgress((current) => ({ ...current, activeSessionId: session.id })); setTargetQuestionId(null); setReturnConceptId(null); }} className={session.id === activeSession.id ? "min-h-11 rounded bg-primary px-3 text-sm font-semibold text-primary-foreground" : "min-h-11 rounded border border-border px-3 text-sm"}>{session.label}</button>)}</div><ExamWorkspace key={activeSession.id} session={activeSession} attempt={activeAttempt} savedAnswers={progress.answers} onAnswerChange={updateAnswer} onStart={beginExam} onSubmit={finishExam} targetQuestionId={targetQuestionId} /><section className="mt-6 border-t border-border pt-5" aria-label="점수 기록"><h3 className="font-semibold">이 회차 점수 기록</h3><ul className="mt-3 space-y-2 text-sm">{progress.examAttempts.filter((attempt) => attempt.sessionId === activeSession.id && attempt.submittedAt).map((attempt, index) => <li key={`${attempt.startedAt}-${index}`}>{new Date(attempt.submittedAt!).toLocaleString("ko-KR")} — {attempt.mode === "mock" ? "모의고사" : "연습"} {attempt.score}점</li>)}</ul></section></section> : null}
+        {activeTab === "wrong" ? <WrongAnswerNotebook wrongAnswers={progress.wrongAnswers} examAttempts={progress.examAttempts} onOpenQuestion={openExamQuestion} onUpdate={updateWrongAnswerNote} /> : null}
+        {activeTab === "cards" ? <FlashcardDeck wrongAnswers={progress.wrongAnswers} onReview={recordReview} onOpenQuestion={openExamQuestion} /> : null}
         {activeTab === "library" ? <LibraryPanel /> : null}
       </div>
 
