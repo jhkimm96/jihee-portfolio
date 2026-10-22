@@ -85,11 +85,16 @@ export function InformationProcessingEngineerHub() {
 
   useEffect(() => {
     if (activeTab !== "concepts" || !returnConceptId) return;
-    const returnConcept = document.getElementById(`concept-${returnConceptId}`) as HTMLDetailsElement | null;
-    if (!returnConcept) return;
-    returnConcept.open = true;
-    returnConcept.scrollIntoView({ behavior: "smooth", block: "start" });
-    setReturnConceptId(null);
+    const animationFrame = window.requestAnimationFrame(() => {
+      const returnConcept = document.getElementById(`concept-${returnConceptId}`) as HTMLDetailsElement | null;
+      if (!returnConcept) return;
+      returnConcept.open = true;
+      window.requestAnimationFrame(() => {
+        returnConcept.scrollIntoView({ block: "start" });
+        setReturnConceptId(null);
+      });
+    });
+    return () => window.cancelAnimationFrame(animationFrame);
   }, [activeTab, returnConceptId]);
 
   const activeSession = useMemo(
