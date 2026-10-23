@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { WrongAnswer } from "@/lib/certifications/information-processing-engineer/types";
-import { examSessions } from "@/lib/certifications/information-processing-engineer/question-bank";
+import { findStudyQuestion } from "@/lib/certifications/information-processing-engineer/programming-practice";
 
 export function FlashcardDeck({ wrongAnswers, onReview, onOpenQuestion }: {
   wrongAnswers: WrongAnswer[];
@@ -16,7 +16,7 @@ export function FlashcardDeck({ wrongAnswers, onReview, onOpenQuestion }: {
   const cards = wrongAnswers.filter((wrong) => allCards || Date.parse(wrong.nextReviewAt) <= Date.now());
   const index = Math.max(0, cards.findIndex((card) => card.questionId === questionId));
   const card = cards[index];
-  const question = examSessions.flatMap((session) => session.questions).find((entry) => entry.id === card?.questionId);
+  const question = card ? findStudyQuestion(card.questionId) : undefined;
 
   function move(direction: number) {
     setShowRule(false);

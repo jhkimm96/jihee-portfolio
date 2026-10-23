@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRight, BookOpen, ExternalLink, Search } from "lucide-react";
 import { studyConcepts, type StudyConcept } from "@/lib/certifications/information-processing-engineer/concepts";
 import { pointerWalkthroughs } from "@/lib/certifications/information-processing-engineer/pointer-walkthroughs";
@@ -8,20 +8,42 @@ import { PointerWalkthrough } from "@/components/certification-study/pointer-wal
 import { DesignPatternExplorer } from "@/components/certification-study/design-pattern-explorer";
 import { securityLessons } from "@/lib/certifications/information-processing-engineer/security-concepts";
 import { SecurityConceptExplorer } from "@/components/certification-study/security-concept-explorer";
+import { programmingLessons, programmingQuestions, type ProgrammingQuestion } from "@/lib/certifications/information-processing-engineer/programming-practice";
+import { pythonReference } from "@/lib/certifications/information-processing-engineer/python-reference";
+import type { ProgrammingAttempt } from "@/lib/certifications/information-processing-engineer/types";
+import { ProgrammingLessonExplorer, PythonReferenceExplorer } from "./programming-lesson-explorer";
+import { PythonSliceExplorer } from "./python-slice-explorer";
+import { ProgrammingPractice } from "./programming-practice";
 
 const categories = [...new Set(studyConcepts.map((concept) => concept.category))];
 
-export function ConceptLibrary({ onOpenQuestion }: { onOpenQuestion: (questionId: string, conceptId: string) => void }) {
+export function ConceptLibrary({ onOpenQuestion, attempts, onPracticeSubmit, targetQuestionId }: {
+  onOpenQuestion: (questionId: string, conceptId: string) => void;
+  attempts: ProgrammingAttempt[]; onPracticeSubmit: (question: ProgrammingQuestion, answer: string) => void; targetQuestionId?: string | null;
+}) {
   const [category, setCategory] = useState("전체");
   const [query, setQuery] = useState("");
   const [level, setLevel] = useState("전체");
   const [pass, setPass] = useState(1);
   const normalizedQuery = query.trim().toLocaleLowerCase("ko");
+  useEffect(() => {
+    if (!targetQuestionId) return;
+    const target = programmingQuestions.find((question) => question.id === targetQuestionId);
+    if (!target) return;
+    setQuery(""); setCategory("전체"); setLevel("전체"); setPass(1);
+    const timer = window.setTimeout(() => {
+      const card = document.getElementById(`concept-${target.conceptId}`) as HTMLDetailsElement | null;
+      if (card) { card.open = true; card.scrollIntoView({ block: "start" }); }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [targetQuestionId]);
   const visibleConcepts = studyConcepts.filter((concept) => {
     if (category !== "전체" && concept.category !== category) return false;
     if (level !== "전체" && concept.level !== level) return false;
     const securityTerms = securityLessons[concept.id]?.terms.flatMap((term) => [term.name, term.summary, term.keywords]) ?? [];
-    return [concept.title, concept.definition, concept.trap, concept.memoryRule, ...securityTerms].join(" ").toLocaleLowerCase("ko").includes(normalizedQuery);
+    const programmingTerms = programmingLessons.filter((lesson) => lesson.conceptId === concept.id).flatMap((lesson) => [lesson.title, lesson.rule, lesson.trap, ...lesson.examples.map((example) => example.code)]);
+    const referenceTerms = concept.id === "python-reference" ? pythonReference.flatMap((entry) => [entry.name, entry.group, entry.summary]) : [];
+    return [concept.title, concept.definition, concept.trap, concept.memoryRule, ...securityTerms, ...programmingTerms, ...referenceTerms].join(" ").toLocaleLowerCase("ko").includes(normalizedQuery);
   });
 
   return (
@@ -53,14 +75,19 @@ export function ConceptLibrary({ onOpenQuestion }: { onOpenQuestion: (questionId
       <p className="mt-4 text-xs text-muted-foreground" role="status">{visibleConcepts.length}개 개념</p>
 
       <div className="mt-3 space-y-3">
-        {visibleConcepts.map((concept) => <ConceptCard key={`${concept.id}-${pass}`} concept={concept} pass={pass} onOpenQuestion={onOpenQuestion} />)}
+        {visibleConcepts.map((concept) => <ConceptCard key={`${concept.id}-${pass}-${targetQuestionId ?? ""}`} concept={concept} pass={pass} onOpenQuestion={onOpenQuestion} attempts={attempts} onPracticeSubmit={onPracticeSubmit} targetQuestionId={targetQuestionId} />)}
         {visibleConcepts.length === 0 ? <p className="rounded border border-dashed border-border p-5 text-sm text-muted-foreground">검색 결과가 없습니다. 다른 분야나 단어로 찾아보세요.</p> : null}
       </div>
     </section>
   );
 }
 
-function ConceptCard({ concept, pass, onOpenQuestion }: { concept: StudyConcept; pass: number; onOpenQuestion: (questionId: string, conceptId: string) => void }) {
+function ConceptCard({ concept, pass, onOpenQuestion, attempts, onPracticeSubmit, targetQuestionId }: {
+  concept: StudyConcept; pass: number; onOpenQuestion: (questionId: string, conceptId: string) => void;
+  attempts: ProgrammingAttempt[]; onPracticeSubmit: (question: ProgrammingQuestion, answer: string) => void; targetQuestionId?: string | null;
+}) {
+  const lessons = programmingLessons.filter((lesson) => lesson.conceptId === concept.id);
+  const questions = programmingQuestions.filter((question) => question.conceptId === concept.id);
   return (
     <details id={`concept-${concept.id}`} className="group scroll-mt-24 rounded border border-border bg-card">
       <summary className="min-h-16 cursor-pointer px-4 py-4 focus-visible:outline-2 focus-visible:outline-brand sm:px-5">
@@ -75,7 +102,11 @@ function ConceptCard({ concept, pass, onOpenQuestion }: { concept: StudyConcept;
             <div className="border-l-2 border-brand pl-3"><h3 className="text-sm font-semibold">자주 틀리는 지점</h3><p className="mt-2 text-sm leading-7 text-muted-foreground">{concept.trap}</p></div>
           </>
         ) : null}
-        {pass !== 3 && concept.id !== "patterns-uml" && !securityLessons[concept.id] ? <div><h3 className="text-sm font-semibold">직접 추적할 예제</h3><pre className="mt-2 max-w-full overflow-x-auto rounded border border-border bg-muted/40 p-4 text-sm leading-7"><code>{concept.example}</code></pre><p className="mt-3 text-sm leading-7 text-muted-foreground">{concept.explanation}</p></div> : null}
+        {pass !== 3 && concept.id !== "patterns-uml" && !securityLessons[concept.id] && !lessons.length && concept.id !== "python-reference" ? <div><h3 className="text-sm font-semibold">직접 추적할 예제</h3><pre className="mt-2 max-w-full overflow-x-auto rounded border border-border bg-muted/40 p-4 text-sm leading-7"><code>{concept.example}</code></pre><p className="mt-3 text-sm leading-7 text-muted-foreground">{concept.explanation}</p></div> : null}
+        {pass !== 3 && concept.id === "python-slice" ? <PythonSliceExplorer /> : null}
+        {pass !== 3 && lessons.length > 0 ? <ProgrammingLessonExplorer lessons={lessons} /> : null}
+        {pass !== 3 && concept.id === "python-reference" ? <PythonReferenceExplorer /> : null}
+        {questions.length > 0 ? <ProgrammingPractice questions={questions} attempts={attempts} onSubmit={onPracticeSubmit} targetQuestionId={targetQuestionId} /> : null}
         {pass !== 3 && pointerWalkthroughs[concept.id] ? <PointerWalkthrough lesson={pointerWalkthroughs[concept.id]} /> : null}
         {pass !== 3 && concept.id === "patterns-uml" ? <DesignPatternExplorer /> : null}
         {pass !== 3 && securityLessons[concept.id] ? <SecurityConceptExplorer lesson={securityLessons[concept.id]} /> : null}
@@ -84,7 +115,7 @@ function ConceptCard({ concept, pass, onOpenQuestion }: { concept: StudyConcept;
 
         {concept.relatedQuestionIds.length > 0 ? <div><h3 className="text-sm font-semibold">연결 기출</h3><div className="mt-2 flex flex-wrap gap-2">{concept.relatedQuestionIds.map((questionId) => <button key={questionId} type="button" onClick={() => onOpenQuestion(questionId, concept.id)} className="inline-flex min-h-11 items-center gap-2 rounded border border-border px-3 text-sm hover:border-brand">{questionId}<ArrowRight aria-hidden="true" className="size-3.5" /></button>)}</div></div> : null}
         <div className="border-t border-border pt-3 text-xs leading-6 text-muted-foreground">
-          <p className="flex items-center gap-2"><BookOpen aria-hidden="true" className="size-3.5" />내 학습 자료: {concept.pdfReferences.join(", ")}</p>
+          <p className="flex items-center gap-2"><BookOpen aria-hidden="true" className="size-3.5" />{concept.pdfReferences.length ? `내 학습 자료: ${concept.pdfReferences.join(", ")}` : "공식 언어 규칙을 바탕으로 작성한 보충 설명"}</p>
           {concept.officialUrl ? <a href={concept.officialUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex min-h-11 items-center gap-1 text-brand underline underline-offset-4">공식 문서 확인<ExternalLink aria-hidden="true" className="size-3.5" /></a> : null}
           <p>예제는 개념 확인용으로 작성한 연습 코드입니다.</p>
         </div>

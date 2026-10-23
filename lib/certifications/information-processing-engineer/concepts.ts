@@ -1,3 +1,6 @@
+import { pythonLessons } from "./python-lessons";
+import { javaLessons } from "./java-lessons";
+
 export type StudyConcept = {
   id: string;
   category: string;
@@ -20,7 +23,7 @@ export type StudyConcept = {
 const programmingPdf = "프로그래밍언어이론 PDF";
 const theoryPdf = "이론 PDF";
 
-export const studyConcepts: StudyConcept[] = [
+const originalStudyConcepts: StudyConcept[] = [
   {
     id: "c-pointer", category: "C", day: 2, level: "필수", title: "주소와 값: p, &p, *p",
     definition: "일반 변수에는 정수가, 포인터 변수에는 다른 대상의 주소가 들어간다. 포인터도 자신의 주소가 있다. &p는 p 자신의 주소, p는 저장한 주소, *p는 그 주소를 따라가 읽은 값이다.",
@@ -392,3 +395,24 @@ export const studyConcepts: StudyConcept[] = [
     relatedQuestionIds: ["2026-1-02", "2024-1-20", "2024-2-10", "2024-3-14"], pdfReferences: [theoryPdf, "키워드찾기 130문제 PDF"],
   },
 ];
+
+const additionalProgrammingConcepts: StudyConcept[] = [];
+for (const lesson of [...pythonLessons, ...javaLessons]) {
+  if ([...originalStudyConcepts, ...additionalProgrammingConcepts].some((concept) => concept.id === lesson.conceptId)) continue;
+  additionalProgrammingConcepts.push({
+    id: lesson.conceptId, category: lesson.language, day: lesson.language === "Python" ? 5 : 4, level: lesson.priority === 1 ? "필수" : "심화",
+    title: lesson.title, definition: lesson.rule, steps: ["변수와 객체를 분리한다.", "실행 순서대로 상태를 갱신한다.", "출력을 예측하고 변형 문제를 푼다."],
+    trap: lesson.trap, example: lesson.examples[0].code, explanation: lesson.examples[0].steps.map((step) => step.explanation).join(" "),
+    memoryRule: lesson.rule, selfCheck: "아래 자체 제작 문제의 출력을 먼저 예측하고, 단계별 설명과 비교하세요.", selfCheckAnswer: "호출 순서, 원본 변경 여부, 반환값을 각각 확인합니다.", relatedQuestionIds: [],
+    pdfReferences: [], officialUrl: lesson.language === "Python" ? "https://docs.python.org/3.12/tutorial/" : "https://docs.oracle.com/javase/specs/jls/se17/html/index.html",
+  });
+}
+additionalProgrammingConcepts.push({
+  id: "python-reference", category: "Python", day: 5, level: "보충", title: "Python 내장 함수·메서드 사전",
+  definition: "기본 내장 함수와 자료형별 메서드의 입력, 반환값, 원본 변경과 예제를 비교한다. 필수·보충 모두 내용을 제공한다.",
+  steps: ["함수와 메서드를 구분한다.", "원본 변경과 반환값을 따로 적는다.", "비슷한 함수와 비교한다."], trap: "메서드마다 반환값이 다르다. 모든 수정 메서드가 None을 반환하는 것은 아니다.",
+  example: "a = [3, 1, 2]\nb = a.sort()", explanation: "a는 정렬되고 b는 None이다.", memoryRule: "원본과 반환값은 별개다.",
+  selfCheck: "sort와 sorted의 차이는?", selfCheckAnswer: "sort는 리스트 자체를 정렬하고 None, sorted는 새 리스트를 반환한다.", relatedQuestionIds: [], pdfReferences: [], officialUrl: "https://docs.python.org/3.12/library/functions.html",
+});
+
+export const studyConcepts: StudyConcept[] = [...originalStudyConcepts, ...additionalProgrammingConcepts];

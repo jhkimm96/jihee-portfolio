@@ -4,11 +4,21 @@ import type {
   WrongReason,
   ExamSession,
   ExamAttempt,
+  ExamQuestion,
+  ProgrammingAttempt,
 } from "./information-processing-engineer/types";
 import { gradeAnswer } from "./study-grading";
 
 const certificateId = "information-processing-engineer" as const;
 const reviewIntervalsInDays = [1, 3, 7];
+
+export function recordProgrammingAttempt(progress: StudyProgress, question: ExamQuestion, answer: string, answeredAt: string): StudyProgress {
+  const { correct } = gradeAnswer({ submittedAnswer: answer, gradingMode: question.gradingMode, acceptedAnswers: question.acceptedAnswers });
+  const updated = { ...progress, programmingAttempts: [...(progress.programmingAttempts ?? []), { questionId: question.id, answer, correct, answeredAt }] };
+  if (correct) return updated;
+  const previous = progress.wrongAnswers.find((wrong) => wrong.questionId === question.id);
+  return addWrongAnswer(updated, { questionId: question.id, answeredAt, reason: previous?.reason ?? "code-trace-error", memoryRule: previous?.memoryRule ?? question.explanation, memo: previous?.memo }) as StudyProgress;
+}
 
 type WrongAnswerInput = {
   questionId: string;
@@ -30,6 +40,7 @@ export function createEmptyProgress(): StudyProgress {
     completedDays: [],
     examAttempts: [],
     activeSessionId: "2026-2",
+    programmingAttempts: [],
   };
 }
 
@@ -176,6 +187,7 @@ export function restoreBackup(backup: unknown): StudyProgress {
     !Array.isArray(progress.wrongAnswers) || !progress.wrongAnswers.every(isWrongAnswer)
     || (progress.examAttempts !== undefined && (!Array.isArray(progress.examAttempts) || !progress.examAttempts.every(isExamAttempt)))
     || (progress.activeSessionId !== undefined && (typeof progress.activeSessionId !== "string" || !/^202[4-6]-[1-3]$/.test(progress.activeSessionId)))
+    || (progress.programmingAttempts !== undefined && (!Array.isArray(progress.programmingAttempts) || !progress.programmingAttempts.every(isProgrammingAttempt)))
   ) {
     throw new Error("지원하지 않는 백업 파일");
   }
@@ -188,10 +200,15 @@ export function restoreBackup(backup: unknown): StudyProgress {
     completedDays: progress.completedDays,
     examAttempts: (progress.examAttempts as ExamAttempt[] | undefined) ?? [],
     activeSessionId: (progress.activeSessionId as string | undefined) ?? "2026-2",
+    programmingAttempts: (progress.programmingAttempts as ProgrammingAttempt[] | undefined) ?? [],
   };
 }
 
 const allowedReasons: WrongReason[] = ["concept-unknown", "code-trace-error", "calculation-error", "misread-question", "answer-format-error", "guessed"];
+
+function isProgrammingAttempt(value: unknown): value is ProgrammingAttempt {
+  return isRecord(value) && typeof value.questionId === "string" && value.questionId.length > 0 && typeof value.answer === "string" && typeof value.correct === "boolean" && isValidDate(value.answeredAt);
+}
 
 function isWrongAnswer(value: unknown): value is WrongAnswer {
   if (!isRecord(value)) return false;

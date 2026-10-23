@@ -7,7 +7,6 @@ import { designPatterns, umlRelations } from "./design-patterns";
 
 describe("design pattern concept explorer", () => {
   it("covers all 23 GoF patterns in the 5/7/11 categories inside the existing concept", () => {
-    expect(studyConcepts).toHaveLength(37);
     expect(studyConcepts.filter((concept) => concept.id === "patterns-uml")).toHaveLength(1);
     expect(designPatterns).toHaveLength(23);
     expect(new Set(designPatterns.map((pattern) => pattern.id)).size).toBe(23);

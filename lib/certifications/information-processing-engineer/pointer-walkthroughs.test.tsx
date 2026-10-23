@@ -6,8 +6,8 @@ import { studyConcepts } from "./concepts";
 import { pointerWalkthroughs } from "./pointer-walkthroughs";
 
 describe("pointer concept walkthroughs", () => {
-  it("enriches the seven existing pointer lessons without changing the 37-concept curriculum", () => {
-    expect(studyConcepts).toHaveLength(37);
+  it("keeps the seven existing pointer lessons in the expanded curriculum", () => {
+    expect(studyConcepts.filter((concept) => Object.hasOwn(pointerWalkthroughs, concept.id))).toHaveLength(7);
     expect(Object.keys(pointerWalkthroughs).sort()).toEqual([
       "c-array", "c-call", "c-double-pointer", "c-function-pointer", "c-pointer", "c-pointer-array", "c-struct",
     ]);

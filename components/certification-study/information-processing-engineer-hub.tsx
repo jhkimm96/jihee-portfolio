@@ -10,7 +10,8 @@ import { ConceptLibrary } from "@/components/certification-study/concept-library
 import { studyDays, flexDays, studyResourceGroups } from "@/lib/certifications/information-processing-engineer/curriculum";
 import { examSessions } from "@/lib/certifications/information-processing-engineer/question-bank";
 import type { StudyProgress, ExamAttempt } from "@/lib/certifications/information-processing-engineer/types";
-import { createBackup, createEmptyProgress, restoreBackup, updateWrongAnswer, startExam, submitExam, getRemainingSeconds, reviewWrongAnswer } from "@/lib/certifications/study-progress";
+import { createBackup, createEmptyProgress, restoreBackup, updateWrongAnswer, startExam, submitExam, getRemainingSeconds, reviewWrongAnswer, recordProgrammingAttempt } from "@/lib/certifications/study-progress";
+import { programmingQuestions, type ProgrammingQuestion } from "@/lib/certifications/information-processing-engineer/programming-practice";
 
 const storageKey = "jh-work:information-processing-engineer:progress:v1";
 const tabs = [
@@ -109,6 +110,9 @@ export function InformationProcessingEngineerHub() {
   }
 
   function openExamQuestion(questionId: string) {
+    if (programmingQuestions.some((question) => question.id === questionId)) {
+      setTargetQuestionId(questionId); setActiveTab("concepts"); setMoreMenuOpen(false); return;
+    }
     const session = examSessions.find((entry) => entry.questions.some((question) => question.id === questionId));
     if (!session) return;
     setSessionId(session.id);
@@ -138,6 +142,10 @@ export function InformationProcessingEngineerHub() {
 
   function recordReview(questionId: string, remembered: boolean) {
     setProgress((current) => reviewWrongAnswer(current, questionId, remembered, new Date().toISOString()));
+  }
+
+  function submitProgrammingAnswer(question: ProgrammingQuestion, answer: string) {
+    setProgress((current) => recordProgrammingAttempt(current, question, answer, new Date().toISOString()));
   }
 
   function updateAnswer(questionId: string, answer: string) {
@@ -208,9 +216,9 @@ export function InformationProcessingEngineerHub() {
       <div className="mt-7">
         {activeTab === "today" ? <><TodayPanel day={nextDay} currentDay={progress.currentDay} onComplete={() => setProgress((current) => ({ ...current, completedDays: [...new Set([...current.completedDays, current.currentDay])], currentDay: Math.min(10, current.currentDay + 1) }))} /><section className="mt-5 border-t border-border pt-5"><h2 className="font-semibold">오늘 복습할 오답 {dueReviews.length}개</h2><p className="mt-2 text-sm text-muted-foreground">복습 날짜가 지났어도 기록은 그대로 남습니다.</p><button type="button" onClick={() => changeTab("cards")} className="mt-3 min-h-11 rounded border border-border px-4 text-sm">암기카드로 복습</button></section></> : null}
         {activeTab === "plan" ? <PlanPanel currentDay={progress.currentDay} /> : null}
-        {activeTab === "concepts" ? <ConceptLibrary onOpenQuestion={openConceptQuestion} /> : null}
+        {activeTab === "concepts" ? <ConceptLibrary onOpenQuestion={openConceptQuestion} attempts={progress.programmingAttempts} onPracticeSubmit={submitProgrammingAnswer} targetQuestionId={targetQuestionId} /> : null}
         {activeTab === "exams" ? <section>{returnConceptId ? <button type="button" onClick={returnToConcept} className="mb-4 min-h-11 rounded border border-border px-3 text-sm">← 개념으로 돌아가기</button> : null}<div className="mb-5 flex flex-wrap gap-2">{examSessions.map((session) => <button type="button" key={session.id} onClick={() => { setSessionId(session.id); setProgress((current) => ({ ...current, activeSessionId: session.id })); setTargetQuestionId(null); setReturnConceptId(null); }} className={session.id === activeSession.id ? "min-h-11 rounded bg-primary px-3 text-sm font-semibold text-primary-foreground" : "min-h-11 rounded border border-border px-3 text-sm"}>{session.label}</button>)}</div><ExamWorkspace key={activeSession.id} session={activeSession} attempt={activeAttempt} savedAnswers={progress.answers} onAnswerChange={updateAnswer} onStart={beginExam} onSubmit={finishExam} targetQuestionId={targetQuestionId} /><section className="mt-6 border-t border-border pt-5" aria-label="점수 기록"><h3 className="font-semibold">이 회차 점수 기록</h3><ul className="mt-3 space-y-2 text-sm">{progress.examAttempts.filter((attempt) => attempt.sessionId === activeSession.id && attempt.submittedAt).map((attempt, index) => <li key={`${attempt.startedAt}-${index}`}>{new Date(attempt.submittedAt!).toLocaleString("ko-KR")} — {attempt.mode === "mock" ? "모의고사" : "연습"} {attempt.score}점</li>)}</ul></section></section> : null}
-        {activeTab === "wrong" ? <WrongAnswerNotebook wrongAnswers={progress.wrongAnswers} examAttempts={progress.examAttempts} onOpenQuestion={openExamQuestion} onUpdate={updateWrongAnswerNote} /> : null}
+        {activeTab === "wrong" ? <WrongAnswerNotebook wrongAnswers={progress.wrongAnswers} examAttempts={progress.examAttempts} programmingAttempts={progress.programmingAttempts} onOpenQuestion={openExamQuestion} onUpdate={updateWrongAnswerNote} /> : null}
         {activeTab === "cards" ? <FlashcardDeck wrongAnswers={progress.wrongAnswers} onReview={recordReview} onOpenQuestion={openExamQuestion} /> : null}
         {activeTab === "library" ? <LibraryPanel /> : null}
       </div>

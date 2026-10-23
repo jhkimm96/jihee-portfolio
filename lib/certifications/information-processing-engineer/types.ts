@@ -70,4 +70,13 @@ export type StudyProgress = {
   completedDays: number[];
   examAttempts: ExamAttempt[];
   activeSessionId?: string;
+  programmingAttempts: ProgrammingAttempt[];
+};
+
+export type ProgrammingAttempt = { questionId: string; answer: string; correct: boolean; answeredAt: string };
+export type ProgrammingStep = { line: number; explanation: string; bindings: string[]; output?: string };
+export type ProgrammingExample = { id: string; title: string; code: string; output: string; steps: ProgrammingStep[] };
+export type ProgrammingLesson = {
+  id: string; conceptId: string; language: "Python" | "Java"; priority: 1 | 2 | 3;
+  title: string; rule: string; trap: string; examples: ProgrammingExample[];
 };

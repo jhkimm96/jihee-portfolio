@@ -6,8 +6,8 @@ import { studyConcepts } from "./concepts";
 import { securityLessons } from "./security-concepts";
 
 describe("security concept explorers", () => {
-  it("enriches the four existing cards without increasing the 37-concept curriculum", () => {
-    expect(studyConcepts).toHaveLength(37);
+  it("keeps the four existing security cards in the expanded curriculum", () => {
+    expect(studyConcepts.filter((concept) => concept.category === "보안")).toHaveLength(4);
     expect(Object.keys(securityLessons)).toEqual(["security-basics", "security-attacks", "security-web", "security-crypto"]);
     for (const id of Object.keys(securityLessons)) {
       expect(studyConcepts.filter((concept) => concept.id === id)).toHaveLength(1);

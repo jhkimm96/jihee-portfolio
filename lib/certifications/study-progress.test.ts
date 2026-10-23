@@ -1,9 +1,26 @@
 import { describe, expect, it } from "vitest";
 
-import { addWrongAnswer, createBackup, restoreBackup, createEmptyProgress, startExam, submitExam, getRemainingSeconds, reviewWrongAnswer } from "./study-progress";
+import { addWrongAnswer, createBackup, restoreBackup, createEmptyProgress, startExam, submitExam, getRemainingSeconds, reviewWrongAnswer, recordProgrammingAttempt } from "./study-progress";
 import { examSessions } from "./information-processing-engineer/question-bank";
 
 describe("study progress", () => {
+  it("records programming answers separately, preserves notes and restores old backups", () => {
+    const question = { id: "practice-test", prompt: "출력", answer: "A B", acceptedAnswers: ["A B"], explanation: "공백 보존", tags: ["Python"], gradingMode: "code-output" as const };
+    const first = recordProgrammingAttempt(createEmptyProgress(), question, "AB", "2026-10-24T00:00:00Z");
+    expect(first.programmingAttempts).toHaveLength(1);
+    expect(first.wrongAnswers).toHaveLength(1);
+    expect(first.examAttempts).toEqual([]);
+    first.wrongAnswers[0].memo = "내 메모";
+    const second = recordProgrammingAttempt(first, question, "wrong", "2026-10-24T00:01:00Z");
+    expect(second.wrongAnswers[0].memo).toBe("내 메모");
+    const correct = recordProgrammingAttempt(second, question, "A B", "2026-10-24T00:02:00Z");
+    expect(correct.programmingAttempts.at(-1)?.correct).toBe(true);
+    expect(correct.wrongAnswers[0].attempts).toBe(2);
+    expect(restoreBackup(createBackup(correct))).toEqual(correct);
+    const { programmingAttempts: omitted, ...legacy } = createEmptyProgress();
+    expect(restoreBackup({ ...createBackup(legacy), progress: legacy }).programmingAttempts).toEqual([]);
+    expect(() => restoreBackup({ ...createBackup(correct), progress: { ...correct, programmingAttempts: [{ correct: "yes" }] } })).toThrow();
+  });
   it("keeps the original deadline when an active exam is started again", () => {
     const session = examSessions.at(-1)!;
     const progress = startExam(createEmptyProgress(), session, "2026-10-06T00:00:00.000Z");
