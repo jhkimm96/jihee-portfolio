@@ -11,7 +11,7 @@ import { SecurityConceptExplorer } from "@/components/certification-study/securi
 import { programmingLessons, programmingQuestions, type ProgrammingQuestion } from "@/lib/certifications/information-processing-engineer/programming-practice";
 import { pythonReference } from "@/lib/certifications/information-processing-engineer/python-reference";
 import type { ProgrammingAttempt } from "@/lib/certifications/information-processing-engineer/types";
-import { ProgrammingLessonExplorer, PythonReferenceExplorer } from "./programming-lesson-explorer";
+import { ProgrammingLessonExplorer, PythonReferenceExplorer, PythonTextFormatGuide } from "./programming-lesson-explorer";
 import { PythonSliceExplorer } from "./python-slice-explorer";
 import { ProgrammingPractice } from "./programming-practice";
 
@@ -104,6 +104,7 @@ function ConceptCard({ concept, pass, onOpenQuestion, attempts, onPracticeSubmit
         ) : null}
         {pass !== 3 && concept.id !== "patterns-uml" && !securityLessons[concept.id] && !lessons.length && concept.id !== "python-reference" ? <div><h3 className="text-sm font-semibold">직접 추적할 예제</h3><pre className="mt-2 max-w-full overflow-x-auto rounded border border-border bg-muted/40 p-4 text-sm leading-7"><code>{concept.example}</code></pre><p className="mt-3 text-sm leading-7 text-muted-foreground">{concept.explanation}</p></div> : null}
         {pass !== 3 && concept.id === "python-slice" ? <PythonSliceExplorer /> : null}
+        {pass !== 3 && concept.id === "python-strings" ? <PythonTextFormatGuide /> : null}
         {pass !== 3 && lessons.length > 0 ? <ProgrammingLessonExplorer lessons={lessons} /> : null}
         {pass !== 3 && concept.id === "python-reference" ? <PythonReferenceExplorer /> : null}
         {questions.length > 0 ? <ProgrammingPractice questions={questions} attempts={attempts} onSubmit={onPracticeSubmit} targetQuestionId={targetQuestionId} /> : null}

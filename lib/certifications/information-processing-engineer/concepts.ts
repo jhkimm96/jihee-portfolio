@@ -117,7 +117,7 @@ const originalStudyConcepts: StudyConcept[] = [
   {
     id: "java-binding", category: "Java", day: 4, level: "필수", title: "오버라이딩과 필드 바인딩",
     definition: "인스턴스 메서드의 오버라이딩은 실제 객체에 따라 선택된다. 같은 이름의 필드는 참조 변수의 선언 타입으로 선택된다.",
-    steps: ["참조 변수 타입과 new로 만든 실제 객체 타입을 따로 적는다.", "필드 접근은 선언 타입을 본다.", "재정의된 인스턴스 메서드는 실제 객체 타입을 본다."],
+    steps: ["A a = new B()라면 왼쪽 A(선언 타입)와 오른쪽 B(실제 객체)를 따로 적는다.", "같은 이름의 필드가 부모·자식에 있으면 객체 안에 칸 두 개를 그린다.", "필드와 static 메서드는 선언 타입을 보고 고른다.", "재정의된 인스턴스 메서드는 실제 객체를 보고 고른다. super.f()는 부모 구현으로 넘어간다."],
     trap: "static 메서드는 인스턴스 메서드처럼 오버라이딩되지 않는다. 필드 숨김을 메서드 재정의와 같은 규칙으로 계산하면 틀린다.",
     example: "class A { int x = 2; int f() { return 10; } }\nclass B extends A { int x = 7; int f() { return 20; } }\nA a = new B();\nSystem.out.print(a.x + a.f());",
     explanation: "a.x는 A의 2, a.f()는 B의 20이다. 합은 22다.",
@@ -127,7 +127,7 @@ const originalStudyConcepts: StudyConcept[] = [
   {
     id: "java-overload", category: "Java", day: 4, level: "심화", title: "오버로딩을 먼저, 오버라이딩을 나중에",
     definition: "오버로딩은 컴파일 시 참조 타입과 인자 타입으로 메서드 시그니처를 정한다. 이후 오버라이딩이 적용된다.",
-    steps: ["호출 위치에서 보이는 메서드 목록을 찾는다.", "인자의 컴파일 시 타입으로 오버로드를 선택한다.", "선택된 시그니처의 재정의가 있으면 실제 객체 구현을 실행한다."],
+    steps: ["같은 이름의 메서드를 매개변수 타입별로 나열한다(오버로딩 후보).", "[컴파일 때] 변수의 선언 타입과 인자의 선언 타입으로 후보 하나를 고정한다. 실제 값은 보지 않는다.", "[실행 때] 고정된 모양의 메서드를 실제 객체 클래스에서 찾아 실행한다(오버라이딩)."],
     trap: "실제 객체에 더 구체적인 오버로드가 있다고 컴파일러가 그 메서드를 다시 고르는 것은 아니다.",
     example: "void f(Object x) { ... }\nvoid f(String x) { ... }\nObject value = \"hello\";\nf(value);",
     explanation: "value의 선언 타입이 Object이므로 f(Object)를 선택한다. 문자열 객체라는 이유만으로 f(String)를 고르지 않는다.",
@@ -137,7 +137,7 @@ const originalStudyConcepts: StudyConcept[] = [
   {
     id: "java-super", category: "Java", day: 4, level: "필수", title: "생성자, super와 접근 제어",
     definition: "자식 객체를 만들면 부모 생성자부터 초기화가 진행된다. super(...)는 부모 생성자, super.f()는 부모 메서드를 호출한다.",
-    steps: ["생성자 호출을 부모 방향으로 추적한다.", "부모 초기화 뒤 자식 초기화로 내려온다.", "private, 기본, protected, public 접근 범위를 따로 확인한다."],
+    steps: ["클래스를 처음 쓰면 static 블록을 한 번 실행한다(부모 → 자식).", "new를 만나면 필드를 기본값(0, null)으로 채운다.", "생성자 첫 줄의 this(…)나 super(…)를 따라 부모 생성자까지 올라간다. 아무것도 없으면 super()가 숨어 있다.", "부모가 끝나면 자식의 필드 초기화와 { } 블록을 위에서 아래로, 그 다음 생성자 본문을 실행한다.", "private, 기본, protected, public 접근 범위를 따로 확인한다."],
     trap: "private 멤버는 자식에서 직접 접근할 수 없다. 기본 접근은 같은 패키지다. protected의 다른 패키지 접근에는 상속 및 참조 제약이 있다.",
     example: "class A {\n  A(int n) { System.out.print(n); }\n}\nclass B extends A {\n  B() { super(4); System.out.print(8); }\n}\n// new B() 출력: 48",
     explanation: "부모 생성자의 4가 먼저, 자식 생성자의 8이 뒤에 출력된다.",
@@ -147,7 +147,7 @@ const originalStudyConcepts: StudyConcept[] = [
   {
     id: "java-output", category: "Java", day: 4, level: "필수", title: "문자열 결합과 참조 비교",
     definition: "+는 왼쪽부터 계산한다. 문자열을 만나면 문자열 결합이 된다. 배열의 ==는 내용이 아니라 같은 객체인지 비교한다.",
-    steps: ["+를 왼쪽부터 괄호로 묶어 본다.", "문자열이 되는 첫 위치를 표시한다.", "배열 비교에서는 생성된 객체가 같은지 확인한다."],
+    steps: ["+를 왼쪽부터 괄호로 묶어 본다. char끼리 또는 char와 숫자는 문자 코드(A=65)로 더한다.", "문자열이 되는 첫 위치를 표시하고, 그 뒤는 모두 이어 붙인다.", "String 메서드의 반환값을 변수에 저장했는지 확인한다. 저장하지 않으면 원본은 그대로다.", "==는 같은 객체인지, equals는 내용이 같은지 비교한다. 배열 내용 비교는 Arrays.equals다."],
     trap: "문자(char)는 문자열(String)과 다르다. 배열 내용이 같아도 각각 new로 만들었으면 ==는 false다.",
     example: "System.out.print(3 + 4 + \"5\" + 6);\n// 출력: 756\nint[] a = {1, 2};\nint[] b = {1, 2};\n// a == b: false",
     explanation: "3 + 4가 먼저 정수 7이 되고, 문자열 5와 6이 이어진다.",
@@ -157,7 +157,7 @@ const originalStudyConcepts: StudyConcept[] = [
   {
     id: "java-exception", category: "Java", day: 4, level: "필수", title: "예외 처리와 finally",
     definition: "발생한 예외를 처리할 첫 번째 맞는 catch가 실행된다. 정상 흐름과 예외 흐름 뒤에 finally를 추적한다.",
-    steps: ["예외가 발생한 지점 이후 try의 남은 줄을 건너뛴다.", "일치하는 catch 하나만 실행한다.", "finally의 변수 변경까지 반영한다."],
+    steps: ["예외가 발생한 지점 이후 try의 남은 줄을 건너뛴다.", "catch를 위에서부터 보고 처음 맞는 하나만 실행한다(부모 예외 타입도 맞는다).", "return을 만났으면 반환값을 먼저 계산해 보관해 둔다.", "finally를 실행한다. 여기서 새 return이 있으면 보관한 값을 덮는다."],
     trap: "더 넓은 Exception catch를 앞에 놓으면 뒤의 하위 예외 catch가 도달 불가할 수 있다. 프로세스 강제 종료처럼 finally가 실행되지 않는 경우도 있다.",
     example: "int n = 0;\ntry { throw new NullPointerException(); }\ncatch (NullPointerException e) { n += 2; }\nfinally { n += 10; }\n// n: 12",
     explanation: "해당 catch에서 2가 되고 finally에서 10을 더한다.",
@@ -167,7 +167,7 @@ const originalStudyConcepts: StudyConcept[] = [
   {
     id: "python-slice", category: "Python", day: 5, level: "필수", title: "슬라이싱과 음수 step",
     definition: "sequence[start:stop:step]은 시작을 포함하고 끝을 제외한다. step이 음수이면 역방향으로 이동한다.",
-    steps: ["원소에 인덱스를 붙인다.", "step 부호로 진행 방향을 정한다.", "시작부터 step만큼 이동하되 stop은 포함하지 않는다."],
+    steps: ["원소 아래에 양수 번호(0부터)와 음수 번호(-1이 마지막)를 함께 적는다.", "step 부호로 방향을 정한다. 양수는 →, 음수는 ←다.", "생략한 start·stop을 채운다. 음수 step이면 start는 맨 끝, stop은 맨 앞 바깥이다.", "방향을 확인한다. 음수 step은 start > stop, 양수 step은 start < stop이어야 결과가 있다.", "start부터 step씩 이동하며 고르고, stop에 닿으면 그 칸은 빼고 멈춘다.", "슬라이스가 이어지면 중간 결과에 번호를 0부터 다시 붙이고 2단계부터 반복한다."],
     trap: "[::-1]과 [:-1:-1]은 같지 않다. 음수 step에서 생략한 끝과 명시적 -1은 다르다.",
     example: "a = [2, 4, 6, 8, 10]\nprint(a[1:4:2])\nprint(a[::-2])",
     explanation: "첫 출력은 [4, 8], 두 번째는 [10, 6, 2]다.",
@@ -177,7 +177,7 @@ const originalStudyConcepts: StudyConcept[] = [
   {
     id: "python-copy", category: "Python", day: 5, level: "심화", title: "얕은 복사와 내부 리스트 공유",
     definition: "얕은 복사는 바깥 컨테이너만 새로 만든다. 내부의 리스트 같은 객체는 여전히 공유될 수 있다.",
-    steps: ["바깥 리스트와 안쪽 리스트를 별도 상자로 그린다.", "슬라이스 복사 후 어떤 내부 객체가 공유되는지 표시한다.", "내부 객체 수정과 바깥 슬롯 재대입을 구분한다."],
+    steps: ["바깥 리스트와 안쪽 리스트를 각각 상자로 그리고 L1, I1처럼 이름표를 붙인다.", "b = a는 이름(화살표)만 추가, a[:]는 바깥 상자만 새로 만든다고 표시한다.", "각 줄이 안쪽 상자를 고치는지(append, +=), 칸의 화살표를 바꾸는지(x[0] = ...) 구분한다.", "출력할 때 이름 → 바깥 상자 → 안쪽 상자 순서로 화살표를 따라 읽는다."],
     trap: "리스트의 +=는 대개 기존 리스트를 확장한다. 새 리스트를 만들어 슬롯에 대입하는 +와 공유 영향이 다르다.",
     example: "a = [[1], [2]]\nb = a[:]\nb[0].append(9)\nprint(a)\n# [[1, 9], [2]]",
     explanation: "a[0]과 b[0]은 같은 내부 리스트를 가리키므로 append 결과가 둘 모두에서 보인다.",
@@ -197,7 +197,7 @@ const originalStudyConcepts: StudyConcept[] = [
   {
     id: "python-strings", category: "Python", day: 5, level: "필수", title: "split, join, range와 출력 형식",
     definition: "split은 문자열을 나누고 join은 문자열 원소들을 연결한다. range의 끝은 제외하며 print의 end가 출력 사이를 결정한다.",
-    steps: ["문자열과 리스트 상태를 각 줄마다 적는다.", "range의 실제 원소를 먼저 펼친다.", "print의 구분자 sep와 끝 문자열 end를 확인한다."],
+    steps: ["문자열과 리스트 상태를 각 줄마다 적는다. 문자열 메서드는 원본을 바꾸지 않는다.", "range의 실제 원소를 먼저 펼친다. 끝은 제외한다.", "서식 {값:…}은 콜론 뒤를 채움·정렬·폭·.정밀도·타입 순서로 한 글자씩 읽고, 빈칸 수를 세어 적는다.", "ord·chr는 A=65, a=97, '0'=48, 공백=32에서 순서대로 세어 계산한다.", "print의 구분자 sep와 끝 문자열 end를 마지막에 붙인다."],
     trap: "split()은 연속 공백을 묶어 처리한다. split(' ')은 공백 하나하나를 구분자로 사용해 빈 문자열이 생길 수 있다.",
     example: "s = 'a  b'\nprint(s.split())\nprint(s.split(' '))\nprint('-'.join(['x', 'y']))",
     explanation: "['a', 'b'], ['a', '', 'b'], x-y가 각각 출력된다.",
@@ -401,7 +401,7 @@ for (const lesson of [...pythonLessons, ...javaLessons]) {
   if ([...originalStudyConcepts, ...additionalProgrammingConcepts].some((concept) => concept.id === lesson.conceptId)) continue;
   additionalProgrammingConcepts.push({
     id: lesson.conceptId, category: lesson.language, day: lesson.language === "Python" ? 5 : 4, level: lesson.priority === 1 ? "필수" : "심화",
-    title: lesson.title, definition: lesson.rule, steps: ["변수와 객체를 분리한다.", "실행 순서대로 상태를 갱신한다.", "출력을 예측하고 변형 문제를 푼다."],
+    title: lesson.title, definition: lesson.rule, steps: lesson.solvingSteps ?? ["변수와 객체를 분리한다.", "실행 순서대로 상태를 갱신한다.", "출력을 예측하고 변형 문제를 푼다."],
     trap: lesson.trap, example: lesson.examples[0].code, explanation: lesson.examples[0].steps.map((step) => step.explanation).join(" "),
     memoryRule: lesson.rule, selfCheck: "아래 자체 제작 문제의 출력을 먼저 예측하고, 단계별 설명과 비교하세요.", selfCheckAnswer: "호출 순서, 원본 변경 여부, 반환값을 각각 확인합니다.", relatedQuestionIds: [],
     pdfReferences: [], officialUrl: lesson.language === "Python" ? "https://docs.python.org/3.12/tutorial/" : "https://docs.oracle.com/javase/specs/jls/se17/html/index.html",

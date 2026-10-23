@@ -94,3 +94,45 @@ export const pythonReference: PythonReference[] = [
     ["chr", "코드 포인트를 문자로 바꾼다.", "문자열 한 문자", "변경 없음", "print(chr(66))", "B", "허용 코드 포인트 범위를 벗어나면 ValueError다."],
   ]),
 ];
+
+// 시험에서 계산 기준이 되는 구간만 보여준다. 각 구간은 코드 번호가 1씩 연속이다.
+export const characterCodeGroups = [
+  { name: "공백", characters: " " },
+  { name: "숫자 문자", characters: "0123456789" },
+  { name: "대문자", characters: "ABCDEFGHIJKLMNOPQRSTUVWXYZ" },
+  { name: "소문자", characters: "abcdefghijklmnopqrstuvwxyz" },
+];
+
+export const formatSpecParts = [
+  ["채움", "빈칸 대신 쓸 글자. 정렬 기호 바로 앞에만 쓸 수 있다.", "*^6 → **42**"],
+  ["정렬", "< 왼쪽, > 오른쪽, ^ 가운데. 생략하면 숫자는 오른쪽, 문자열은 왼쪽.", ">5 → '   ab'"],
+  ["부호", "+는 양수에도 + 표시.", "+d → +5"],
+  ["#", "2·8·16진수에 0b·0o·0x 접두사.", "#x → 0xff"],
+  ["0", "폭의 빈자리를 0으로 채움.", "03d → 007"],
+  ["폭", "결과 전체의 최소 칸 수. 소수점과 부호도 한 칸.", "7.2f → '   3.14'"],
+  [",", "세 자리마다 쉼표.", ", → 1,234,567"],
+  [".정밀도", "실수는 소수점 아래 자리수(반올림), 문자열은 앞에서 자를 글자 수.", ".2f → 3.14"],
+  ["타입", "d 정수, f 실수, % 백분율, b 2진, o 8진, x/X 16진, c 코드 번호 → 문자.", "65:c → A"],
+] as const;
+
+// output은 scripts/verify-programming-examples.ts가 Python으로 실행해 확인한다.
+export const formatSpecExamples = [
+  { expression: "f'{7:03d}'", output: "007", reading: "0 채움, 폭 3, 정수" },
+  { expression: "f'[{7:3d}]'", output: "[  7]", reading: "폭 3, 숫자는 기본 오른쪽 정렬" },
+  { expression: "f'[{\"ab\":5}]'", output: "[ab   ]", reading: "문자열은 기본 왼쪽 정렬" },
+  { expression: "f'[{\"ab\":>5}]'", output: "[   ab]", reading: "> 오른쪽 정렬" },
+  { expression: "f'[{\"ab\":^6}]'", output: "[  ab  ]", reading: "^ 가운데 정렬" },
+  { expression: "f'[{\"ab\":*^6}]'", output: "[**ab**]", reading: "정렬 기호 앞의 * 가 채움 문자" },
+  { expression: "f'{3.14159:.2f}'", output: "3.14", reading: "소수점 아래 2자리로 반올림" },
+  { expression: "f'[{3.14159:7.2f}]'", output: "[   3.14]", reading: "전체 7칸(점 포함), 소수 2자리" },
+  { expression: "f'{\"abcdef\":.3}'", output: "abc", reading: "문자열의 .3은 앞 3글자만" },
+  { expression: "f'{1234567:,}'", output: "1,234,567", reading: "세 자리마다 쉼표" },
+  { expression: "f'{0.256:.1%}'", output: "25.6%", reading: "× 100 후 소수 1자리와 %" },
+  { expression: "f'{5:+d} {-5:+d}'", output: "+5 -5", reading: "+는 양수에도 부호 표시" },
+  { expression: "f'{10:b} {10:o} {10:x} {255:X}'", output: "1010 12 a FF", reading: "2진, 8진, 16진 소문자, 16진 대문자" },
+  { expression: "f'{10:#b} {255:#x}'", output: "0b1010 0xff", reading: "# 은 진법 접두사" },
+  { expression: "f'{65:c}{97:c}'", output: "Aa", reading: "c 는 코드 번호를 문자로 (chr와 같음)" },
+  { expression: "'%05.1f' % 3.14159", output: "003.1", reading: "% 서식: 0 채움, 폭 5, 소수 1자리" },
+  { expression: "'[%-4s]' % 'ab'", output: "[ab  ]", reading: "% 서식의 - 는 왼쪽 정렬" },
+  { expression: "'{:>4}|{:<4}|'.format(1, 2)", output: "   1|2   |", reading: "format도 같은 서식 규칙" },
+];

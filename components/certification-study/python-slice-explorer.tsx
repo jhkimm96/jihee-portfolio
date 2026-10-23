@@ -24,6 +24,22 @@ export function PythonSliceExplorer() {
   } catch (cause) { error = cause instanceof Error ? cause.message : "입력을 확인하세요."; }
   const selected = trace?.indices.slice(0, shown) ?? [];
   const result = selected.map((index) => chars[index]).join("");
+  const negativeInputs = ([["start", start], ["stop", stop]] as const).filter(([, value]) => /^-\d+$/.test(value) && chars.length + Number(value) >= 0);
+
+  // 역방향의 생략한 끝 -1과 길이 위치는 실제 원소가 아니므로 숫자 대신 바깥 경계로 읽는다.
+  function describeStop(stopIndex: number, step: number) {
+    if (step < 0 && stopIndex === -1) return "맨 앞 바깥(0보다 앞)";
+    if (step > 0 && stopIndex === chars.length) return `맨 끝 바깥(${stopIndex})`;
+    return `${stopIndex}(제외)`;
+  }
+
+  function explainEmptyResult(startIndex: number, stopIndex: number, step: number) {
+    if (chars.length === 0) return "원본이 비어 있어 고를 원소가 없습니다.";
+    if (startIndex === stopIndex) return `시작(${startIndex})과 제외할 끝(${stopIndex})이 같아 첫 칸부터 멈춥니다.`;
+    return step > 0
+      ? `오른쪽(→)으로 가는데 끝(${stopIndex})이 시작(${startIndex})보다 왼쪽에 있어 닿을 수 없습니다. 양수 step은 시작 < 끝이어야 합니다.`
+      : `왼쪽(←)으로 가는데 끝(${stopIndex})이 시작(${startIndex})보다 오른쪽에 있어 닿을 수 없습니다. 음수 step은 시작 > 끝이어야 합니다.`;
+  }
 
   return <section aria-label="슬라이싱 실험실" className="min-w-0 space-y-4 border-y border-border py-5">
     <h3 className="font-semibold">슬라이싱 실험실 · 인덱스를 한 칸씩 선택하기</h3>
@@ -33,10 +49,11 @@ export function PythonSliceExplorer() {
     <div role="group" aria-label="슬라이싱 비교 유형" className="flex flex-wrap gap-2">{presets.map(([label, a, b, c]) => <button type="button" key={label} onClick={() => { setStart(a); setStop(b); setStep(c); setShown(0); }} className="min-h-11 rounded border border-border px-3 text-xs">{label}</button>)}</div>
     <code className="block break-all text-sm">s[{start}:{stop}:{step}]</code>
     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : <>
-      <p className="text-sm">정규화 경계: 시작 {trace!.start}, 끝 {trace!.stop}(제외), 간격 {trace!.step} · {trace!.step > 0 ? "오른쪽 →" : "← 왼쪽"}</p>
+      <p className="text-sm">실제 경계: 시작 {trace!.start}, 끝 {describeStop(trace!.stop, trace!.step)}, 간격 {trace!.step} · {trace!.step > 0 ? "오른쪽 →" : "← 왼쪽"}</p>
+      {negativeInputs.length ? <p className="text-xs text-muted-foreground">음수 입력은 길이를 더해 읽습니다: {negativeInputs.map(([label, value]) => `${label} ${value} → ${chars.length} + (${value}) = ${chars.length + Number(value)}`).join(" / ")}</p> : null}
       <div aria-label="원소와 양수·음수 인덱스" className="flex flex-wrap gap-2">{chars.map((char, index) => <div key={index} className={`min-w-11 rounded border px-2 py-2 text-center font-mono ${selected.includes(index) ? "border-brand bg-brand/10 text-brand" : "border-border"}`}><p className="text-xs">{index}</p><p className="my-2 text-lg font-semibold whitespace-pre">{char}</p><p className="text-xs">{index - chars.length}</p><p className="mt-1 text-xs">{selected.includes(index) ? `${selected.indexOf(index) + 1}번째` : "미선택"}</p></div>)}</div>
       <div className="flex flex-wrap gap-2"><button type="button" disabled={shown >= trace!.indices.length} onClick={() => setShown(shown + 1)} className="min-h-11 rounded border border-border px-3 text-sm disabled:opacity-40">다음 원소 선택</button><button type="button" onClick={() => setShown(trace!.indices.length)} className="min-h-11 rounded border border-border px-3 text-sm">전체 결과 확인</button><button type="button" onClick={() => setShown(0)} className="min-h-11 rounded border border-border px-3 text-sm">처음부터</button></div>
-      <div role="status" className="space-y-2 text-sm"><p>선택 순서: {selected.length ? selected.join(" → ") : "없음"}</p><p>현재 결과: <code>{JSON.stringify(result)}</code></p><p>{shown >= trace!.indices.length ? "선택 완료. 끝 인덱스는 포함하지 않습니다." : "아직 선택할 원소가 남아 있습니다."}</p></div>
+      <div role="status" className="space-y-2 text-sm"><p>선택 순서: {selected.length ? selected.join(" → ") : "없음"}</p><p>현재 결과: <code>{JSON.stringify(result)}</code></p><p>{trace!.indices.length === 0 ? `선택할 원소가 없어 결과는 빈 문자열 ''입니다. ${explainEmptyResult(trace!.start, trace!.stop, trace!.step)}` : shown >= trace!.indices.length ? "선택 완료. 끝 인덱스는 포함하지 않습니다." : "아직 선택할 원소가 남아 있습니다."}</p></div>
     </>}
   </section>;
 }

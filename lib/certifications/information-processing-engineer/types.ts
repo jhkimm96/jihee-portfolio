@@ -79,4 +79,5 @@ export type ProgrammingExample = { id: string; title: string; code: string; outp
 export type ProgrammingLesson = {
   id: string; conceptId: string; language: "Python" | "Java"; priority: 1 | 2 | 3;
   title: string; rule: string; trap: string; examples: ProgrammingExample[];
+  solvingSteps?: string[];
 };

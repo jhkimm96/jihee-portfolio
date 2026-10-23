@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { pythonReference } from "./python-reference";
 import { programmingLessons, programmingQuestions, findStudyQuestion } from "./programming-practice";
 import { studyConcepts } from "./concepts";
-import { ProgrammingLessonExplorer, PythonReferenceExplorer } from "../../../components/certification-study/programming-lesson-explorer";
+import { ProgrammingLessonExplorer, PythonReferenceExplorer, PythonTextFormatGuide } from "../../../components/certification-study/programming-lesson-explorer";
 import { PythonSliceExplorer } from "../../../components/certification-study/python-slice-explorer";
 import { ProgrammingPractice } from "../../../components/certification-study/programming-practice";
 import { gradeAnswer } from "../study-grading";
@@ -58,6 +58,8 @@ describe("programming mastery coverage", () => {
     }
     expect(renderToStaticMarkup(createElement(PythonReferenceExplorer))).toContain("함수·메서드 검색");
     expect(renderToStaticMarkup(createElement(PythonSliceExplorer))).toContain("다음 원소 선택");
+    const formatGuide = renderToStaticMarkup(createElement(PythonTextFormatGuide));
+    expect(formatGuide).toContain("chr(66) → &#x27;B&#x27;"); expect(formatGuide).toContain("서식 지정자");
     const quiz = renderToStaticMarkup(createElement(ProgrammingPractice, { questions: programmingQuestions.slice(0, 2), attempts: [], onSubmit: () => {} }));
     expect(quiz).toContain("제출하고 채점"); expect(quiz).toContain("예상 출력");
   });

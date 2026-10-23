@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pythonLessons } from "../lib/certifications/information-processing-engineer/python-lessons";
 import { javaLessons } from "../lib/certifications/information-processing-engineer/java-lessons";
-import { pythonReference } from "../lib/certifications/information-processing-engineer/python-reference";
+import { formatSpecExamples, pythonReference } from "../lib/certifications/information-processing-engineer/python-reference";
 import { tracePythonSlice } from "../lib/certifications/information-processing-engineer/python-slicing";
 
 const workingDirectory = mkdtempSync(join(tmpdir(), "study-programming-check-"));
@@ -28,6 +28,7 @@ function checkOutput(id: string, command: string, args: string[], expected: stri
 }
 for (const lesson of pythonLessons) for (const example of lesson.examples) checkOutput(example.id, "python", ["-c", example.code], example.output);
 for (const entry of pythonReference) checkOutput(entry.id, "python", ["-c", entry.code], entry.output);
+for (const example of formatSpecExamples) checkOutput(`format ${example.expression}`, "python", ["-c", `print(${example.expression})`], example.output);
 for (const lesson of javaLessons) for (const example of lesson.examples) {
   const source = join(workingDirectory, "Main.java");
   writeFileSync(source, example.code, "utf8");

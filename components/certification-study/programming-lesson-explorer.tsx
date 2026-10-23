@@ -2,13 +2,14 @@
 
 import React, { useId, useState } from "react";
 import type { ProgrammingLesson } from "../../lib/certifications/information-processing-engineer/types";
-import { pythonReference } from "../../lib/certifications/information-processing-engineer/python-reference";
+import { characterCodeGroups, formatSpecExamples, formatSpecParts, pythonReference } from "../../lib/certifications/information-processing-engineer/python-reference";
 
 export function ProgrammingLessonExplorer({ lessons }: { lessons: ProgrammingLesson[] }) {
   const [lessonId, setLessonId] = useState(lessons[0].id);
   const lesson = lessons.find((entry) => entry.id === lessonId) ?? lessons[0];
   return <section aria-label="프로그래밍 단계별 이해" className="min-w-0 space-y-5">
-    <p className="text-xs leading-6 text-muted-foreground">Python 3.12 / Java 17 기준의 자체 제작 예제입니다. 브라우저 실행기가 아니라 사전 검증한 실행 과정을 보여줍니다. O1·L1 등은 설명용 객체 이름이며 실제 주소가 아닙니다.</p>
+    <p className="text-xs leading-6 text-muted-foreground">Python 3.12 / Java 17 기준의 자체 제작 예제입니다. 브라우저 실행기가 아니라 사전 검증한 실행 과정을 보여줍니다.</p>
+    <div className="border-l-2 border-brand pl-3 text-sm leading-7"><p className="font-semibold">이름표 읽는 법</p><p>L1·L2는 리스트, I1·I2는 리스트 안의 리스트, O1·O2는 클래스로 만든 객체(Java에서는 배열·문자열 객체도 포함), D는 기본값 리스트에 붙인 설명용 이름표입니다. 숫자는 만들어진 순서이고 실제 메모리 주소가 아닙니다. <code>a → L1</code>은 "이름 a가 상자 L1을 가리킨다", <code>L1 = [→I1, →I2]</code>는 "L1의 칸들이 I1, I2를 가리킨다"는 뜻입니다.</p></div>
     <div role="group" aria-label="학습 주제" className="flex flex-wrap gap-2">{lessons.map((entry) => <button key={entry.id} type="button" aria-pressed={entry.id === lesson.id} onClick={() => setLessonId(entry.id)} className={`min-h-11 max-w-full rounded border px-3 py-2 text-left text-sm ${entry.id === lesson.id ? "border-brand bg-brand/5 text-brand" : "border-border"}`}>{entry.priority}순위 · {entry.title}</button>)}</div>
     <ExampleWalkthrough key={lesson.id} lesson={lesson} />
   </section>;
@@ -35,6 +36,42 @@ function ExampleWalkthrough({ lesson }: { lesson: ProgrammingLesson }) {
     <div className="flex flex-wrap gap-2"><button type="button" disabled={stepIndex === 0} onClick={() => setStepIndex(stepIndex - 1)} className="min-h-11 rounded border border-border px-3 text-sm disabled:opacity-40">이전 단계</button><button type="button" disabled={stepIndex === example.steps.length - 1} onClick={() => setStepIndex(stepIndex + 1)} className="min-h-11 rounded border border-border px-3 text-sm disabled:opacity-40">다음 단계</button><button type="button" onClick={() => setStepIndex(0)} className="min-h-11 rounded border border-border px-3 text-sm">처음부터</button></div>
     <div className="border-l-2 border-brand pl-3"><h4 className="text-sm font-semibold">틀리기 쉬운 차이</h4><p className="mt-2 text-sm leading-7">{lesson.trap}</p></div>
   </div>;
+}
+
+function describeCharacter(character: string) {
+  const code = character.codePointAt(0)!;
+  if (character === " ") return "' ' (공백)";
+  if (code < 32 || (code >= 127 && code < 160)) return "화면에 보이지 않는 제어 문자";
+  return `'${character}'`;
+}
+
+export function PythonTextFormatGuide() {
+  const [characters, setCharacters] = useState("Az9");
+  const [codeText, setCodeText] = useState("66");
+  const code = Number(codeText);
+  const isValidCode = /^\d+$/.test(codeText) && code <= 0x10ffff && !(code >= 0xd800 && code <= 0xdfff);
+  return <section aria-label="문자 코드표와 서식 정리" className="min-w-0 space-y-5 border-y border-border py-5">
+    <h3 className="font-semibold">문자 코드표 · ord와 chr</h3>
+    <p className="text-sm leading-7">시작 번호 네 개만 외우고 나머지는 1씩 세면 됩니다. 공백 32, 숫자 문자 &apos;0&apos; 48, 대문자 &apos;A&apos; 65, 소문자 &apos;a&apos; 97. 같은 알파벳의 소문자는 대문자보다 32 큽니다.</p>
+    {characterCodeGroups.map((group) => <div key={group.name} className="space-y-2">
+      <h4 className="text-xs text-muted-foreground">{group.name} · {group.characters.length === 1 ? group.characters.codePointAt(0) : `${group.characters.codePointAt(0)}~${group.characters.codePointAt(group.characters.length - 1)}`}</h4>
+      <div className="flex flex-wrap gap-1">{Array.from(group.characters).map((character) => <div key={character} className="min-w-10 rounded border border-border px-1 py-1 text-center font-mono"><p className="text-base font-semibold">{character === " " ? "␠" : character}</p><p className="text-xs text-muted-foreground">{character.codePointAt(0)}</p></div>)}</div>
+    </div>)}
+    <div className="grid gap-4 sm:grid-cols-2">
+      <div className="space-y-2"><label className="block text-sm">문자 → ord(문자)<input value={characters} maxLength={10} onChange={(event) => setCharacters(event.target.value)} className="mt-2 block min-h-11 w-full rounded border border-border bg-background px-3 font-mono" /></label>
+        <ul role="status" className="space-y-1 font-mono text-sm">{Array.from(characters).slice(0, 10).map((character, index) => <li key={index}>ord({describeCharacter(character)}) → {character.codePointAt(0)}</li>)}</ul></div>
+      <div className="space-y-2"><label className="block text-sm">번호 → chr(번호)<input value={codeText} inputMode="numeric" onChange={(event) => setCodeText(event.target.value)} className="mt-2 block min-h-11 w-full rounded border border-border bg-background px-3 font-mono" /></label>
+        <p role="status" className="font-mono text-sm">{isValidCode ? `chr(${code}) → ${describeCharacter(String.fromCodePoint(code))}` : "0~1114111 사이의 정수를 입력하세요. 범위를 벗어나면 Python은 ValueError입니다."}</p></div>
+    </div>
+    <h3 className="font-semibold">서식 지정자 · {"{값:채움 정렬 부호 # 0 폭 , .정밀도 타입}"}</h3>
+    <p className="text-sm leading-7">콜론(:) 뒤를 이 순서로 한 칸씩 읽고, 쓰지 않은 칸은 건너뜁니다. 예를 들어 <code>*^8.2f</code>는 채움 *, 가운데 정렬, 폭 8, 소수 2자리 실수입니다. % 서식(<code>&apos;%5.1f&apos; % x</code>)과 <code>format()</code>도 같은 규칙을 씁니다.</p>
+    <dl className="grid gap-2 text-sm sm:grid-cols-[96px_minmax(0,1fr)]">{formatSpecParts.map(([part, meaning, sample]) => <React.Fragment key={part}><dt className="font-mono font-semibold text-brand">{part}</dt><dd className="min-w-0">{meaning} <code className="whitespace-pre text-muted-foreground">{sample}</code></dd></React.Fragment>)}</dl>
+    <p className="text-xs text-muted-foreground">아래 결과의 대괄호 [ ]는 빈칸이 몇 개인지 보이도록 붙인 것입니다.</p>
+    <ul className="space-y-2">{formatSpecExamples.map((example) => <li key={example.expression} className="grid min-w-0 gap-1 rounded border border-border px-3 py-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <code className="break-all font-mono text-sm">{example.expression} → <span className="whitespace-pre font-semibold text-brand">{example.output}</span></code>
+      <span className="text-sm text-muted-foreground">{example.reading}</span>
+    </li>)}</ul>
+  </section>;
 }
 
 export function PythonReferenceExplorer() {
