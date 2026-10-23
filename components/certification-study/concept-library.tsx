@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { ArrowRight, BookOpen, ExternalLink, Search } from "lucide-react";
 import { studyConcepts, type StudyConcept } from "@/lib/certifications/information-processing-engineer/concepts";
+import { pointerWalkthroughs } from "@/lib/certifications/information-processing-engineer/pointer-walkthroughs";
+import { PointerWalkthrough } from "@/components/certification-study/pointer-walkthrough";
 
 const categories = [...new Set(studyConcepts.map((concept) => concept.category))];
 
@@ -70,6 +72,7 @@ function ConceptCard({ concept, pass, onOpenQuestion }: { concept: StudyConcept;
           </>
         ) : null}
         {pass !== 3 ? <div><h3 className="text-sm font-semibold">직접 추적할 예제</h3><pre className="mt-2 max-w-full overflow-x-auto rounded border border-border bg-muted/40 p-4 text-sm leading-7"><code>{concept.example}</code></pre><p className="mt-3 text-sm leading-7 text-muted-foreground">{concept.explanation}</p></div> : null}
+        {pass !== 3 && pointerWalkthroughs[concept.id] ? <PointerWalkthrough lesson={pointerWalkthroughs[concept.id]} /> : null}
         <div><h3 className="text-sm font-semibold">스스로 확인</h3><p className="mt-2 text-sm leading-7">{concept.selfCheck}</p><details className="mt-2"><summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-brand">답 확인</summary><p className="text-sm leading-7">{concept.selfCheckAnswer}</p></details></div>
         <details open={pass !== 3} className="rounded bg-brand/5 px-3 py-2"><summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold text-brand">다시 기억할 규칙</summary><p className="pb-2 text-sm leading-7">{concept.memoryRule}</p></details>
 
