@@ -323,7 +323,7 @@ export const studyConcepts: StudyConcept[] = [
   },
   {
     id: "security-basics", category: "보안", day: 8, level: "필수", title: "CIA, AAA와 보안 장비",
-    definition: "CIA는 기밀성, 무결성, 가용성이다. AAA는 인증, 권한 부여, 사용 기록 관리다.",
+    definition: "CIA는 기밀성·무결성·가용성, AAA는 인증·인가·사용 기록 관리다. 아래에서 보안 장비, DAC·MAC·RBAC 접근통제, ISMS·ISMS-P와 제로 트러스트·MFA를 상황별로 비교한다.",
     steps: ["누가 읽는지, 누가 바꾸는지, 언제 이용 가능한지를 나눈다.", "신원 확인과 권한 확인을 구분한다.", "탐지 중심 IDS와 차단 기능 IPS, 웹 공격 방어 WAF를 연결한다."],
     trap: "인증에 성공했다고 모든 데이터 접근 권한이 생기는 것은 아니다. 보안 장비의 이름만으로 모든 공격을 막는다고 단정하지 않는다.",
     example: "로그인으로 신원 확인 → Authentication\n관리자만 삭제 가능 → Authorization\n누가 언제 접근했는지 기록 → Accounting",
@@ -333,7 +333,7 @@ export const studyConcepts: StudyConcept[] = [
   },
   {
     id: "security-attacks", category: "보안", day: 8, level: "필수", title: "공격 용어를 행동으로 구분하기",
-    definition: "공격 이름보다 표적, 유입 경로, 실행 행동을 확인하면 비슷한 용어를 구분하기 쉽다.",
+    definition: "공격 이름보다 표적·유입 경로·실행 행동을 먼저 본다. 피싱 계열, 통신·세션 탈취, 서비스 마비, 악성코드와 계정 공격을 비교하고 크리덴셜 스터핑·패스워드 스프레이·공급망 공격도 보충한다.",
     steps: ["특정 표적을 노리는지 불특정 다수인지 본다.", "메일, 문자, 웹, DNS, 공급망 중 경로를 표시한다.", "은닉, 암호화, 도청, 위장 중 행동을 붙인다."],
     trap: "스피어 피싱은 특정 표적을 겨냥한다. PDF의 불특정 다수 설명과 혼동하지 않는다. Rootkit은 은닉, 랜섬웨어는 금전 요구가 핵심이다.",
     example: "자주 가는 사이트 감염 → Watering Hole\n표적에게 맞춤 메일 → Spear Phishing\n침투 후 장기간 정보 수집 → APT\n시스템 내 존재 숨김 → Rootkit",
@@ -343,7 +343,7 @@ export const studyConcepts: StudyConcept[] = [
   },
   {
     id: "security-web", category: "보안", day: 8, level: "필수", title: "SQL Injection, XSS, CSRF와 TOCTOU",
-    definition: "주입 공격은 데이터가 명령처럼 해석되는 문제를 이용한다. CSRF는 로그인한 사용자의 권한으로 원치 않는 요청을 보내게 한다.",
+    definition: "SQL Injection은 DB 명령, XSS는 브라우저 실행, CSRF는 로그인한 브라우저의 위조 요청을 구분한다. SSRF는 서버의 요청을 유도한다. TOCTOU·심볼릭 링크 악용·버퍼 오버플로·경로 이탈도 그림으로 비교한다.",
     steps: ["SQL 명령이 바뀌면 SQL Injection으로 본다.", "브라우저에서 악성 스크립트가 실행되면 XSS를 확인한다.", "확인과 사용 사이에 대상이 바뀌면 TOCTOU를 의심한다."],
     trap: "XSS와 CSRF는 같지 않다. 심볼릭 링크 자체가 악성인 것도 아니다. 공격 문맥에서 경로를 바꿔치기하는지 확인한다.",
     example: "SQL 문자열 연결 대신 매개변수 바인딩\n출력 문맥에 맞는 인코딩으로 XSS 방어\nCSRF 토큰과 적절한 쿠키 정책\n확인한 파일과 사용한 파일이 같은지 보장",
@@ -353,7 +353,7 @@ export const studyConcepts: StudyConcept[] = [
   },
   {
     id: "security-crypto", category: "보안", day: 8, level: "필수", title: "암호화, 해시와 전자서명",
-    definition: "대칭키는 같은 비밀키로 암복호화한다. 공개키 방식은 키 쌍을 사용한다. 암호학적 해시는 입력을 고정 길이 값으로 변환한다.",
+    definition: "대칭키·공개키·해시의 목적을 나누고 AES·RSA·SHA를 연결한다. 솔트·HMAC·전자서명·인증서·PKI·TLS에서 누가 어떤 키를 쓰는지, 무엇이 검증되고 무엇은 보호되지 않는지 비교한다.",
     steps: ["원문 복원이 필요한지부터 확인한다.", "기밀 통신과 서명 검증의 키 사용 방향을 구분한다.", "AES의 블록·키 크기와 해시의 단방향·충돌 저항 특성을 정리한다."],
     trap: "해시는 복호화하지 않는다. 전자서명은 서명자의 개인키로 생성하고 공개키로 검증한다. AES 블록은 128비트, 키는 128/192/256비트다.",
     example: "기밀 통신: 수신자 공개키로 암호화 → 수신자 개인키로 복호화\n전자서명: 서명자 개인키로 서명 → 서명자 공개키로 검증\n해시: 변경 여부 확인 등에 사용",

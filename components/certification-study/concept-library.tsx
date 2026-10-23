@@ -6,6 +6,8 @@ import { studyConcepts, type StudyConcept } from "@/lib/certifications/informati
 import { pointerWalkthroughs } from "@/lib/certifications/information-processing-engineer/pointer-walkthroughs";
 import { PointerWalkthrough } from "@/components/certification-study/pointer-walkthrough";
 import { DesignPatternExplorer } from "@/components/certification-study/design-pattern-explorer";
+import { securityLessons } from "@/lib/certifications/information-processing-engineer/security-concepts";
+import { SecurityConceptExplorer } from "@/components/certification-study/security-concept-explorer";
 
 const categories = [...new Set(studyConcepts.map((concept) => concept.category))];
 
@@ -18,7 +20,8 @@ export function ConceptLibrary({ onOpenQuestion }: { onOpenQuestion: (questionId
   const visibleConcepts = studyConcepts.filter((concept) => {
     if (category !== "전체" && concept.category !== category) return false;
     if (level !== "전체" && concept.level !== level) return false;
-    return [concept.title, concept.definition, concept.trap, concept.memoryRule].join(" ").toLocaleLowerCase("ko").includes(normalizedQuery);
+    const securityTerms = securityLessons[concept.id]?.terms.flatMap((term) => [term.name, term.summary, term.keywords]) ?? [];
+    return [concept.title, concept.definition, concept.trap, concept.memoryRule, ...securityTerms].join(" ").toLocaleLowerCase("ko").includes(normalizedQuery);
   });
 
   return (
@@ -72,9 +75,10 @@ function ConceptCard({ concept, pass, onOpenQuestion }: { concept: StudyConcept;
             <div className="border-l-2 border-brand pl-3"><h3 className="text-sm font-semibold">자주 틀리는 지점</h3><p className="mt-2 text-sm leading-7 text-muted-foreground">{concept.trap}</p></div>
           </>
         ) : null}
-        {pass !== 3 && concept.id !== "patterns-uml" ? <div><h3 className="text-sm font-semibold">직접 추적할 예제</h3><pre className="mt-2 max-w-full overflow-x-auto rounded border border-border bg-muted/40 p-4 text-sm leading-7"><code>{concept.example}</code></pre><p className="mt-3 text-sm leading-7 text-muted-foreground">{concept.explanation}</p></div> : null}
+        {pass !== 3 && concept.id !== "patterns-uml" && !securityLessons[concept.id] ? <div><h3 className="text-sm font-semibold">직접 추적할 예제</h3><pre className="mt-2 max-w-full overflow-x-auto rounded border border-border bg-muted/40 p-4 text-sm leading-7"><code>{concept.example}</code></pre><p className="mt-3 text-sm leading-7 text-muted-foreground">{concept.explanation}</p></div> : null}
         {pass !== 3 && pointerWalkthroughs[concept.id] ? <PointerWalkthrough lesson={pointerWalkthroughs[concept.id]} /> : null}
         {pass !== 3 && concept.id === "patterns-uml" ? <DesignPatternExplorer /> : null}
+        {pass !== 3 && securityLessons[concept.id] ? <SecurityConceptExplorer lesson={securityLessons[concept.id]} /> : null}
         <div><h3 className="text-sm font-semibold">스스로 확인</h3><p className="mt-2 text-sm leading-7">{concept.selfCheck}</p><details className="mt-2"><summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-brand">답 확인</summary><p className="text-sm leading-7">{concept.selfCheckAnswer}</p></details></div>
         <details open={pass !== 3} className="rounded bg-brand/5 px-3 py-2"><summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold text-brand">다시 기억할 규칙</summary><p className="pb-2 text-sm leading-7">{concept.memoryRule}</p></details>
 
