@@ -383,12 +383,12 @@ export const studyConcepts: StudyConcept[] = [
   },
   {
     id: "patterns-uml", category: "DB·설계", day: 9, level: "필수", title: "디자인 패턴과 UML 관계",
-    definition: "패턴은 반복되는 설계 문제의 해결 구조다. UML은 구조나 행동, 객체 관계를 시각적으로 나타낸다.",
+    definition: "디자인 패턴은 반복되는 설계 문제를 해결하는 방법이고 UML 관계는 클래스·객체 사이의 관계를 그리는 표기다. 아래에서 생성 5개, 구조 7개, 행위 11개와 UML 관계 6개를 골라 상황과 그림으로 확인한다.",
     steps: ["생성·구조·행위 중 목적을 찾는다.", "관련 제품군 생성, 상태 통지, 구현 분리, 순회라는 행동을 패턴에 연결한다.", "상속, 부분-전체, 일시 사용, 일반 참조를 UML 관계와 구분한다."],
-    trap: "Abstract Factory는 제품군 생성, Factory Method는 생성 메서드 재정의가 핵심이다. 집약과 합성은 생명주기 의존을 구분한다.",
+    trap: "브리지는 두 계층의 독립적 확장, 어댑터는 인터페이스 호환이다. 전략은 알고리즘 교체, 상태는 내부 상태에 따른 행동 변경이다. UML 빈 삼각형은 상위 타입 쪽, 마름모는 전체 쪽에 붙는다. 합성은 전체가 부분의 생명주기를 책임진다.",
     example: "제품군 교체: Abstract Factory\n상태 변경 통지: Observer\n추상과 구현 분리: Bridge\n내부를 숨긴 순회: Iterator\n상속: 일반화 / 일시 사용: 의존",
-    explanation: "이름을 먼저 외우기보다 문제에서 하고 싶은 동작을 고른다.",
-    memoryRule: "군 생성 AF, 통지 Observer, 구현 분리 Bridge, 순회 Iterator.", selfCheck: "객체의 상태 변경을 구독 객체에 알리는 패턴은?", selfCheckAnswer: "Observer다.",
+    explanation: "이름만 외우지 않고 아래 선택 화면에서 필요한 상황, 그림, 달라지는 점을 함께 본다. 패턴의 상황 그림과 UML의 관계 표기를 구분한다.",
+    memoryRule: "생성은 만드는 방법, 구조는 조합하는 방법, 행위는 협력하는 방법. UML은 실선·점선과 삼각형·마름모의 위치를 함께 본다.", selfCheck: "기능 계층과 구현 계층을 독립적으로 확장하는 패턴과, 상태 변경을 구독 객체에게 알리는 패턴은? 인터페이스 구현의 UML 선은?", selfCheckAnswer: "브리지(Bridge), 옵서버(Observer)다. 인터페이스 구현은 실체화로, 점선과 인터페이스 쪽 빈 삼각형을 쓴다.",
     relatedQuestionIds: ["2026-1-02", "2024-1-20", "2024-2-10", "2024-3-14"], pdfReferences: [theoryPdf, "키워드찾기 130문제 PDF"],
   },
 ];
