@@ -12,8 +12,13 @@ import { gradeAnswer } from "./study-grading";
 const certificateId = "information-processing-engineer" as const;
 const reviewIntervalsInDays = [1, 3, 7];
 
+export function recordCramAnswer(progress: StudyProgress, question: ExamQuestion, answer: string, answeredAt: string): StudyProgress {
+  if (!answer.trim()) return progress;
+  return recordProgrammingAttempt(progress, question, answer, answeredAt);
+}
+
 export function recordProgrammingAttempt(progress: StudyProgress, question: ExamQuestion, answer: string, answeredAt: string): StudyProgress {
-  const { correct } = gradeAnswer({ submittedAnswer: answer, gradingMode: question.gradingMode, acceptedAnswers: question.acceptedAnswers });
+  const { correct } = gradeAnswer({ submittedAnswer: answer, gradingMode: question.gradingMode, acceptedAnswers: question.acceptedAnswers, subnetChecks: question.subnetChecks });
   const updated = { ...progress, programmingAttempts: [...(progress.programmingAttempts ?? []), { questionId: question.id, answer, correct, answeredAt }] };
   if (correct) return updated;
   const previous = progress.wrongAnswers.find((wrong) => wrong.questionId === question.id);
@@ -177,7 +182,7 @@ export function restoreBackup(backup: unknown): StudyProgress {
     throw new Error("지원하지 않는 백업 파일");
   }
   const progress = backup.progress;
-  const allowedTabs = ["today", "plan", "concepts", "exams", "wrong", "cards", "library"];
+  const allowedTabs = ["today", "plan", "cram", "concepts", "exams", "wrong", "cards", "library"];
   if (
     progress.certificateId !== certificateId ||
     !isStudyDay(progress.currentDay) ||

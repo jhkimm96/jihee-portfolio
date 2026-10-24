@@ -7,6 +7,11 @@ import { ExamWorkspace } from "@/components/certification-study/exam-workspace";
 import { FlashcardDeck } from "@/components/certification-study/flashcard-deck";
 import { WrongAnswerNotebook } from "@/components/certification-study/wrong-answer-notebook";
 import { ConceptLibrary } from "@/components/certification-study/concept-library";
+import { CramPlanPanel } from "@/components/certification-study/cram-plan-panel";
+import { cramBlocks } from "@/lib/certifications/information-processing-engineer/cram-plan";
+import { studyConcepts } from "@/lib/certifications/information-processing-engineer/concepts";
+import { recordCramAnswer } from "@/lib/certifications/study-progress";
+import type { ExamQuestion } from "@/lib/certifications/information-processing-engineer/types";
 import { studyDays, flexDays, studyResourceGroups } from "@/lib/certifications/information-processing-engineer/curriculum";
 import { examSessions } from "@/lib/certifications/information-processing-engineer/question-bank";
 import type { StudyProgress, ExamAttempt } from "@/lib/certifications/information-processing-engineer/types";
@@ -16,6 +21,7 @@ import { programmingQuestions, type ProgrammingQuestion } from "@/lib/certificat
 const storageKey = "jh-work:information-processing-engineer:progress:v1";
 const tabs = [
   ["today", "오늘 학습"],
+  ["cram", "12시간 벼락치기"],
   ["plan", "10일 플랜"],
   ["concepts", "개념"],
   ["exams", "기출"],
@@ -34,6 +40,9 @@ export function InformationProcessingEngineerHub() {
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [targetQuestionId, setTargetQuestionId] = useState<string | null>(null);
   const [returnConceptId, setReturnConceptId] = useState<string | null>(null);
+  const [cramBlockId, setCramBlockId] = useState("diagnosis");
+  const [cramQuestionId, setCramQuestionId] = useState<string | null>(null);
+  const [fromCramPlan, setFromCramPlan] = useState(false);
 
   useEffect(() => {
     try {
@@ -50,6 +59,47 @@ export function InformationProcessingEngineerHub() {
     }
     setRecordsLoaded(true);
   }, []);
+
+  useEffect(() => {
+    if (!recordsLoaded) return;
+    function readStudyLocation() {
+      const [tab, blockId, kind, id] = window.location.hash.slice(1).split("/");
+      setMoreMenuOpen(false);
+      if (tab !== "cram") {
+        setFromCramPlan(false);
+        setReturnConceptId(null);
+        setActiveTab(tabs.some(([key]) => key === tab) ? tab : "today");
+        return;
+      }
+      setFromCramPlan(true);
+      setCramBlockId(cramBlocks.some((block) => block.id === blockId) ? blockId : "diagnosis");
+      setCramQuestionId(kind === "question" && examSessions.some((session) => session.questions.some((question) => question.id === id)) ? id : null);
+      setTargetQuestionId(null);
+      setReturnConceptId(null);
+      if (kind === "concept" && studyConcepts.some((concept) => concept.id === id)) {
+        setActiveTab("concepts");
+        setReturnConceptId(id);
+      } else if (kind === "wrong") {
+        setActiveTab("wrong");
+      } else if (kind === "exam" && examSessions.some((session) => session.id === id)) {
+        setSessionId(id);
+        setActiveTab("exams");
+      } else {
+        setActiveTab("cram");
+      }
+    }
+    if (window.location.hash) readStudyLocation();
+    window.addEventListener("hashchange", readStudyLocation);
+    return () => window.removeEventListener("hashchange", readStudyLocation);
+  }, [recordsLoaded]);
+
+  useEffect(() => {
+    if (activeTab !== "cram") return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(cramQuestionId ? "cram-question" : "cram-block")?.scrollIntoView({ block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeTab, cramBlockId, cramQuestionId]);
 
   useEffect(() => {
     if (!recordsLoaded) return;
@@ -105,11 +155,16 @@ export function InformationProcessingEngineerHub() {
   const nextDay = studyDays.find(([day]) => Number(day.replace("일", "")) === progress.currentDay) ?? studyDays[0];
 
   function changeTab(tab: string) {
+    window.location.hash = tab === "cram" ? `cram/${cramBlockId}` : tab;
     setActiveTab(tab);
     setMoreMenuOpen(false);
   }
 
   function openExamQuestion(questionId: string) {
+    if (fromCramPlan && examSessions.some((session) => session.questions.some((question) => question.id === questionId))) {
+      window.location.hash = `cram/${cramBlockId}/question/${questionId}`;
+      return;
+    }
     if (programmingQuestions.some((question) => question.id === questionId)) {
       setTargetQuestionId(questionId); setActiveTab("concepts"); setMoreMenuOpen(false); return;
     }
@@ -146,6 +201,10 @@ export function InformationProcessingEngineerHub() {
 
   function submitProgrammingAnswer(question: ProgrammingQuestion, answer: string) {
     setProgress((current) => recordProgrammingAttempt(current, question, answer, new Date().toISOString()));
+  }
+
+  function submitCramAnswer(question: ExamQuestion, answer: string) {
+    setProgress((current) => recordCramAnswer(current, question, answer, new Date().toISOString()));
   }
 
   function updateAnswer(questionId: string, answer: string) {
@@ -214,6 +273,9 @@ export function InformationProcessingEngineerHub() {
       </nav>
 
       <div className="mt-7">
+        {fromCramPlan && activeTab !== "cram" ? <a href={`#cram/${cramBlockId}`} className="sticky top-20 z-20 mb-4 inline-flex min-h-11 items-center rounded border border-brand bg-background px-4 text-sm font-semibold">← 12시간 플랜의 보던 구간으로</a> : null}
+        {activeTab === "today" ? <a href="#cram/diagnosis" className="mb-5 block rounded border border-brand/40 bg-brand/5 p-5 font-semibold">시험 직전이라면: 12시간 벼락치기 시작 →<span className="mt-2 block text-sm font-normal text-muted-foreground">개념 바로가기 · 기출 개별 채점 · 오답 기록</span></a> : null}
+        {activeTab === "cram" ? <CramPlanPanel blockId={cramBlockId} questionId={cramQuestionId} attempts={progress.programmingAttempts} onSubmit={submitCramAnswer} /> : null}
         {activeTab === "today" ? <><TodayPanel day={nextDay} currentDay={progress.currentDay} onComplete={() => setProgress((current) => ({ ...current, completedDays: [...new Set([...current.completedDays, current.currentDay])], currentDay: Math.min(10, current.currentDay + 1) }))} /><section className="mt-5 border-t border-border pt-5"><h2 className="font-semibold">오늘 복습할 오답 {dueReviews.length}개</h2><p className="mt-2 text-sm text-muted-foreground">복습 날짜가 지났어도 기록은 그대로 남습니다.</p><button type="button" onClick={() => changeTab("cards")} className="mt-3 min-h-11 rounded border border-border px-4 text-sm">암기카드로 복습</button></section></> : null}
         {activeTab === "plan" ? <PlanPanel currentDay={progress.currentDay} /> : null}
         {activeTab === "concepts" ? <ConceptLibrary onOpenQuestion={openConceptQuestion} attempts={progress.programmingAttempts} onPracticeSubmit={submitProgrammingAnswer} targetQuestionId={targetQuestionId} /> : null}
@@ -224,7 +286,7 @@ export function InformationProcessingEngineerHub() {
       </div>
 
       {moreMenuOpen ? <nav id="study-more-menu" className="fixed inset-x-3 bottom-20 z-30 grid gap-2 rounded border border-border bg-background p-3 shadow-lg sm:hidden" aria-label="추가 학습 메뉴">
-        {[["plan", "10일 플랜"], ["concepts", "개념 공부"], ["library", "자료실"]].map(([id, label]) => <button key={id} type="button" onClick={() => changeTab(id)} className="min-h-11 rounded border border-border px-3 text-left text-sm">{label}</button>)}
+        {[["cram", "12시간 벼락치기"], ["plan", "10일 플랜"], ["concepts", "개념 공부"], ["library", "자료실"]].map(([id, label]) => <button key={id} type="button" onClick={() => changeTab(id)} className="min-h-11 rounded border border-border px-3 text-left text-sm">{label}</button>)}
       </nav> : null}
       <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-background p-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] sm:hidden" aria-label="모바일 학습 허브 메뉴">
         {[["today", "오늘"], ["exams", "기출"], ["wrong", "오답"], ["cards", "암기"]].map(([id, label]) => <button key={id} type="button" onClick={() => changeTab(id)} aria-pressed={activeTab === id} className={activeTab === id ? "min-h-11 rounded bg-secondary text-xs font-semibold" : "min-h-11 text-xs text-muted-foreground"}>{label}</button>)}
