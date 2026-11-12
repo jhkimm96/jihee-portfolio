@@ -2,14 +2,14 @@
 name: 김지희 개발 포트폴리오
 description: 판단의 근거를 기록으로 남기는 백엔드 개발자의 기술 포트폴리오
 colors:
-  signal-blue: "oklch(0.55 0.13 255)"
-  ink: "oklch(0.22 0.012 260)"
+  signal-blue: "#2350ff"
+  ink: "#0d1017"
   graphite: "oklch(0.26 0.018 262)"
-  paper: "oklch(0.992 0.001 260)"
-  card-white: "oklch(1 0 0)"
-  quiet-surface: "oklch(0.965 0.003 260)"
-  rule: "oklch(0.912 0.004 260)"
-  secondary-text: "oklch(0.505 0.012 260)"
+  paper: "#ffffff"
+  card-white: "#ffffff"
+  quiet-surface: "#f2f4f8"
+  rule: "#e2e6ee"
+  secondary-text: "#5a6375"
   status-live: "oklch(0.62 0.14 155)"
   status-archived: "oklch(0.68 0.13 75)"
   status-github: "oklch(0.55 0.01 260)"
@@ -145,11 +145,13 @@ components:
 
 ## Colors
 
+> 2026-11-12: 홈 1번 시안(흰 바탕 + 파랑 하나 + 검정 경력 띠)을 사이트 전체에 적용했다. 밝은 화면이 기본이고 테마 버튼으로 어두운 화면(같은 파랑)으로 바뀐다. 예전 코랄(`#e66a5d`)과 어두운 색 고정은 없앴다. 홈의 큰 이름 글씨만 Anton을 쓴다.
+
 거의 무채색인 쿨 그레이 지반 위에 파란 신호등 하나. 색은 분위기를 만들려고 쓰이지 않고, 무언가를 **가리키려고** 쓰인다.
 
 ### Primary
 
-- **시그널 블루 / Signal Blue** (`oklch(0.55 0.13 255)`, 다크 `oklch(0.72 0.12 255)`): 이 사이트의 유일한 유채색. 근거로 가는 링크, Key outcome 블록, 활성 내비게이션의 밑단, 인용문 좌측 테두리, 호버 시 카드 테두리, 히어로 뒤 방사형 광원. 채도를 눌러 놓았기 때문에 여러 번 등장해도 시끄럽지 않지만, 그 절제가 규칙으로 지켜질 때만 신호로 작동한다.
+- **시그널 블루 / Signal Blue** (`#2350ff`, 다크 `#7b93ff`): 이 사이트의 유일한 유채색. 근거로 가는 링크, Key outcome 블록, 활성 내비게이션의 밑단, 인용문 좌측 테두리, 호버 시 카드 테두리, 히어로 뒤 방사형 광원. 채도를 눌러 놓았기 때문에 여러 번 등장해도 시끄럽지 않지만, 그 절제가 규칙으로 지켜질 때만 신호로 작동한다.
 
 ### Neutral
 

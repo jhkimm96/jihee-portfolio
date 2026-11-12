@@ -9,6 +9,8 @@ import { Markdown } from '@/components/markdown'
 import { StatusBadge, TechChip } from '@/components/content-badges'
 import { PostCard } from '@/components/post-card'
 import { ScoreTrendChart } from '@/components/quality-charts'
+import { ProjectShowcasePanel, ShowcaseProjectTabs } from '@/components/project-showcase-panel'
+import { projectShowcases, type ProjectShowcase } from '@/lib/project-showcase'
 import { formatCategory, formatDate } from '@/lib/format'
 import {
   getAllProjects,
@@ -19,6 +21,7 @@ import {
   getQualityForProject,
   getQualityTrendFor,
   getPickTarget,
+  getProjectTitle,
   getResumeVariants,
   getLearningPathByProject
 } from '@/lib/content-data'
@@ -97,6 +100,52 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     { label: '역할', value: project.role }
   ]
 
+  const showcase = projectShowcases[project.slug] as ProjectShowcase | undefined
+  const showcaseTabs = Object.entries(projectShowcases).map(([slug, item]) => ({ slug, title: getProjectTitle(slug), tag: item.tag }))
+
+  const projectIntro = (
+    <>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-3xl font-bold tracking-tight text-balance">{project.title}</h1>
+        <StatusBadge status={project.status} />
+      </div>
+      <p className="max-w-3xl text-base leading-relaxed text-muted-foreground text-pretty sm:text-lg">{project.description}</p>
+    </>
+  )
+
+  const projectStack = (
+    <div className="flex flex-wrap gap-1.5">
+      {project.stack.map((item) => (
+        <TechChip key={item}>{item}</TechChip>
+      ))}
+    </div>
+  )
+
+  const projectLinks = (
+    <div className="flex flex-wrap gap-3">
+      {project.github ? <Button asChild size="sm" variant="outline">
+        <Link href={project.github} target="_blank" rel="noopener noreferrer">
+          <GithubIcon className="size-4" />
+          GitHub
+        </Link>
+      </Button> : null}
+      {project.demo ? (
+        <Button asChild size="sm" variant="outline">
+          <Link href={project.demo} target="_blank" rel="noopener noreferrer">
+            <ExternalLink className="size-4" />
+            Live Demo
+          </Link>
+        </Button>
+      ) : null}
+      {learningPath ? <Button asChild size="sm" variant="outline">
+        <Link href={`/study/paths/${project.slug}`}>
+          <BookOpen className="size-4" />
+          프로젝트 학습 경로
+        </Link>
+      </Button> : null}
+    </div>
+  )
+
   return (
     <div className="ink-signal-page ink-signal-project-page mx-auto max-w-5xl px-4 py-10 sm:px-6">
       <Link
@@ -107,12 +156,23 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         Projects
       </Link>
 
+      {showcase ? (
+        <>
+          <ShowcaseProjectTabs projects={showcaseTabs} currentSlug={project.slug} />
+          <ProjectShowcasePanel title={project.title} showcase={showcase}>
+            <p className="showcase-meta">{showcase.meta}</p>
+            {projectIntro}
+            <dl className="showcase-facts">
+              <div><dt>MY ROLE</dt><dd>{showcase.role}</dd></div>
+              <div><dt>STACK</dt><dd>{projectStack}</dd></div>
+            </dl>
+            {projectLinks}
+          </ProjectShowcasePanel>
+        </>
+      ) : null}
+
       <header className="ink-project-hero mt-6 space-y-5 border-b border-border pb-8">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-3xl font-bold tracking-tight text-balance">{project.title}</h1>
-          <StatusBadge status={project.status} />
-        </div>
-        <p className="max-w-3xl text-base leading-relaxed text-muted-foreground text-pretty sm:text-lg">{project.description}</p>
+        {showcase ? null : projectIntro}
 
         <div className="ink-project-highlight rounded-xl border border-brand/20 bg-brand/5 px-4 py-3">
           <p className="mb-1 font-mono text-[0.7rem] font-semibold uppercase tracking-wider text-brand">이 프로젝트에서 가장 보여주고 싶은 것</p>
@@ -143,34 +203,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           ))}
         </dl>
 
-        <div className="flex flex-wrap gap-1.5">
-          {project.stack.map((item) => (
-            <TechChip key={item}>{item}</TechChip>
-          ))}
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          {project.github ? <Button asChild size="sm" variant="outline">
-            <Link href={project.github} target="_blank" rel="noopener noreferrer">
-              <GithubIcon className="size-4" />
-              GitHub
-            </Link>
-          </Button> : null}
-          {project.demo ? (
-            <Button asChild size="sm" variant="outline">
-              <Link href={project.demo} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="size-4" />
-                Live Demo
-              </Link>
-            </Button>
-          ) : null}
-          {learningPath ? <Button asChild size="sm" variant="outline">
-            <Link href={`/study/paths/${project.slug}`}>
-              <BookOpen className="size-4" />
-              프로젝트 학습 경로
-            </Link>
-          </Button> : null}
-        </div>
+        {showcase ? null : projectStack}
+        {showcase ? null : projectLinks}
 
         {project.statusNote ? (
           <div className="rounded-md border border-border bg-secondary/50 px-4 py-3">

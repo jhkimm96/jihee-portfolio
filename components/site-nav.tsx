@@ -13,6 +13,7 @@ import { getAbout } from '@/lib/content-data'
 const navItems = [
   { href: '/projects', label: '프로젝트' },
   { href: '/study', label: '기술 노트' },
+  { href: '/resume', label: '이력서' },
   { href: '/about', label: '소개' }
 ]
 

@@ -1,19 +1,29 @@
+import { Anton } from 'next/font/google'
 import { HomeInteractive } from '@/components/home-interactive'
-import { getAllProjects } from '@/lib/content-data'
+import { projectShowcases } from '@/lib/project-showcase'
+import {
+  getProjectBySlug,
+  getPublishedStudy,
+  getPublishedDecisions,
+  getPublishedTroubleshooting,
+  getPublishedReviews
+} from '@/lib/content-data'
 
-const projectOrder = [
-  'prompthub', 'career-link', 'help-desk', 'student-portfolio',
-  'competency-education', 'admission-system', 'erp-inventory'
-]
-const featuredProjectSlugs = projectOrder.slice(0, 4)
+// 큰 이름 글씨에만 쓰는 좁은 글꼴이라 홈에서만 불러온다.
+const displayFont = Anton({ subsets: ['latin'], weight: '400', variable: '--font-display' })
 
 export default function HomePage() {
-  const projects = getAllProjects().sort((a, b) => {
-    const aOrder = projectOrder.indexOf(a.slug)
-    const bOrder = projectOrder.indexOf(b.slug)
-    return (aOrder === -1 ? Infinity : aOrder) - (bOrder === -1 ? Infinity : bOrder)
-  })
-  const featuredProjects = projects.filter((project) => featuredProjectSlugs.includes(project.slug))
+  const featuredProjects = Object.keys(projectShowcases).flatMap((slug) => getProjectBySlug(slug) ?? [])
+  const recordCounts = {
+    study: getPublishedStudy().length,
+    decisions: getPublishedDecisions().length,
+    troubleshooting: getPublishedTroubleshooting().length,
+    reviews: getPublishedReviews().length
+  }
 
-  return <HomeInteractive projects={featuredProjects} />
+  return (
+    <div className={`home ${displayFont.variable}`}>
+      <HomeInteractive projects={featuredProjects} recordCounts={recordCounts} />
+    </div>
+  )
 }
