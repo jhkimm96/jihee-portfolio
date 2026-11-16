@@ -101,7 +101,7 @@ export function ExamWorkspace({
             <div className="flex items-start justify-between gap-3">
               <p className="font-mono text-xs text-brand">{String(index + 1).padStart(2, "0")} / 20</p>
               <div className="flex flex-wrap justify-end gap-1">
-                {question.tags.map((tag) => <span key={tag} className="rounded border border-border px-1.5 py-0.5 text-[0.68rem] text-muted-foreground">{tag}</span>)}
+                {question.tags.map((tag) => <span key={tag} className="rounded border border-border px-1.5 py-0.5 text-xs text-muted-foreground">{tag}</span>)}
               </div>
             </div>
             <p className="mt-3 whitespace-pre-wrap text-sm leading-7">{question.prompt}</p>

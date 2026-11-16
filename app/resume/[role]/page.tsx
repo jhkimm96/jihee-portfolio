@@ -99,7 +99,7 @@ export default async function ResumeRolePage({ params }: { params: Promise<{ rol
                   {skill.items.map((item) => (
                     <span
                       key={item}
-                      className="inline-flex items-center rounded-md bg-secondary px-2 py-0.5 font-mono text-[0.7rem] font-medium text-secondary-foreground"
+                      className="inline-flex items-center rounded-md bg-secondary px-2 py-0.5 font-mono text-xs font-medium text-secondary-foreground"
                     >
                       {item}
                     </span>
@@ -144,7 +144,7 @@ export default async function ResumeRolePage({ params }: { params: Promise<{ rol
                           {pick.evidence ? <p><span className="font-mono text-brand">검증</span><br />{pick.evidence}</p> : null}
                         </div>
                       ) : null}
-                      <p className="mt-1.5 truncate font-mono text-[0.7rem] text-muted-foreground/80">
+                      <p className="mt-1.5 truncate font-mono text-xs text-muted-foreground/80">
                         {SITE_URL.replace('https://', '')}
                         {target.href}
                       </p>

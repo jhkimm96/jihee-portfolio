@@ -47,8 +47,8 @@ export function PostArticle({ backHref, backLabel, title, date, updatedAt, conte
                 key={`${badge.kind}-${badge.label}`}
                 className={
                   badge.kind === 'project'
-                    ? 'inline-flex items-center rounded-md bg-primary px-2 py-0.5 font-mono text-[0.7rem] font-medium text-primary-foreground'
-                    : 'inline-flex items-center rounded-md border border-border px-2 py-0.5 font-mono text-[0.7rem] font-medium text-muted-foreground'
+                    ? 'inline-flex items-center rounded-md bg-primary px-2 py-0.5 font-mono text-xs font-medium text-primary-foreground'
+                    : 'inline-flex items-center rounded-md border border-border px-2 py-0.5 font-mono text-xs font-medium text-muted-foreground'
                 }
               >
                 {badge.kind === 'category' ? formatCategory(badge.label) : badge.label}

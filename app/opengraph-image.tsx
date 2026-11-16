@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og'
 import { getAbout } from '@/lib/content-data'
 
-export const alt = '김지희 — Backend Developer 포트폴리오'
+export const alt = '김지희 개발 포트폴리오'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
@@ -26,7 +26,7 @@ async function loadKoreanFont(): Promise<ArrayBuffer | null> {
 export default async function OpengraphImage() {
   const about = getAbout()
   const korean = await loadKoreanFont()
-  const headline = korean ? `${about.name}의 개발 포트폴리오` : about.role
+  const headline = korean ? `${about.name}의 개발 포트폴리오` : 'Developer Portfolio'
 
   return new ImageResponse(
     (
@@ -59,7 +59,7 @@ export default async function OpengraphImage() {
           >
             {'>'}
           </div>
-          <div style={{ fontSize: 26, color: '#9aa0a8', letterSpacing: 1 }}>{about.role}</div>
+          <div style={{ fontSize: 26, color: '#9aa0a8', letterSpacing: 1 }}>PORTFOLIO</div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>

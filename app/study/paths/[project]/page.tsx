@@ -46,7 +46,7 @@ export default async function LearningPathDetailPage({ params }: { params: Promi
               <div className="flex gap-4"><span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary font-mono text-sm text-primary-foreground">{index + 1}</span><div><h2 className="text-lg font-semibold">{stage.title}</h2><p className="mt-1 text-sm leading-relaxed text-muted-foreground">{stage.goal}</p></div></div>
               <div className="mt-5 divide-y divide-border rounded-md border border-border">
                 {resolved.map(({ item, target }) => target ? (
-                  <Link key={`${item.type}-${item.slug}`} href={target.href} className="flex items-center justify-between gap-4 px-3 py-3 text-sm hover:bg-secondary/60"><span>{target.title}</span><span className="flex shrink-0 items-center gap-2"><span className="rounded-full border border-border px-2 py-0.5 font-mono text-[0.65rem] text-muted-foreground">{importanceLabel[item.importance as LearningPathImportance]}</span><ArrowRight className="size-3.5 text-muted-foreground" /></span></Link>
+                  <Link key={`${item.type}-${item.slug}`} href={target.href} className="flex items-center justify-between gap-4 px-3 py-3 text-sm hover:bg-secondary/60"><span>{target.title}</span><span className="flex shrink-0 items-center gap-2"><span className="rounded-full border border-border px-2 py-0.5 font-mono text-xs text-muted-foreground">{importanceLabel[item.importance as LearningPathImportance]}</span><ArrowRight className="size-3.5 text-muted-foreground" /></span></Link>
                 ) : (
                   <div key={`${item.type}-${item.slug}`} className="px-3 py-3 text-sm text-destructive">연결할 문서를 찾지 못했습니다: {item.slug}</div>
                 ))}

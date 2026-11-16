@@ -39,7 +39,6 @@ export function HomeInteractive({ projects, recordCounts }: { projects: ProjectE
     <>
       <section className="home-hero" aria-labelledby="home-title">
         <div>
-          <p className="home-who">BACKEND DEVELOPER / SEOUL, KR</p>
           <p className="home-name" aria-hidden="true">JIHEE KIM<span>.</span></p>
           <h1 id="home-title">검색·추천·권한을 설계하고 데이터와 화면을 연결하는 개발자, 김지희입니다.</h1>
           <p className="home-lead">PromptHub에서는 상품·검색·개인화 추천을 두 서비스의 책임으로 나누어 구현했고, Career Link에서는 권한별 메뉴와 지원자 기능을 만들었습니다. Java와 Spring 기반 백엔드를 중심으로 서비스의 화면과 운영 검증까지 연결합니다.</p>

@@ -11,7 +11,6 @@
   margin: 0 auto;
   padding: 48px 24px 0;
 }
-.home-who { color: var(--brand); font: 600 13px var(--font-mono); letter-spacing: .04em; }
 .home-name { margin-top: 10px; font: 400 clamp(72px, 9.2vw, 118px)/.9 var(--font-display), var(--font-sans); letter-spacing: .01em; }
 .home-name span { color: var(--brand); }
 .home-hero h1 { max-width: 640px; margin-top: 24px; font-size: clamp(21px, 2vw, 25px); font-weight: 800; line-height: 1.42; letter-spacing: -.04em; word-break: keep-all; }
@@ -29,7 +28,7 @@
 .home-summary a { padding: 24px; border-left: 1px solid rgb(255 255 255 / 12%); }
 .home-summary a:first-child { border-left: 0; }
 .home-summary a:hover { background: rgb(255 255 255 / 6%); }
-.home-summary small { color: #91a6ff; font: 600 11px var(--font-mono); letter-spacing: .08em; }
+.home-summary small { color: #91a6ff; font: 600 12px var(--font-mono); letter-spacing: .08em; }
 .home-summary strong { display: block; margin-top: 4px; font-size: 19px; }
 .home-summary span { display: block; color: #aab1c0; font-size: 12.5px; }
 
@@ -45,11 +44,11 @@
 .home-project-card:hover { border-color: var(--brand); transform: translateY(-3px); }
 .home-project-card .showcase-frame { border-radius: 0; }
 .home-project-body { flex: 1; display: flex; flex-direction: column; gap: 8px; padding: 18px 20px 20px; }
-.home-project-body small { color: var(--brand); font: 600 11px var(--font-mono); }
+.home-project-body small { color: var(--brand); font: 600 12px var(--font-mono); }
 .home-project-body strong { font-size: 22px; letter-spacing: -.03em; }
 .home-project-body p { color: var(--muted-foreground); font-size: 13.5px; line-height: 1.6; }
 .home-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.home-chips span { padding: 4px 9px; border-radius: 6px; background: var(--muted); font: 500 11.5px var(--font-mono); }
+.home-chips span { padding: 4px 9px; border-radius: 6px; background: var(--muted); font: 500 12px var(--font-mono); }
 .home-project-body em { display: inline-flex; align-items: center; gap: 4px; margin-top: auto; padding-top: 8px; color: var(--brand); font-size: 13px; font-style: normal; font-weight: 700; }
 
 .home-shortcuts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; max-width: 1200px; margin: 0 auto; padding: 0 24px 72px; }
@@ -102,19 +101,19 @@
 .showcase-media-controls button { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 8px; background: var(--card); }
 .showcase-media-controls button:hover { border-color: var(--brand); color: var(--brand); }
 .showcase-info { display: flex; min-width: 0; flex-direction: column; gap: 14px; }
-.showcase-meta { color: var(--brand); font: 600 11.5px var(--font-mono); letter-spacing: .04em; }
+.showcase-meta { color: var(--brand); font: 600 12px var(--font-mono); letter-spacing: .04em; }
 .showcase-facts { display: grid; gap: 14px; padding-top: 16px; border-top: 1px solid var(--border); }
-.showcase-facts dt { color: var(--muted-foreground); font: 500 11px var(--font-mono); }
+.showcase-facts dt { color: var(--muted-foreground); font: 500 12px var(--font-mono); }
 .showcase-facts dd { margin-top: 4px; font-size: 14px; }
 .showcase-steps { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 36px; }
 .showcase-steps::before { content: ''; position: absolute; top: 11px; left: 11px; right: calc(25% - 11px); height: 2px; background: var(--border); }
 .showcase-steps button { position: relative; padding-right: 12px; text-align: left; }
 .showcase-steps i { display: block; width: 24px; height: 24px; border: 2px solid var(--brand); border-radius: 50%; background: var(--background); }
 .showcase-steps button[aria-selected='true'] i { background: var(--brand); }
-.showcase-steps small { display: block; margin-top: 10px; color: var(--brand); font: 600 11px var(--font-mono); }
+.showcase-steps small { display: block; margin-top: 10px; color: var(--brand); font: 600 12px var(--font-mono); }
 .showcase-steps strong { display: block; margin-top: 2px; font-size: 14.5px; }
 .showcase-step { margin-top: 18px; padding: 18px 20px; border-radius: 10px; background: var(--muted); }
-.showcase-step small { color: var(--brand); font: 600 11px var(--font-mono); }
+.showcase-step small { color: var(--brand); font: 600 12px var(--font-mono); }
 .showcase-step strong { display: block; margin-top: 4px; font-size: 17px; }
 .showcase-step p { margin-top: 4px; color: var(--muted-foreground); font-size: 14px; line-height: 1.7; }
 
@@ -124,6 +123,20 @@
   .showcase-media { padding: 10px; }
   .showcase-steps { grid-template-columns: 1fr 1fr; gap: 18px 0; }
   .showcase-steps::before { display: none; }
+}
+
+/* 모바일에서 누르는 영역을 44px 이상으로 넓힌다. 보이는 크기는 그대로 두고 여백만 늘린다. */
+@media (max-width: 767px) {
+  .home-visual { max-width: 280px; }
+  .home-actions a:last-child,
+  .home-projects-head a { display: inline-block; padding-block: 12px; }
+  .home-projects-head a { margin-top: 0; }
+  .showcase-media-controls button { width: 44px; height: 44px; }
+  .ink-signal-project-page > a:first-child { min-height: 44px; }
+  .ink-signal-project-page [data-slot='button'],
+  .ink-signal-project-page a.inline-flex { min-height: 44px; align-items: center; }
+  .ink-signal-page .ink-project-nav a { display: inline-flex; min-height: 44px; align-items: center; }
+  .ink-signal-page .ink-project-contribution summary { padding-block: 12px; }
 }
 
 @custom-variant dark (&:is(.dark *));
@@ -625,12 +638,6 @@
   border-color: color-mix(in oklab, var(--brand) 35%, transparent) !important;
 }
 
-.ink-signal-page .rounded-xl,
-.ink-signal-page .rounded-lg,
-.ink-signal-page .rounded-md {
-  border-radius: 2px;
-}
-
 .ink-signal-page .shadow-e1,
 .ink-signal-page .shadow-e2,
 .ink-signal-page .shadow-e3 {
@@ -657,7 +664,6 @@
 .ink-signal-page .ink-project-highlight,
 .ink-signal-page .ink-study-project-paths {
   border-left: 3px solid var(--ink-accent) !important;
-  border-radius: 0;
 }
 
 .ink-signal-page .ink-project-highlight p:last-child {
@@ -666,7 +672,6 @@
 
 .ink-signal-page .ink-project-contribution {
   border-top: 1px solid var(--ink-line-strong) !important;
-  border-radius: 0;
 }
 
 .ink-signal-page .ink-project-contribution summary,
@@ -690,7 +695,6 @@
 .ink-signal-page .ink-study-map {
   position: relative;
   overflow: hidden;
-  border-radius: 0;
   background: var(--ink-panel) !important;
 }
 
@@ -708,7 +712,6 @@
 
 .ink-signal-page .ink-study-map ol {
   border-color: var(--ink-line-strong) !important;
-  border-radius: 0;
   background: var(--ink-line) !important;
 }
 
@@ -789,7 +792,6 @@
 
 .ink-signal-page .prose-content pre {
   border: 1px solid var(--ink-line-strong);
-  border-radius: 0;
   background: var(--ink-surface);
 }
 
@@ -825,13 +827,11 @@
 
 .ink-signal-study-page .order-first {
   margin-top: 32px;
-  border-radius: 0;
   background: var(--ink-panel) !important;
 }
 
 .ink-signal-study-page input[type='search'] {
   min-height: 48px;
-  border-radius: 0;
   border-color: var(--ink-line-strong);
   background: var(--ink-bg) !important;
   color: var(--ink-ink);
@@ -839,19 +839,16 @@
 
 .ink-signal-study-page form button {
   min-height: 48px;
-  border-radius: 0;
   background: var(--ink-accent);
   color: var(--brand-foreground);
 }
 
 .ink-signal-study-page > .grid > div > .inline-flex {
-  border-radius: 0;
   background: var(--ink-panel) !important;
 }
 
 .ink-signal-study-page .grid.grid-cols-1 > a,
 .ink-signal-study-page .grid.grid-cols-1 > .group {
-  border-radius: 0;
   background: var(--ink-panel) !important;
 }
 
@@ -885,7 +882,7 @@
 .ink-roadmap-steps button span,
 .ink-roadmap-kicker {
   color: var(--ink-accent);
-  font: 10px var(--font-mono);
+  font: 12px var(--font-mono);
   letter-spacing: .08em;
 }
 
@@ -941,7 +938,7 @@
 
 .ink-roadmap-reading-list li > span {
   color: var(--ink-dim);
-  font: 10px var(--font-mono);
+  font: 12px var(--font-mono);
 }
 
 .ink-roadmap-reading-list a {
@@ -960,7 +957,7 @@
   display: block;
   margin-top: 5px;
   color: var(--ink-muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.5;
 }
 
@@ -977,7 +974,7 @@
   gap: 8px;
   margin-top: 22px;
   color: var(--ink-accent);
-  font: 11px var(--font-mono);
+  font: 12px var(--font-mono);
 }
 
 .ink-roadmap-empty {
@@ -1018,12 +1015,7 @@
 .ink-signal-page .rounded-xl,
 .ink-signal-page .rounded-lg,
 .ink-signal-page .rounded-md {
-  border-radius: 0.18rem;
   box-shadow: none;
-}
-
-.ink-signal-page .rounded-full {
-  border-radius: 0.18rem;
 }
 
 .ink-signal-page input:focus-visible,

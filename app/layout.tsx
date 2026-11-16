@@ -17,7 +17,7 @@ const description = `${about.name}의 포트폴리오, 트러블슈팅 기록, �
 
 export const metadata: Metadata = {
   title: {
-    default: `${about.name} — ${about.role}`,
+    default: `${about.name} 포트폴리오`,
     template: `%s — ${about.name}`
   },
   description,
@@ -27,13 +27,13 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'ko_KR',
     url: SITE_URL,
-    siteName: `${about.name} — ${about.role}`,
-    title: `${about.name} — ${about.role}`,
+    siteName: `${about.name} 포트폴리오`,
+    title: `${about.name} 포트폴리오`,
     description
   },
   twitter: {
     card: 'summary_large_image',
-    title: `${about.name} — ${about.role}`,
+    title: `${about.name} 포트폴리오`,
     description
   },
   verification: { google: 'HXDUGUhVqW7fRtZPXHvBtaMZPh2BN_NiIVLMop8jKSY' }

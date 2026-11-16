@@ -78,7 +78,7 @@ export default function ResumePage() {
                         {pick.evidence ? <p><span className="font-mono text-brand">검증</span> {pick.evidence}</p> : null}
                       </div>
                     ) : null}
-                    <p className="mt-3 font-mono text-[0.7rem] text-muted-foreground">상세 기록 보기 →</p>
+                    <p className="mt-3 font-mono text-xs text-muted-foreground">상세 기록 보기 →</p>
                   </Link>
                 )
               })()

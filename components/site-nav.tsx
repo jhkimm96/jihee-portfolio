@@ -30,7 +30,7 @@ export function SiteNav() {
   return (
     <header className="no-print sticky top-0 z-40 w-full border-b border-border bg-background/90 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-        <Link href="/" aria-label={`${about.name} 홈`} className="flex shrink-0 items-baseline gap-2 tracking-tight">
+        <Link href="/" aria-label={`${about.name} 홈`} className="flex shrink-0 items-baseline gap-2 py-1.5 tracking-tight">
           <span className="text-2xl font-black text-foreground">JH</span><span className="text-sm font-medium text-muted-foreground">/ WORK</span>
         </Link>
 
@@ -62,7 +62,7 @@ export function SiteNav() {
           <Button
             variant="ghost"
             size="icon"
-            className="size-9 md:hidden"
+            className="size-11 md:hidden"
             aria-label={open ? '메뉴 닫기' : '메뉴 열기'}
             aria-expanded={open}
             onClick={() => setOpen((v) => !v)}

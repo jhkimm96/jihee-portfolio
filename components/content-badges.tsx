@@ -24,7 +24,7 @@ export function StatusBadge({ status, className }: { status: ProjectStatus; clas
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 font-mono text-[0.7rem] font-medium',
+/ㅣㅐ        'inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 font-mono text-xs font-medium',
         className
       )}
     >
@@ -36,7 +36,7 @@ export function StatusBadge({ status, className }: { status: ProjectStatus; clas
 
 export function TechChip({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center rounded-md bg-secondary px-2 py-0.5 font-mono text-[0.7rem] font-medium text-secondary-foreground">
+    <span className="inline-flex items-center rounded-md bg-secondary px-2 py-0.5 font-mono text-xs font-medium text-secondary-foreground">
       {children}
     </span>
   )
@@ -60,7 +60,7 @@ export function TagList({ tags, className }: { tags?: string[]; className?: stri
   return (
     <div className={cn('flex flex-wrap gap-1.5', className)}>
       {tags.map((tag) => (
-        <span key={tag} className="font-mono text-[0.7rem] text-muted-foreground">
+        <span key={tag} className="font-mono text-xs text-muted-foreground">
           #{tag}
         </span>
       ))}

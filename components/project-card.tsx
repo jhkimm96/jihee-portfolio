@@ -54,14 +54,14 @@ export function ProjectCard({ project }: { project: ProjectEntry }) {
         </div>
 
         <div className="rounded-md border border-brand/20 bg-brand/5 px-3 py-2.5">
-          <p className="mb-1 font-mono text-[0.68rem] font-medium uppercase tracking-[0.14em] text-brand">Key outcome</p>
+          <p className="mb-1 font-mono text-xs font-medium uppercase tracking-[0.14em] text-brand">Key outcome</p>
           <p className="text-sm font-medium leading-relaxed text-foreground">{project.highlight}</p>
         </div>
 
         <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">{project.description}</p>
 
         {evidence.length > 0 ? (
-          <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-border pt-3 font-mono text-[0.7rem] text-muted-foreground">
+          <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-border pt-3 font-mono text-xs text-muted-foreground">
             {evidence.map((item) => (
               <span key={item.label}>{item.label} {item.count}</span>
             ))}
@@ -70,7 +70,7 @@ export function ProjectCard({ project }: { project: ProjectEntry }) {
 
         <div className="mt-auto space-y-3 pt-1">
           <TechStack items={project.stack} max={4} />
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border pt-3 font-mono text-[0.7rem] text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border pt-3 font-mono text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
               <Calendar className="size-3.5" />
               {project.period}

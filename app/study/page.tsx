@@ -93,7 +93,7 @@ export default async function StudyPage({
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{track.description}</p>
                 <div className="mt-auto flex flex-wrap gap-1.5 pt-4">
                   {track.categories.map((category) => (
-                    <Link key={category} href={`/study?view=latest&category=${encodeURIComponent(category)}`} className={cn('rounded-full border px-2 py-0.5 font-mono text-[0.68rem] transition-colors hover:border-brand/50', categoryCounts.has(category) ? 'border-border text-muted-foreground' : 'border-dashed border-border text-muted-foreground/60')}>
+                    <Link key={category} href={`/study?view=latest&category=${encodeURIComponent(category)}`} className={cn('rounded-full border px-2 py-0.5 font-mono text-xs transition-colors hover:border-brand/50', categoryCounts.has(category) ? 'border-border text-muted-foreground' : 'border-dashed border-border text-muted-foreground/60')}>
                       {formatCategory(category)}
                     </Link>
                   ))}

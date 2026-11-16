@@ -175,7 +175,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         {showcase ? null : projectIntro}
 
         <div className="ink-project-highlight rounded-xl border border-brand/20 bg-brand/5 px-4 py-3">
-          <p className="mb-1 font-mono text-[0.7rem] font-semibold uppercase tracking-wider text-brand">이 프로젝트에서 가장 보여주고 싶은 것</p>
+          <p className="mb-1 font-mono text-xs font-semibold uppercase tracking-wider text-brand">이 프로젝트에서 가장 보여주고 싶은 것</p>
           <p className="text-base font-semibold leading-relaxed">{project.highlight}</p>
         </div>
 
@@ -197,7 +197,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-3">
           {meta.map((item) => (
             <div key={item.label} className="flex flex-col gap-0.5">
-              <dt className="font-mono text-[0.7rem] uppercase tracking-wider text-muted-foreground">{item.label}</dt>
+              <dt className="font-mono text-xs uppercase tracking-wider text-muted-foreground">{item.label}</dt>
               <dd className="font-mono text-sm">{item.value}</dd>
             </div>
           ))}
@@ -292,7 +292,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         </article>
         <aside className="hidden lg:block">
           <div className="sticky top-28 rounded-lg border border-border bg-card p-4">
-            <p className="font-mono text-[0.7rem] uppercase tracking-[0.14em] text-brand">Read this as</p>
+            <p className="font-mono text-xs uppercase tracking-[0.14em] text-brand">Read this as</p>
             <ol className="mt-3 space-y-3 font-mono text-xs text-muted-foreground">
               <li>01 · 문제와 담당 범위</li>
               <li>02 · 설계 선택</li>
@@ -306,7 +306,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       <section id="troubleshooting" className="mt-12 scroll-mt-32 border-t border-border pt-8">
         <div className="flex items-center justify-between gap-4">
           <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight"><Wrench className="size-4 text-muted-foreground" />Troubleshooting</h2>
-          {troubleshootingCount > 3 ? <Link href={`/troubleshooting?project=${project.slug}`} className="font-mono text-xs text-muted-foreground hover:text-foreground">전체 {troubleshootingCount}개 보기 →</Link> : null}
+          {troubleshootingCount > 3 ? <Link href={`/troubleshooting?project=${project.slug}`} className="inline-flex font-mono text-xs text-muted-foreground hover:text-foreground">전체 {troubleshootingCount}개 보기 →</Link> : null}
         </div>
         {categories.length === 0 ? (
           <p className="mt-4 font-mono text-sm text-muted-foreground">이 프로젝트에 연결된 트러블슈팅 기록이 아직 없습니다.</p>
@@ -338,7 +338,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       <section id="decisions" className="mt-12 scroll-mt-32 border-t border-border pt-8">
         <div className="flex items-center justify-between gap-4">
           <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight"><Scale className="size-4 text-muted-foreground" />Design Decisions</h2>
-          {decisionsCount > 3 ? <Link href={`/decisions?project=${project.slug}`} className="font-mono text-xs text-muted-foreground hover:text-foreground">전체 {decisionsCount}개 보기 →</Link> : null}
+          {decisionsCount > 3 ? <Link href={`/decisions?project=${project.slug}`} className="inline-flex font-mono text-xs text-muted-foreground hover:text-foreground">전체 {decisionsCount}개 보기 →</Link> : null}
         </div>
         {decisionCategories.length === 0 ? (
           <p className="mt-4 font-mono text-sm text-muted-foreground">아직 기록된 설계 판단이 없습니다.</p>
@@ -371,7 +371,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       <section id="reviews" className="mt-12 scroll-mt-32 border-t border-border pt-8">
         <div className="flex items-center justify-between gap-4">
           <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight"><MessageSquare className="size-4 text-muted-foreground" />Reviews</h2>
-          {allReviews.length > 3 ? <Link href={`/reviews?project=${project.slug}`} className="font-mono text-xs text-muted-foreground hover:text-foreground">전체 {allReviews.length}개 보기 →</Link> : null}
+          {allReviews.length > 3 ? <Link href={`/reviews?project=${project.slug}`} className="inline-flex font-mono text-xs text-muted-foreground hover:text-foreground">전체 {allReviews.length}개 보기 →</Link> : null}
         </div>
         {reviews.length === 0 ? (
           <p className="mt-4 font-mono text-sm text-muted-foreground">아직 기록된 리뷰가 없습니다.</p>
@@ -398,7 +398,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             Quality
           </h2>
           {quality.length > 0 ? (
-            <Link href={`/quality?project=${project.slug}`} className="font-mono text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+            <Link href={`/quality?project=${project.slug}`} className="inline-flex font-mono text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
               품질 그래프 보기
             </Link>
           ) : null}
