@@ -24,7 +24,7 @@ export function StatusBadge({ status, className }: { status: ProjectStatus; clas
   return (
     <span
       className={cn(
-/ㅣㅐ        'inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 font-mono text-xs font-medium',
+        'inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 font-mono text-xs font-medium',
         className
       )}
     >
