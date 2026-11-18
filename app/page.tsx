@@ -13,7 +13,9 @@ import {
 const displayFont = Anton({ subsets: ['latin'], weight: '400', variable: '--font-display' })
 
 export default function HomePage() {
-  const featuredProjects = Object.keys(projectShowcases).flatMap((slug) => getProjectBySlug(slug) ?? [])
+  const featuredProjects = Object.keys(projectShowcases)
+    .flatMap((slug) => getProjectBySlug(slug) ?? [])
+    .filter((project) => project.featured)
   const recordCounts = {
     study: getPublishedStudy().length,
     decisions: getPublishedDecisions().length,

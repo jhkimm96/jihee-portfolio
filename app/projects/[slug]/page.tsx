@@ -279,10 +279,10 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         </section>
       ) : null}
 
-      {project.thumbnail ? (
+      {project.thumbnail && !showcase ? (
         <div className="relative mt-8 aspect-[1200/500] w-full overflow-hidden rounded-lg border border-border bg-muted">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <Image src={project.thumbnail} alt={`${project.title}의 데이터 흐름을 설명하는 그림`} fill sizes="(min-width: 1024px) 960px, 100vw" className="object-contain" />
+          <Image src={project.thumbnail} alt={`${project.title} 소개 이미지`} fill sizes="(min-width: 1024px) 960px, 100vw" className="object-contain" />
         </div>
       ) : null}
 
